@@ -7,7 +7,7 @@ use futures::TryStreamExt;
 use log::info;
 use sminer::{
     init_log,
-    persist::{get_connection, query_ticker},
+    persist::mongo::{get_connection, query_ticker},
     vo::Ticker,
     Result,
 };
@@ -41,7 +41,7 @@ async fn test_import() -> Result<()> {
 }
 
 #[tokio::test]
-// #[ignore = "used for test imported data"]
+#[ignore = "used for test imported data"]
 async fn test_query_ticker() -> Result<()> {
     init_log("TRACE").await?;
     let mut cursor = query_ticker("yahoo20220309", "TQQQ").await?;

@@ -1,3 +1,4 @@
+pub mod analysis;
 pub mod persist;
 pub mod proto;
 pub mod provider;

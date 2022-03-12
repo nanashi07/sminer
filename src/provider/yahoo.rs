@@ -39,7 +39,7 @@ pub async fn send_subscribe(
     Ok(())
 }
 
-pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: i64) -> Result<()> {
+pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
     send_subscribe(symbols, &mut client).await?;
     loop {
@@ -54,12 +54,14 @@ pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: i64) -> Result<()
                 error!("Handle Yahoo Finance! message error: {:?}", err);
             }
         }
-        if Utc::now().timestamp() > end_time {
-            info!(
-                "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
-                Utc.timestamp(end_time, 0)
-            );
-            break;
+        if let Some(time) = end_time {
+            if Utc::now().timestamp() > time {
+                info!(
+                    "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
+                    Utc.timestamp(time, 0)
+                );
+                break;
+            }
         }
     }
     Ok(())
@@ -79,7 +81,7 @@ async fn handle_message(client: &mut Client<TlsStream<TcpStream>>) -> Result<Han
                 let message = deserialize_yahoo_message(&text)?;
                 debug!("Deserialize: {:?}", &message);
                 let value = Ticker::from(message);
-                value.save().await?;
+                value.save_to_mongo().await?;
                 info!("Ticker: {}", serde_json::to_string(&value).unwrap());
             }
             OwnedMessage::Binary(_) => {
