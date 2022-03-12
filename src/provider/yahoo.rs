@@ -6,8 +6,8 @@ use websocket::native_tls::TlsStream;
 use websocket::ClientBuilder;
 use websocket::{sync::Client, Message, OwnedMessage};
 
-use crate::decoder::deserialize_yahoo_message;
 use crate::persist::save_one;
+use crate::provider::decoder::deserialize_yahoo_message;
 use crate::vo::{SubscribeCommand, Ticker};
 use crate::Result;
 
@@ -77,7 +77,7 @@ async fn handle_message(client: &mut Client<TlsStream<TcpStream>>) -> Result<Han
         Ok(message) => match message {
             OwnedMessage::Text(text) => {
                 debug!("Receive: {}", text);
-                let message = deserialize_yahoo_message(&text);
+                let message = deserialize_yahoo_message(&text)?;
                 debug!("Deserialize: {:?}", &message);
                 let value = Ticker::from(message);
                 save_one(&value).await?;

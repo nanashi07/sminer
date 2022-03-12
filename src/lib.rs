@@ -1,12 +1,9 @@
-pub mod decoder;
 pub mod persist;
 pub mod proto;
 pub mod provider;
 pub mod vo;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
-
-const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 
 use log::LevelFilter;
 use log4rs::{

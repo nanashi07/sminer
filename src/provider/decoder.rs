@@ -2,12 +2,13 @@ use base64::decode;
 use prost::Message;
 
 use crate::proto::YahooTicker;
+use crate::Result;
 
-pub fn deserialize_yahoo_message(yahoo_message: &str) -> YahooTicker {
+pub fn deserialize_yahoo_message(yahoo_message: &str) -> Result<YahooTicker> {
     // decode
     let debuf = decode(yahoo_message).unwrap();
     // conver to slice
     let buf = &debuf[..];
     // decode form protobuf
-    return YahooTicker::decode(buf).unwrap();
+    Ok(YahooTicker::decode(buf)?)
 }

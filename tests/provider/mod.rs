@@ -1,4 +1,4 @@
-use sminer::{decoder::deserialize_yahoo_message, Result};
+use sminer::{provider::decoder::deserialize_yahoo_message, Result};
 
 #[tokio::test]
 async fn test_deserialize_yahoo_message() -> Result<()> {
