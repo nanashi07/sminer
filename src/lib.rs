@@ -8,16 +8,15 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 
 const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 
-use std::str::FromStr;
-
 use log::LevelFilter;
 use log4rs::{
     append::console::ConsoleAppender,
     config::{Appender, Root},
     Config,
 };
+use std::str::FromStr;
 
-pub fn init_log(level: &str) -> Result<()> {
+pub async fn init_log(level: &str) -> Result<()> {
     let stdout = ConsoleAppender::builder().build();
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
