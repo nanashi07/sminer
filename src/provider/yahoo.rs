@@ -1,3 +1,5 @@
+use chrono::TimeZone;
+use chrono::Utc;
 use log::{debug, error, info, warn};
 use std::net::TcpStream;
 use websocket::native_tls::TlsStream;
@@ -32,13 +34,13 @@ pub async fn send_subscribe(
     };
     info!("Subscribe yahoo finance ticker = {:?}", &command);
     let subscribe = Message::text(serde_json::to_string(&command).unwrap());
-    debug!("websocket message: {:?}", &subscribe);
+    debug!("Websocket message: {:?}", &subscribe);
     let send_result = client.send_message(&subscribe);
-    debug!("send result = {:?}", send_result);
+    debug!("Subscribe result = {:?}", send_result);
     Ok(())
 }
 
-pub async fn next(addr: &str, symbols: Vec<&str>) -> Result<()> {
+pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: i64) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
     send_subscribe(symbols, &mut client).await?;
     loop {
@@ -52,6 +54,13 @@ pub async fn next(addr: &str, symbols: Vec<&str>) -> Result<()> {
             Err(err) => {
                 error!("Handle Yahoo Finance! message error: {:?}", err);
             }
+        }
+        if Utc::now().timestamp() > end_time {
+            info!(
+                "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
+                Utc.timestamp(end_time, 0)
+            );
+            break;
         }
     }
     Ok(())
