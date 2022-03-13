@@ -1,4 +1,4 @@
-use crate::{vo::Ticker, Result};
+use crate::{vo::biz::Ticker, Result};
 use chrono::{TimeZone, Utc};
 use mongodb::{
     bson::doc,
@@ -14,11 +14,7 @@ pub async fn get_mongo_client() -> Result<Client> {
 
 impl Ticker {
     pub async fn save_to_mongo(&self) -> Result<()> {
-        let database_name = format!(
-            "yahoo{}",
-            Utc.timestamp(self.time / 1000 as i64, (self.time % 1000) as u32)
-                .format("%Y%m%d")
-        );
+        let database_name = format!("yahoo{}", Utc.timestamp_millis(self.time).format("%Y%m%d"));
         let client = get_mongo_client().await?;
         let db = client.database(database_name.as_str());
         let typed_collection = db.collection::<Ticker>("tickers");
@@ -35,7 +31,9 @@ pub async fn query_ticker(db_name: &str, symbol: &str) -> Result<Cursor<Ticker>>
     let cursor = typed_collection
         .find(
             doc! { "market_hours": "RegularMarket", "id": symbol },
-            FindOptions::builder().sort(doc! { "time" : 1 }).build(),
+            FindOptions::builder()
+                .sort(doc! { "time" : 1, "day_volume": 1 })
+                .build(),
         )
         .await?;
     Ok(cursor)

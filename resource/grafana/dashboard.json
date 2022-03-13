@@ -1879,7 +1879,7 @@
             }
         }
     ],
-    "refresh": "5s",
+    "refresh": false,
     "schemaVersion": 25,
     "style": "dark",
     "tags": [],
@@ -1887,8 +1887,8 @@
         "list": []
     },
     "time": {
-        "from": "2022-03-11T12:36:18.257Z",
-        "to": "2022-03-11T22:57:22.521Z"
+        "from": "2022-03-09T00:00:00.000Z",
+        "to": "2022-03-09T23:59:59.000Z"
     },
     "timepicker": {
         "refresh_intervals": [
@@ -1906,5 +1906,5 @@
     "timezone": "",
     "title": "Daily Trend",
     "uid": "8XT92WEnz",
-    "version": 7
+    "version": 8
 }

@@ -7,7 +7,7 @@ use websocket::ClientBuilder;
 use websocket::{sync::Client, Message, OwnedMessage};
 
 use crate::provider::decoder::deserialize_yahoo_message;
-use crate::vo::{SubscribeCommand, Ticker};
+use crate::vo::biz::{SubscribeCommand, Ticker};
 use crate::Result;
 
 #[derive(Debug)]

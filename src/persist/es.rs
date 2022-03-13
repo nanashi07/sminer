@@ -1,5 +1,6 @@
+use super::{DataSource, PersistenceContext};
 use crate::{
-    vo::{MarketHoursType, QuoteType, Ticker},
+    vo::biz::{MarketHoursType, QuoteType, Ticker},
     Result,
 };
 use chrono::{DateTime, TimeZone, Utc};
@@ -10,9 +11,11 @@ use elasticsearch::{
     },
     Elasticsearch, IndexParts,
 };
+use futures::executor::block_on;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::sync::Arc;
 
 pub async fn get_elasticsearch_client() -> Result<Elasticsearch> {
     let url = Url::parse("http://localhost:9200")?;
@@ -21,6 +24,41 @@ pub async fn get_elasticsearch_client() -> Result<Elasticsearch> {
     let client = Elasticsearch::new(transport);
 
     Ok(client)
+}
+
+impl DataSource<Elasticsearch> for PersistenceContext {
+    fn get_connection(&self) -> Result<Elasticsearch> {
+        let mutex = Arc::clone(&self.elastic_connections);
+        let mut pool = mutex.lock().unwrap();
+        if pool.is_empty() {
+            let client = block_on(get_elasticsearch_client())?;
+            Ok(client)
+        } else {
+            let client = pool.pop().unwrap();
+            Ok(client)
+        }
+    }
+
+    fn close_connection(&self, client: Elasticsearch) -> Result<()> {
+        let mutex = Arc::clone(&self.elastic_connections);
+        let mut pool = mutex.lock().unwrap();
+        pool.push(client);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum DataType {
+    Realtime,
+    SecondTen,
+    SecondThirty,
+    MinuteOne,
+    MinuteTwo,
+    MinuteThree,
+    MinuteFour,
+    MinuteFive,
+    MinuteTen,
+    MinuteTwenty,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,8 +92,11 @@ impl From<Ticker> for ElasticTicker {
 }
 
 impl ElasticTicker {
-    pub async fn save_to_elasticsearch(&self) -> Result<bool> {
-        let client = get_elasticsearch_client().await?;
+    pub async fn save_to_elasticsearch(
+        &self,
+        pool: &dyn DataSource<Elasticsearch>,
+    ) -> Result<bool> {
+        let client = pool.get_connection()?;
 
         let time = DateTime::parse_from_rfc3339(&self.time)?;
 
@@ -69,6 +110,7 @@ impl ElasticTicker {
             .await?;
 
         let successful = response.status_code().is_success();
+        pool.close_connection(client)?;
         if !successful {
             warn!("result = {:?}, {:?}", response, self);
             Ok(false)
