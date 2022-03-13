@@ -1,15 +1,15 @@
 #[cfg(test)]
-mod provider;
-
+mod analysis;
 #[cfg(test)]
 mod persist;
-
-use std::ops::Add;
+#[cfg(test)]
+mod provider;
 
 use chrono::{Duration, TimeZone, Utc};
 use log::info;
 use sminer::provider::yahoo::consume;
 use sminer::{init_log, Result};
+use std::ops::Add;
 
 const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 

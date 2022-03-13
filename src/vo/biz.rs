@@ -1,9 +1,8 @@
-use serde::{Deserialize, Serialize};
-
 use crate::proto::YahooMarketHoursType;
 use crate::proto::YahooOptionType;
 use crate::proto::YahooQuoteType;
 use crate::proto::YahooTicker;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SubscribeCommand {

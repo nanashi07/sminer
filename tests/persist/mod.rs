@@ -1,13 +1,6 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-};
-
-use chrono::{DateTime, TimeZone, Utc};
-use elasticsearch::{http::request::JsonBody, BulkParts, IndexParts};
+use elasticsearch::{http::request::JsonBody, BulkParts};
 use futures::TryStreamExt;
 use log::{debug, info};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sminer::{
     init_log,
@@ -19,9 +12,13 @@ use sminer::{
     vo::biz::Ticker,
     Result,
 };
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
 fn read_from_file(file: &str) -> Result<Vec<String>> {
-    let f = File::open(format!("/Users/nanashi07/Downloads/{}.tickers.db", file))?;
+    let f = File::open(format!("tmp/{}", file))?;
     let reader = BufReader::new(f);
 
     let lines: Vec<String> = reader.lines().into_iter().map(|w| w.unwrap()).collect();
@@ -33,20 +30,21 @@ fn read_from_file(file: &str) -> Result<Vec<String>> {
 async fn test_import_into_mongo() -> Result<()> {
     init_log("DEBUG").await?;
 
-    let files = vec!["yahoo20220309", "yahoo20220310", "yahoo20220311"];
+    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
     let client = get_mongo_client().await?;
 
     for file in files {
         let tickers: Vec<Ticker> = read_from_file(file)?
-            .into_iter()
+            .iter()
             .map(|line| {
-                let ticker: Ticker = serde_json::from_str(&line).unwrap();
+                let ticker: Ticker = serde_json::from_str(line).unwrap();
                 ticker
             })
             .collect();
+        info!("Loaded tickers: {} for {}", tickers.len(), file);
 
         let db = client.database("yahoo");
-        let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[5..]));
+        let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
         typed_collection.insert_many(tickers, None).await?;
     }
     Ok(())
@@ -56,7 +54,7 @@ async fn test_import_into_mongo() -> Result<()> {
 #[ignore = "used for test imported data"]
 async fn test_query_ticker() -> Result<()> {
     init_log("TRACE").await?;
-    let mut cursor = query_ticker("yahoo20220309", "TQQQ").await?;
+    let mut cursor = query_ticker("yahoo", "tickers20220311").await?;
     while let Some(ticker) = cursor.try_next().await? {
         info!("{:?}", ticker);
     }
@@ -66,15 +64,15 @@ async fn test_query_ticker() -> Result<()> {
 #[tokio::test]
 #[ignore = "used for test imported data"]
 async fn test_import_into_es_single() -> Result<()> {
-    init_log("DEBUG").await?;
+    init_log("INFO").await?;
 
-    let files = vec!["yahoo20220309", "yahoo20220310", "yahoo20220311"];
+    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
 
     let persistence = PersistenceContext::new();
 
     for file in files {
         let tickers: Vec<ElasticTicker> = read_from_file(file)?
-            .into_iter()
+            .iter()
             .map(|line| {
                 let ticker: Ticker = serde_json::from_str(&line).unwrap();
                 ticker
@@ -97,10 +95,10 @@ async fn test_import_into_es_single() -> Result<()> {
 async fn test_import_into_es_bulk() -> Result<()> {
     init_log("INFO").await?;
 
-    let file = "yahoo20220309";
+    let file = "tickers20220309";
 
     let tickers: Vec<JsonBody<_>> = read_from_file(file)?
-        .into_iter()
+        .iter()
         .take(10)
         .map(|line| {
             let ticker: Ticker = serde_json::from_str(&line).unwrap();

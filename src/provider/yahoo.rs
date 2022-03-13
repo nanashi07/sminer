@@ -1,3 +1,7 @@
+use crate::analysis::rebalance;
+use crate::provider::decoder::deserialize_yahoo_message;
+use crate::vo::biz::{SubscribeCommand, Ticker};
+use crate::Result;
 use chrono::TimeZone;
 use chrono::Utc;
 use log::{debug, error, info, warn};
@@ -5,11 +9,6 @@ use std::net::TcpStream;
 use websocket::native_tls::TlsStream;
 use websocket::ClientBuilder;
 use websocket::{sync::Client, Message, OwnedMessage};
-
-use crate::analysis::rebalance;
-use crate::provider::decoder::deserialize_yahoo_message;
-use crate::vo::biz::{SubscribeCommand, Ticker};
-use crate::Result;
 
 #[derive(Debug)]
 pub enum HandleResult {

@@ -1,8 +1,7 @@
-use base64::decode;
-use prost::Message;
-
 use crate::proto::YahooTicker;
 use crate::Result;
+use base64::decode;
+use prost::Message;
 
 pub fn deserialize_yahoo_message(yahoo_message: &str) -> Result<YahooTicker> {
     // decode

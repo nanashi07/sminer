@@ -1,10 +1,10 @@
+pub mod es;
+pub mod mongo;
+
 use crate::Result;
 use elasticsearch::Elasticsearch;
 use mongodb::Client;
 use std::sync::{Arc, Mutex};
-
-pub mod es;
-pub mod mongo;
 
 pub struct PersistenceContext {
     elastic_connections: Arc<Mutex<Vec<Elasticsearch>>>,

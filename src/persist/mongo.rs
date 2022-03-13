@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use super::{DataSource, PersistenceContext};
 use crate::{vo::biz::Ticker, Result};
 use chrono::{TimeZone, Utc};
 use futures::executor::block_on;
@@ -8,8 +7,7 @@ use mongodb::{
     options::{ClientOptions, FindOptions},
     Client, Cursor,
 };
-
-use super::{DataSource, PersistenceContext};
+use std::sync::Arc;
 
 pub async fn get_mongo_client() -> Result<Client> {
     let client_options = ClientOptions::parse("mongodb://root:password@localhost:27017").await?;
@@ -50,13 +48,13 @@ impl Ticker {
     }
 }
 
-pub async fn query_ticker(db_name: &str, symbol: &str) -> Result<Cursor<Ticker>> {
+pub async fn query_ticker(db_name: &str, collection: &str) -> Result<Cursor<Ticker>> {
     let client = get_mongo_client().await?;
     let db = client.database(db_name);
-    let typed_collection = db.collection::<Ticker>("tickers");
+    let typed_collection = db.collection::<Ticker>(collection);
     let cursor = typed_collection
         .find(
-            doc! { "market_hours": "RegularMarket", "id": symbol },
+            doc! {},
             FindOptions::builder()
                 .sort(doc! { "time" : 1, "day_volume": 1 })
                 .build(),
