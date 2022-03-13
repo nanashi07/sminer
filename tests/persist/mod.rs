@@ -93,7 +93,7 @@ impl From<Ticker> for ElasticTicker {
 async fn test_import_into_es_single() -> Result<()> {
     init_log("INFO").await?;
 
-    let file = "yahoo20220309";
+    let file = "yahoo20220310";
 
     let f = File::open(format!("/Users/nanashi07/Downloads/{}.tickers.db", file))?;
     let reader = BufReader::new(f);
@@ -102,7 +102,6 @@ async fn test_import_into_es_single() -> Result<()> {
         .lines()
         .into_iter()
         .map(|w| w.unwrap())
-        .take(1000)
         .map(|line| {
             let ticker: Ticker = serde_json::from_str(&line).unwrap();
             ticker
