@@ -52,7 +52,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -152,7 +152,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -160,7 +160,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -207,7 +207,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -307,7 +307,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -315,7 +315,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -362,7 +362,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -462,7 +462,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -470,7 +470,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -517,7 +517,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -617,7 +617,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -625,7 +625,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -672,7 +672,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -772,7 +772,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -780,7 +780,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -827,7 +827,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -927,7 +927,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -935,7 +935,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -982,7 +982,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1082,7 +1082,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1090,7 +1090,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1137,7 +1137,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1237,7 +1237,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1245,7 +1245,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1292,7 +1292,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1392,7 +1392,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1400,7 +1400,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1447,7 +1447,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1547,7 +1547,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1555,7 +1555,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1602,7 +1602,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1702,7 +1702,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1710,7 +1710,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1757,7 +1757,7 @@
             },
             "lines": true,
             "linewidth": 1,
-            "nullPointMode": "null",
+            "nullPointMode": "connected",
             "options": {
                 "dataLinks": []
             },
@@ -1857,7 +1857,7 @@
             },
             "yaxes": [
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1865,7 +1865,7 @@
                     "show": true
                 },
                 {
-                    "format": "short",
+                    "format": "currencyUSD",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -1879,7 +1879,7 @@
             }
         }
     ],
-    "refresh": false,
+    "refresh": "5s",
     "schemaVersion": 25,
     "style": "dark",
     "tags": [],
@@ -1887,8 +1887,8 @@
         "list": []
     },
     "time": {
-        "from": "2022-03-09T00:00:00.000Z",
-        "to": "2022-03-09T23:59:59.000Z"
+        "from": "2022-03-11T12:36:18.257Z",
+        "to": "2022-03-11T22:57:22.521Z"
     },
     "timepicker": {
         "refresh_intervals": [
@@ -1904,7 +1904,7 @@
         ]
     },
     "timezone": "",
-    "title": "New dashboard Copy",
+    "title": "Daily Trend",
     "uid": "8XT92WEnz",
-    "version": 3
+    "version": 7
 }

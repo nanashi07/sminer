@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use sminer::{
     init_log,
     persist::{
-        es::get_es_client,
+        es::{get_elasticsearch_client, ElasticTicker},
         mongo::{get_mongo_client, query_ticker},
     },
     vo::{MarketHoursType, QuoteType, Ticker},
@@ -58,74 +58,34 @@ async fn test_query_ticker() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ElasticTicker {
-    pub id: String,
-    pub price: f32,
-    pub time: String,
-
-    pub quote_type: QuoteType,
-    pub market_hours: MarketHoursType,
-    pub day_volume: i64,
-    pub day_high: f32,
-    pub day_low: f32,
-    pub change: f32,
-}
-
-impl From<Ticker> for ElasticTicker {
-    fn from(t: Ticker) -> Self {
-        ElasticTicker {
-            time: Utc.timestamp_millis(t.time).to_rfc3339(),
-            id: t.id,
-            price: t.price,
-            quote_type: t.quote_type,
-            market_hours: t.market_hours,
-            day_volume: t.day_volume,
-            day_high: t.day_high,
-            day_low: t.day_low,
-            change: t.change,
-        }
-    }
-}
-
 #[tokio::test]
 #[ignore = "used for test imported data"]
 async fn test_import_into_es_single() -> Result<()> {
-    init_log("INFO").await?;
+    init_log("DEBUG").await?;
 
-    let file = "yahoo20220310";
+    let files = vec!["yahoo20220309", "yahoo20220310", "yahoo20220311"];
 
-    let f = File::open(format!("/Users/nanashi07/Downloads/{}.tickers.db", file))?;
-    let reader = BufReader::new(f);
+    for file in files {
+        let f = File::open(format!("/Users/nanashi07/Downloads/{}.tickers.db", file))?;
+        let reader = BufReader::new(f);
 
-    let tickers: Vec<ElasticTicker> = reader
-        .lines()
-        .into_iter()
-        .map(|w| w.unwrap())
-        .map(|line| {
-            let ticker: Ticker = serde_json::from_str(&line).unwrap();
-            ticker
-        })
-        .map(|t| ElasticTicker::from(t))
-        .collect();
+        let tickers: Vec<ElasticTicker> = reader
+            .lines()
+            .into_iter()
+            .map(|w| w.unwrap())
+            .map(|line| {
+                let ticker: Ticker = serde_json::from_str(&line).unwrap();
+                ticker
+            })
+            .map(|t| ElasticTicker::from(t))
+            .collect();
 
-    info!("ticker size: {}", &tickers.len());
+        info!("ticker size: {} for file {}", &tickers.len(), file);
 
-    let client = get_es_client().await?;
-
-    for ticker in tickers {
-        let response = client
-            .index(IndexParts::Index("tickers"))
-            .body(json!(ticker))
-            .send()
-            .await?;
-
-        let successful = response.status_code().is_success();
-        if !successful {
-            info!("result = {}, {:?}", successful, ticker);
+        for ticker in tickers {
+            let _ = ticker.save_to_elasticsearch().await?;
         }
     }
-
     Ok(())
 }
 
@@ -154,7 +114,7 @@ async fn test_import_into_es_bulk() -> Result<()> {
 
     info!("ticker size: {}", &tickers.len());
 
-    let client = get_es_client().await?;
+    let client = get_elasticsearch_client().await?;
 
     let response = client
         .bulk(BulkParts::Index("tickers-bulk"))
