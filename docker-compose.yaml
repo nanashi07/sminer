@@ -1,0 +1,73 @@
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/mongo:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    depends_on:
+      - mongo
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
+
+  # influx-db:
+  #   image: influxdb:2.1.1
+  #   restart: always
+  #   environment:
+  #     DOCKER_INFLUXDB_INIT_MODE: setup
+  #     DOCKER_INFLUXDB_INIT_USERNAME: root
+  #     DOCKER_INFLUXDB_INIT_PASSWORD: password
+  #     DOCKER_INFLUXDB_INIT_ORG: prhythm
+  #     DOCKER_INFLUXDB_INIT_BUCKET: prhythm01
+  #   ports:
+  #     - 8086:8086
+  #   volumes:
+  #     - ./data/influxdb2/data:/var/lib/influxdb2
+  #     - ./data/influxdb2/config:/etc/influxdb2
+
+  elastic-search:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.1
+    restart: always
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      discovery.type: single-node
+    volumes:
+      - ./data/es/data:/usr/share/elasticsearch/data
+      # - ./data/es/config:/usr/share/elasticsearch/config
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.1
+    ports:
+      - 5601:5601
+    links:
+      - elastic-search:elastic-search
+    environment:
+      ELASTICSEARCH_HOSTS: http://elastic-search:9200
+
+
+  grafana:
+    image: grafana/grafana:7.0.1
+    restart: always
+    ports:
+      - 8091:3000
+    volumes:
+      - ./data/grafana/lib:/var/lib/grafana
+      # - ./data/grafana/etc:/etc/grafana
+
