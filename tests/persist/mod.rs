@@ -17,7 +17,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-fn read_from_file(file: &str) -> Result<Vec<String>> {
+pub fn read_from_file(file: &str) -> Result<Vec<String>> {
     let f = File::open(format!("tmp/{}", file))?;
     let reader = BufReader::new(f);
 
@@ -63,6 +63,17 @@ async fn test_query_ticker() -> Result<()> {
 
 #[tokio::test]
 #[ignore = "used for test imported data"]
+async fn test_export_mongo_by_order() -> Result<()> {
+    init_log("TRACE").await?;
+    let mut cursor = query_ticker("yahoo", "tickers20220311").await?;
+    while let Some(ticker) = cursor.try_next().await? {
+        info!("{:?}", ticker); // TODO: write file
+    }
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "used for test imported data"]
 async fn test_import_into_es_single() -> Result<()> {
     init_log("INFO").await?;
 
@@ -77,7 +88,7 @@ async fn test_import_into_es_single() -> Result<()> {
                 let ticker: Ticker = serde_json::from_str(&line).unwrap();
                 ticker
             })
-            .map(|t| ElasticTicker::from(t))
+            .map(|t| ElasticTicker::from(&t))
             .collect();
 
         info!("ticker size: {} for file {}", &tickers.len(), file);
@@ -104,7 +115,7 @@ async fn test_import_into_es_bulk() -> Result<()> {
             let ticker: Ticker = serde_json::from_str(&line).unwrap();
             ticker
         })
-        .map(|t| ElasticTicker::from(t))
+        .map(|t| ElasticTicker::from(&t))
         .map(|t| json!(t).into())
         .collect();
 

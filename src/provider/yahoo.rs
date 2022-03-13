@@ -1,6 +1,7 @@
 use crate::analysis::rebalance;
 use crate::provider::decoder::deserialize_yahoo_message;
 use crate::vo::biz::{SubscribeCommand, Ticker};
+use crate::vo::core::AppContext;
 use crate::Result;
 use chrono::TimeZone;
 use chrono::Utc;
@@ -41,9 +42,10 @@ pub async fn send_subscribe(
 
 pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
+    let context = AppContext::new();
     send_subscribe(symbols, &mut client).await?;
     loop {
-        match handle_message(&mut client).await {
+        match handle_message(&context, &mut client).await {
             Ok(HandleResult::NexMessage) => {
                 continue;
             }
@@ -73,7 +75,10 @@ async fn pong(client: &mut Client<TlsStream<TcpStream>>, data: Vec<u8>) -> Resul
     Ok(HandleResult::NexMessage)
 }
 
-async fn handle_message(client: &mut Client<TlsStream<TcpStream>>) -> Result<HandleResult> {
+async fn handle_message(
+    context: &AppContext,
+    client: &mut Client<TlsStream<TcpStream>>,
+) -> Result<HandleResult> {
     match client.recv_message() {
         Ok(message) => match message {
             OwnedMessage::Text(text) => {
@@ -82,7 +87,7 @@ async fn handle_message(client: &mut Client<TlsStream<TcpStream>>) -> Result<Han
                 debug!("Deserialize: {:?}", &message);
                 let value = Ticker::from(message);
                 // dispatch ticker
-                rebalance(&value).await?;
+                rebalance(context, &value).await?;
                 debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
             }
             OwnedMessage::Binary(_) => {

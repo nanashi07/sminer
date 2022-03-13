@@ -75,11 +75,11 @@ pub struct ElasticTicker {
     pub change: f32,
 }
 
-impl From<Ticker> for ElasticTicker {
-    fn from(t: Ticker) -> Self {
+impl From<&Ticker> for ElasticTicker {
+    fn from(t: &Ticker) -> Self {
         ElasticTicker {
             time: Utc.timestamp_millis(t.time).to_rfc3339(),
-            id: t.id,
+            id: t.id.clone(),
             price: t.price,
             quote_type: t.quote_type,
             market_hours: t.market_hours,

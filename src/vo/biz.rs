@@ -9,7 +9,7 @@ pub struct SubscribeCommand {
     pub subscribe: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum QuoteType {
     None = 0,
     Altsymbol = 5,
@@ -31,13 +31,13 @@ pub enum QuoteType {
     Industry = 1000,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum OptionType {
     Call = 0,
     Put = 1,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum MarketHoursType {
     PreMarket = 0,
     RegularMarket = 1,

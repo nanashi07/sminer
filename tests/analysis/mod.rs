@@ -1,14 +1,32 @@
-use futures::TryStreamExt;
-use sminer::{analysis::rebalance, init_log, persist::mongo::query_ticker, Result};
+use crate::persist::read_from_file;
+use log::info;
+use sminer::{
+    analysis::rebalance,
+    init_log,
+    vo::{biz::Ticker, core::AppContext},
+    Result,
+};
 
 #[tokio::test]
 #[ignore = "manually run only, replay from file"]
 async fn test_replay() -> Result<()> {
-    init_log("TRACE").await?;
-    let file = "tickers20220309";
-    let mut cursor = query_ticker("yahoo", "tickers20220309").await?;
-    while let Some(ticker) = cursor.try_next().await? {
-        rebalance(&ticker).await?;
+    init_log("INFO").await?;
+    let context = AppContext::new();
+    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+
+    for file in files {
+        let tickers: Vec<Ticker> = read_from_file(file)?
+            .iter()
+            .map(|line| {
+                let ticker: Ticker = serde_json::from_str(line).unwrap();
+                ticker
+            })
+            .collect();
+        info!("Loaded tickers: {} for {}", tickers.len(), file);
+
+        for ticker in tickers {
+            rebalance(&context, &ticker).await?;
+        }
     }
     Ok(())
 }

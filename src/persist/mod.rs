@@ -3,9 +3,14 @@ pub mod mongo;
 
 use crate::Result;
 use elasticsearch::Elasticsearch;
+use futures::Future;
 use mongodb::Client;
-use std::sync::{Arc, Mutex};
+use std::{
+    fmt::Debug,
+    sync::{Arc, Mutex},
+};
 
+#[derive(Debug)]
 pub struct PersistenceContext {
     elastic_connections: Arc<Mutex<Vec<Elasticsearch>>>,
     mongo_connections: Arc<Mutex<Vec<Client>>>,
@@ -24,3 +29,14 @@ pub trait DataSource<T> {
     fn get_connection(&self) -> Result<T>;
     fn close_connection(&self, conn: T) -> Result<()>;
 }
+
+pub trait DataSource2<T> {
+    type Output: Future<Output = Result<T>>;
+
+    fn get_connection2(&self) -> Self::Output;
+}
+
+// #[async_trait]
+// pub trait DataSource3<T> {
+//     async fn get_connection3(&self) -> Result<T>;
+// }
