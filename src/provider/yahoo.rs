@@ -6,6 +6,7 @@ use websocket::native_tls::TlsStream;
 use websocket::ClientBuilder;
 use websocket::{sync::Client, Message, OwnedMessage};
 
+use crate::analysis::rebalance;
 use crate::provider::decoder::deserialize_yahoo_message;
 use crate::vo::biz::{SubscribeCommand, Ticker};
 use crate::Result;
@@ -81,8 +82,9 @@ async fn handle_message(client: &mut Client<TlsStream<TcpStream>>) -> Result<Han
                 let message = deserialize_yahoo_message(&text)?;
                 debug!("Deserialize: {:?}", &message);
                 let value = Ticker::from(message);
-                value.save_to_mongo().await?;
-                info!("Ticker: {}", serde_json::to_string(&value).unwrap());
+                // dispatch ticker
+                rebalance(&value).await?;
+                debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
             }
             OwnedMessage::Binary(_) => {
                 warn!("Receive binary from Yahoo Finance!");

@@ -3,8 +3,10 @@ use log::info;
 
 use crate::{init_log, persist::mongo::query_ticker, vo::biz::Ticker, Result};
 
-async fn rebalance(ticker: &Ticker) -> Result<()> {
+pub async fn rebalance(ticker: &Ticker) -> Result<()> {
     info!("{:?}", ticker);
+    // TODO: save mongo
+    // TODO: save es
     Ok(())
 }
 

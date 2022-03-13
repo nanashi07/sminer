@@ -16,7 +16,7 @@ use sminer::{
         mongo::{get_mongo_client, query_ticker},
         PersistenceContext,
     },
-    vo::biz::{MarketHoursType, QuoteType, Ticker},
+    vo::biz::Ticker,
     Result,
 };
 
@@ -33,21 +33,22 @@ fn read_from_file(file: &str) -> Result<Vec<String>> {
 async fn test_import_into_mongo() -> Result<()> {
     init_log("DEBUG").await?;
 
-    let file = "yahoo20220311";
-
-    let tickers: Vec<Ticker> = read_from_file(file)?
-        .into_iter()
-        .map(|line| {
-            let ticker: Ticker = serde_json::from_str(&line).unwrap();
-            ticker
-        })
-        .collect();
-
+    let files = vec!["yahoo20220309", "yahoo20220310", "yahoo20220311"];
     let client = get_mongo_client().await?;
-    let db = client.database(file);
-    let typed_collection = db.collection::<Ticker>("tickers");
-    typed_collection.insert_many(tickers, None).await?;
 
+    for file in files {
+        let tickers: Vec<Ticker> = read_from_file(file)?
+            .into_iter()
+            .map(|line| {
+                let ticker: Ticker = serde_json::from_str(&line).unwrap();
+                ticker
+            })
+            .collect();
+
+        let db = client.database("yahoo");
+        let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[5..]));
+        typed_collection.insert_many(tickers, None).await?;
+    }
     Ok(())
 }
 

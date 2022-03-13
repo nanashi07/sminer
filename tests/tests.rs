@@ -14,6 +14,7 @@ use sminer::{init_log, Result};
 const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 
 #[tokio::test]
+#[ignore = "manually run only"]
 async fn test_consume_yahoo_tickers() -> Result<()> {
     init_log("TRACE").await?;
     let end_time = Utc::now().add(Duration::minutes(2)).timestamp();

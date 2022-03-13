@@ -94,9 +94,9 @@ impl From<Ticker> for ElasticTicker {
 impl ElasticTicker {
     pub async fn save_to_elasticsearch(
         &self,
-        pool: &dyn DataSource<Elasticsearch>,
+        datasource: &dyn DataSource<Elasticsearch>,
     ) -> Result<bool> {
-        let client = pool.get_connection()?;
+        let client = datasource.get_connection()?;
 
         let time = DateTime::parse_from_rfc3339(&self.time)?;
 
@@ -110,7 +110,7 @@ impl ElasticTicker {
             .await?;
 
         let successful = response.status_code().is_success();
-        pool.close_connection(client)?;
+        datasource.close_connection(client)?;
         if !successful {
             warn!("result = {:?}, {:?}", response, self);
             Ok(false)
