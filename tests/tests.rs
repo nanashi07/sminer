@@ -16,11 +16,11 @@ const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 #[tokio::test]
 #[ignore = "manually run only"]
 async fn test_consume_yahoo_tickers() -> Result<()> {
-    init_log("TRACE").await?;
+    init_log("INFO").await?;
     let end_time = Utc::now().add(Duration::minutes(2)).timestamp();
     info!(
         "Start consuming yahoo tickers, expected to stop at {}",
-        Utc.timestamp(end_time / 1000, (end_time % 1000) as u32)
+        Utc.timestamp_millis(end_time),
     );
     consume(
         YAHOO_WS,
@@ -28,7 +28,7 @@ async fn test_consume_yahoo_tickers() -> Result<()> {
             "SPY", "TQQQ", "SQQQ", "SOXL", "SOXS", "SPXL", "SPXS", "LABD", "LABU", "TNA", "TZA",
             "UDOW", "SDOW",
         ],
-        Option::Some(end_time),
+        Option::None,
     )
     .await?;
 

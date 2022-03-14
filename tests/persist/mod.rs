@@ -13,8 +13,8 @@ use sminer::{
     Result,
 };
 use std::{
-    fs::File,
-    io::{BufRead, BufReader},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, BufWriter, Write},
 };
 
 pub fn read_from_file(file: &str) -> Result<Vec<String>> {
@@ -64,10 +64,24 @@ async fn test_query_ticker() -> Result<()> {
 #[tokio::test]
 #[ignore = "used for test imported data"]
 async fn test_export_mongo_by_order() -> Result<()> {
-    init_log("TRACE").await?;
-    let mut cursor = query_ticker("yahoo", "tickers20220311").await?;
-    while let Some(ticker) = cursor.try_next().await? {
-        info!("{:?}", ticker); // TODO: write file
+    init_log("INFO").await?;
+
+    let collections = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+    for collection in collections {
+        let mut cursor = query_ticker("yahoo", collection).await?;
+        std::fs::create_dir_all("tmp")?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&format!("tmp/{}", collection))?;
+        let mut writer = BufWriter::new(file);
+        info!("Export collection: {}", collection);
+        while let Some(ticker) = cursor.try_next().await? {
+            debug!("{:?}", ticker); // TODO: write file
+            let json = serde_json::to_string(&ticker)?;
+            write!(&mut writer, "{}\n", &json)?;
+        }
     }
     Ok(())
 }
@@ -123,6 +137,7 @@ async fn test_import_into_es_bulk() -> Result<()> {
 
     let client = get_elasticsearch_client().await?;
 
+    // FIXME: bulk failed
     let response = client
         .bulk(BulkParts::Index("tickers-bulk"))
         .body(tickers)
