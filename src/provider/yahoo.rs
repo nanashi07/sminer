@@ -26,7 +26,7 @@ pub async fn create_websocket_client(address: &str) -> Result<Client<TlsStream<T
 }
 
 pub async fn send_subscribe(
-    symbols: Vec<&str>,
+    symbols: &Vec<&str>,
     client: &mut Client<TlsStream<TcpStream>>,
 ) -> Result<()> {
     let command = SubscribeCommand {
@@ -41,11 +41,13 @@ pub async fn send_subscribe(
 }
 
 pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> Result<()> {
-    let mut client = create_websocket_client(addr).await?;
     let context = AppContext::new();
     // FIXME: temp init
     context.persistence.init_mongo().await?;
-    send_subscribe(symbols, &mut client).await?;
+
+    let mut client = create_websocket_client(addr).await?;
+    send_subscribe(&symbols, &mut client).await?;
+
     loop {
         match handle_message(&context, &mut client).await {
             Ok(HandleResult::NexMessage) => {
@@ -56,6 +58,11 @@ pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> R
             }
             Err(err) => {
                 error!("Handle Yahoo Finance! message error: {:?}", err);
+                client.shutdown()?;
+
+                // reconnect
+                client = create_websocket_client(addr).await?;
+                send_subscribe(&symbols, &mut client).await?;
             }
         }
         if let Some(time) = end_time {
@@ -81,33 +88,28 @@ async fn handle_message(
     context: &AppContext,
     client: &mut Client<TlsStream<TcpStream>>,
 ) -> Result<HandleResult> {
-    match client.recv_message() {
-        Ok(message) => match message {
-            OwnedMessage::Text(text) => {
-                debug!("Receive: {}", text);
-                let message = deserialize_yahoo_message(&text)?;
-                debug!("Deserialize: {:?}", &message);
-                let value = Ticker::from(message);
-                // dispatch ticker
-                rebalance(context, &value).await?;
-                debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
-            }
-            OwnedMessage::Binary(_) => {
-                warn!("Receive binary from Yahoo Finance!");
-            }
-            OwnedMessage::Close(close_data) => {
-                warn!("Receive close {:?} from Yahoo Finance!", close_data);
-            }
-            OwnedMessage::Ping(data) => {
-                debug!("Receive ping from Yahoo Finance!");
-                return Ok(HandleResult::LiveCheck(data));
-            }
-            OwnedMessage::Pong(_) => {
-                warn!("Receive pong from Yahoo Finance!");
-            }
-        },
-        Err(err) => {
-            error!("Receive Yahoo Finance! error = {:?}", err);
+    match client.recv_message()? {
+        OwnedMessage::Text(text) => {
+            debug!("Receive: {}", text);
+            let message = deserialize_yahoo_message(&text)?;
+            debug!("Deserialize: {:?}", &message);
+            let value = Ticker::from(message);
+            // dispatch ticker
+            rebalance(context, &value).await?;
+            debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
+        }
+        OwnedMessage::Binary(_) => {
+            warn!("Receive binary from Yahoo Finance!");
+        }
+        OwnedMessage::Close(close_data) => {
+            warn!("Receive close {:?} from Yahoo Finance!", close_data);
+        }
+        OwnedMessage::Ping(data) => {
+            debug!("Receive ping from Yahoo Finance!");
+            return Ok(HandleResult::LiveCheck(data));
+        }
+        OwnedMessage::Pong(_) => {
+            warn!("Receive pong from Yahoo Finance!");
         }
     }
 

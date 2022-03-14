@@ -66,7 +66,7 @@ async fn test_query_ticker() -> Result<()> {
 async fn test_export_mongo_by_order() -> Result<()> {
     init_log("INFO").await?;
 
-    let collections = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+    let collections = vec!["tickers20220314"];
     for collection in collections {
         let mut cursor = query_ticker("yahoo", collection).await?;
         std::fs::create_dir_all("tmp")?;
@@ -78,7 +78,8 @@ async fn test_export_mongo_by_order() -> Result<()> {
         let mut writer = BufWriter::new(file);
         info!("Export collection: {}", collection);
         while let Some(ticker) = cursor.try_next().await? {
-            debug!("{:?}", ticker); // TODO: write file
+            debug!("{:?}", ticker);
+            // write file
             let json = serde_json::to_string(&ticker)?;
             write!(&mut writer, "{}\n", &json)?;
         }
