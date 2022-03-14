@@ -13,14 +13,8 @@ use sminer::{
 async fn test_replay() -> Result<()> {
     init_log("INFO").await?;
     let context = AppContext::new();
-
-    // TODO: temp sollution
-    for _ in 1..10 {
-        info!("create conn");
-        let conn = get_mongo_client().await?;
-        context.persistence.close_connection(conn)?;
-        info!("conn created");
-    }
+    // FIXME: temp sollution
+    context.persistence.init_mongo().await?;
 
     let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
     for file in files {
@@ -39,3 +33,13 @@ async fn test_replay() -> Result<()> {
     }
     Ok(())
 }
+
+struct Cmd {
+    text: String,
+}
+
+// #[tokio::test]
+// async fn test_send_message() -> Result<()> {
+//     let (a, b) = futures::channel::mpsc::channel(10);
+//     Ok(())
+// }

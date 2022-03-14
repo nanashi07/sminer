@@ -1,6 +1,7 @@
 pub mod es;
 pub mod mongo;
 
+use self::mongo::get_mongo_client;
 use crate::Result;
 use elasticsearch::Elasticsearch;
 use mongodb::Client;
@@ -21,6 +22,14 @@ impl PersistenceContext {
             elastic_connections: Arc::new(Mutex::new(Vec::new())),
             mongo_connections: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+    pub async fn init_mongo(&self) -> Result<()> {
+        // TODO: temp sollution
+        for _ in 1..10 {
+            let conn = get_mongo_client().await?;
+            self.close_connection(conn)?;
+        }
+        Ok(())
     }
 }
 

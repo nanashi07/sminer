@@ -43,6 +43,8 @@ pub async fn send_subscribe(
 pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
     let context = AppContext::new();
+    // FIXME: temp init
+    context.persistence.init_mongo().await?;
     send_subscribe(symbols, &mut client).await?;
     loop {
         match handle_message(&context, &mut client).await {

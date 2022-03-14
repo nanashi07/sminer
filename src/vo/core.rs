@@ -15,3 +15,5 @@ impl AppContext {
         }
     }
 }
+
+pub struct Config {}
