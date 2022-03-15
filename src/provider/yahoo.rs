@@ -7,6 +7,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use log::{debug, error, info, warn};
 use std::net::TcpStream;
+use websocket::header::{Headers, UserAgent};
 use websocket::native_tls::TlsStream;
 use websocket::ClientBuilder;
 use websocket::{sync::Client, Message, OwnedMessage};
@@ -18,8 +19,11 @@ pub enum HandleResult {
 }
 
 pub async fn create_websocket_client(address: &str) -> Result<Client<TlsStream<TcpStream>>> {
+    let mut headers = Headers::new();
+    headers.set(UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36".to_owned()));
     let client = ClientBuilder::new(address)
         .unwrap()
+        .custom_headers(&headers)
         .connect_secure(None)
         .unwrap();
     Ok(client)
@@ -60,6 +64,7 @@ pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> R
                 error!("Handle Yahoo Finance! message error: {:?}", err);
                 client.shutdown()?;
 
+                info!("Reconnecting websocket:L {}", addr);
                 // reconnect
                 client = create_websocket_client(addr).await?;
                 send_subscribe(&symbols, &mut client).await?;
