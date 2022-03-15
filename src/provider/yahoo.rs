@@ -6,7 +6,11 @@ use crate::Result;
 use chrono::TimeZone;
 use chrono::Utc;
 use log::{debug, error, info, warn};
+use std::error::Error;
+use std::fmt::Display;
 use std::net::TcpStream;
+use std::time::Duration;
+use tokio::time::sleep;
 use websocket::header::{Headers, UserAgent};
 use websocket::native_tls::TlsStream;
 use websocket::ClientBuilder;
@@ -17,6 +21,18 @@ pub enum HandleResult {
     NexMessage,
     LiveCheck(Vec<u8>),
 }
+
+#[derive(Debug)]
+struct SourceError;
+
+impl Display for SourceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Handle message source error")
+    }
+}
+impl Error for SourceError {}
+unsafe impl Sync for SourceError {}
+unsafe impl Send for SourceError {}
 
 pub async fn create_websocket_client(address: &str) -> Result<Client<TlsStream<TcpStream>>> {
     let mut headers = Headers::new();
@@ -51,30 +67,36 @@ pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> R
 
     let mut client = create_websocket_client(addr).await?;
     send_subscribe(&symbols, &mut client).await?;
+    let mut connected = true;
 
     loop {
-        match handle_message(&context, &mut client).await {
-            Ok(HandleResult::NexMessage) => {
-                continue;
+        if connected {
+            match handle_message(&context, &mut client).await {
+                Ok(HandleResult::NexMessage) => {
+                    continue;
+                }
+                Ok(HandleResult::LiveCheck(data)) => {
+                    pong(&mut client, data).await?;
+                }
+                Err(err) => {
+                    error!("Handle Yahoo Finance! message error: {:?}", err);
+                    client.shutdown().unwrap_or_default();
+                    connected = false;
+                }
             }
-            Ok(HandleResult::LiveCheck(data)) => {
-                pong(&mut client, data).await?;
-            }
-            Err(err) => {
-                error!("Handle Yahoo Finance! message error: {:?}", err);
-                client.shutdown()?;
-
-                info!("Reconnecting websocket:L {}", addr);
-                // reconnect
-                client = create_websocket_client(addr).await?;
-                send_subscribe(&symbols, &mut client).await?;
-            }
+        } else {
+            // delay connect for few millis
+            sleep(Duration::from_millis(200)).await;
+            // reconnect
+            info!("Reconnecting websocket: {}", addr);
+            client = create_websocket_client(addr).await?;
+            send_subscribe(&symbols, &mut client).await?;
         }
         if let Some(time) = end_time {
             if Utc::now().timestamp() > time {
                 info!(
                     "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
-                    Utc.timestamp(time, 0)
+                    Utc.timestamp_millis(time)
                 );
                 break;
             }
@@ -107,7 +129,8 @@ async fn handle_message(
             warn!("Receive binary from Yahoo Finance!");
         }
         OwnedMessage::Close(close_data) => {
-            warn!("Receive close {:?} from Yahoo Finance!", close_data);
+            warn!("Receive close ({:?}) from Yahoo Finance!", close_data);
+            return Err(Box::new(SourceError {}));
         }
         OwnedMessage::Ping(data) => {
             debug!("Receive ping from Yahoo Finance!");
