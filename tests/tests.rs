@@ -13,6 +13,7 @@ use std::ops::Add;
 
 const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 
+// cargo test --package sminer --test tests -- test_consume_yahoo_tickers --exact --nocapture --ignored
 #[tokio::test]
 #[ignore = "manually run only"]
 async fn test_consume_yahoo_tickers() -> Result<()> {

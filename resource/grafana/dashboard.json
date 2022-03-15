@@ -68,7 +68,80 @@
             "steppedLine": false,
             "targets": [
                 {
-                    "alias": "",
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TQQQ AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TQQQ AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -97,8 +170,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TQQQ",
-                    "refId": "A",
+                    "query": "id: TQQQ AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -192,6 +265,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SQQQ AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SQQQ AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -220,41 +367,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SQQQ",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SQQQ AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -350,6 +464,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXL AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXL AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -378,41 +566,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXL",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SOXL AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -506,6 +661,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXS AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXS AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -534,41 +763,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXS",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SOXS AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -662,6 +858,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXL AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXL AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -690,41 +960,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXL",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SPXL AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -818,6 +1055,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXS AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXS AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -846,41 +1157,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXS",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SPXS AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -974,6 +1252,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABU AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABU AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1002,41 +1354,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABU",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: LABU AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -1130,6 +1449,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABD AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABD AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1158,41 +1551,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABD",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: LABD AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -1286,6 +1646,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TNA AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TNA AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1314,41 +1748,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TNA",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: TNA AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -1442,6 +1843,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TZA AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TZA AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1470,41 +1945,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TZA",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: TZA AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -1598,6 +2040,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: UDOW AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: UDOW AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1626,41 +2142,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: UDOW",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: UDOW AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
@@ -1754,6 +2237,80 @@
             "steppedLine": false,
             "targets": [
                 {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "count": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation": false,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SDOW AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "max": true,
+                                "min": true,
+                                "std_deviation_bounds_lower": false,
+                                "std_deviation_bounds_upper": false
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SDOW AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
                     "bucketAggs": [
                         {
                             "field": "time",
@@ -1782,41 +2339,8 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SDOW",
-                    "refId": "A",
-                    "timeField": "time"
-                },
-                {
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": true,
-                    "metrics": [
-                        {
-                            "field": "day_volume",
-                            "id": "1",
-                            "meta": {
-                                "max": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
-                            },
-                            "settings": {
-                                "sigma": 5
-                            },
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id:TQQQ",
-                    "refId": "B",
+                    "query": "id: SDOW AND market_hours: PostMarket",
+                    "refId": "C",
                     "timeField": "time"
                 }
             ],
