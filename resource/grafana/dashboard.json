@@ -23,6 +23,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "ProShares UltraPro QQQ",
             "fieldConfig": {
@@ -87,13 +88,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -126,11 +121,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -160,10 +151,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -221,6 +209,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "ProShares UltraPro Short QQQ",
             "fieldConfig": {
@@ -284,13 +273,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -323,11 +306,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -357,10 +336,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -418,6 +394,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily Semiconductor Bull 3X Shares\t",
             "fieldConfig": {
@@ -442,9 +419,8 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
-                "sort": null,
-                "sortDesc": null,
                 "total": false,
                 "values": true
             },
@@ -483,13 +459,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -522,11 +492,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -556,10 +522,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -617,6 +580,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily Semiconductor Bear 3X Shares\t",
             "fieldConfig": {
@@ -641,6 +605,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -680,13 +645,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -719,11 +678,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -753,10 +708,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -814,6 +766,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily S&P500 Bull 3X Shares",
             "fieldConfig": {
@@ -838,6 +791,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -877,13 +831,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -916,11 +864,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -950,10 +894,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1011,6 +952,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily S&P 500 Bear 3X Shares",
             "fieldConfig": {
@@ -1035,6 +977,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -1074,13 +1017,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -1113,11 +1050,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -1147,10 +1080,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1208,6 +1138,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily S&P Biotech Bull 3X Shares",
             "fieldConfig": {
@@ -1232,6 +1163,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -1271,13 +1203,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -1310,11 +1236,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -1344,10 +1266,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1405,6 +1324,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily S&P Biotech Bear 3X Shares",
             "fieldConfig": {
@@ -1429,6 +1349,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -1468,13 +1389,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -1507,11 +1422,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -1541,10 +1452,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1602,6 +1510,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily Small Cap Bull 3X Shares",
             "fieldConfig": {
@@ -1626,6 +1535,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -1665,13 +1575,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -1704,11 +1608,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -1738,10 +1638,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1799,6 +1696,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "Direxion Daily Small Cap Bear 3X Shares",
             "fieldConfig": {
@@ -1823,6 +1721,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -1862,13 +1761,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -1901,11 +1794,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -1935,10 +1824,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -1996,6 +1882,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "ProShares UltraPro Dow30",
             "fieldConfig": {
@@ -2020,6 +1907,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -2059,13 +1947,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -2098,11 +1980,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -2132,10 +2010,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
@@ -2193,6 +2068,7 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
+            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
             "description": "ProShares UltraPro Short Dow30",
             "fieldConfig": {
@@ -2217,6 +2093,7 @@
                 "current": true,
                 "max": true,
                 "min": true,
+                "rightSide": false,
                 "show": true,
                 "total": false,
                 "values": true
@@ -2256,13 +2133,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "count": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation": false,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {
@@ -2295,11 +2166,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "avg": false,
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "settings": {},
                             "type": "extended_stats"
@@ -2329,10 +2196,7 @@
                             "field": "price",
                             "id": "1",
                             "meta": {
-                                "max": true,
-                                "min": true,
-                                "std_deviation_bounds_lower": false,
-                                "std_deviation_bounds_upper": false
+                                "avg": true
                             },
                             "pipelineAgg": "select metric",
                             "settings": {},
