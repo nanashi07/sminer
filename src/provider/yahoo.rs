@@ -91,6 +91,7 @@ pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> R
             info!("Reconnecting websocket: {}", addr);
             client = create_websocket_client(addr).await?;
             send_subscribe(&symbols, &mut client).await?;
+            connected = true;
         }
         if let Some(time) = end_time {
             if Utc::now().timestamp() > time {
