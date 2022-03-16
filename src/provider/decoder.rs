@@ -1,4 +1,4 @@
-use crate::proto::YahooTicker;
+use crate::proto::yahoo::YahooTicker;
 use crate::Result;
 use base64::decode;
 use prost::Message;

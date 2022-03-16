@@ -1,2 +1,7 @@
 // include generated protobuf models
-include!(concat!(env!("OUT_DIR"), "/sminer.yahoo.rs"));
+pub mod yahoo {
+    include!(concat!(env!("OUT_DIR"), "/sminer.yahoo.rs"));
+}
+pub mod biz {
+    include!(concat!(env!("OUT_DIR"), "/sminer.vo.biz.rs"));
+}

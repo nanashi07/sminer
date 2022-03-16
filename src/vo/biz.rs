@@ -1,7 +1,6 @@
-use crate::proto::YahooMarketHoursType;
-use crate::proto::YahooOptionType;
-use crate::proto::YahooQuoteType;
-use crate::proto::YahooTicker;
+use crate::proto::yahoo::YahooMarketHoursType;
+use crate::proto::yahoo::YahooQuoteType;
+use crate::proto::yahoo::YahooTicker;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -31,32 +30,6 @@ pub enum QuoteType {
     Industry = 1000,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub enum OptionType {
-    Call = 0,
-    Put = 1,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub enum MarketHoursType {
-    PreMarket = 0,
-    RegularMarket = 1,
-    PostMarket = 2,
-    ExtendedHoursMarket = 3,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Ticker {
-    pub id: String,
-    pub price: f32,
-    pub time: i64,
-
-    pub quote_type: QuoteType,
-    pub market_hours: MarketHoursType,
-    pub day_volume: i64,
-    pub change: f32,
-}
-
 impl From<YahooQuoteType> for QuoteType {
     fn from(value: YahooQuoteType) -> Self {
         match value {
@@ -82,13 +55,12 @@ impl From<YahooQuoteType> for QuoteType {
     }
 }
 
-impl From<YahooOptionType> for OptionType {
-    fn from(value: YahooOptionType) -> Self {
-        match value {
-            YahooOptionType::Call => OptionType::Call,
-            YahooOptionType::Put => OptionType::Put,
-        }
-    }
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub enum MarketHoursType {
+    PreMarket = 0,
+    RegularMarket = 1,
+    PostMarket = 2,
+    ExtendedHoursMarket = 3,
 }
 
 impl From<YahooMarketHoursType> for MarketHoursType {
@@ -102,6 +74,20 @@ impl From<YahooMarketHoursType> for MarketHoursType {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ticker {
+    pub id: String,
+    pub price: f32,
+    pub time: i64,
+
+    pub quote_type: QuoteType,
+    pub market_hours: MarketHoursType,
+    pub day_volume: i64,
+    pub change: f32,
+}
+
+impl Ticker {}
+
 impl From<YahooTicker> for Ticker {
     fn from(value: YahooTicker) -> Self {
         Ticker {
@@ -112,6 +98,20 @@ impl From<YahooTicker> for Ticker {
             market_hours: YahooMarketHoursType::from_i32(value.market_hours)
                 .unwrap()
                 .into(),
+            day_volume: value.day_volume,
+            change: value.change,
+        }
+    }
+}
+
+impl From<&Ticker> for Ticker {
+    fn from(value: &Ticker) -> Self {
+        Ticker {
+            id: value.id.to_string(),
+            price: value.price,
+            time: value.time,
+            quote_type: value.quote_type,
+            market_hours: value.market_hours,
             day_volume: value.day_volume,
             change: value.change,
         }
