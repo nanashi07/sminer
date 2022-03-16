@@ -70,8 +70,7 @@ pub struct ElasticTicker {
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
     pub day_volume: i64,
-    pub day_high: f32,
-    pub day_low: f32,
+    pub day_volume_diff: i64,
     pub change: f32,
 }
 
@@ -84,8 +83,7 @@ impl From<&Ticker> for ElasticTicker {
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             day_volume: t.day_volume,
-            day_high: t.day_high,
-            day_low: t.day_low,
+            day_volume_diff: 0,
             change: t.change,
         }
     }

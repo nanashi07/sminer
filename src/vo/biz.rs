@@ -54,8 +54,6 @@ pub struct Ticker {
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
     pub day_volume: i64,
-    pub day_high: f32,
-    pub day_low: f32,
     pub change: f32,
 }
 
@@ -115,8 +113,6 @@ impl From<YahooTicker> for Ticker {
                 .unwrap()
                 .into(),
             day_volume: value.day_volume,
-            day_high: value.day_high,
-            day_low: value.day_low,
             change: value.change,
         }
     }

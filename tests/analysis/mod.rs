@@ -1,13 +1,14 @@
 use crate::persist::read_from_file;
+use chrono::Utc;
 use log::info;
 use sminer::{
     analysis::rebalance,
     init_log,
-    persist::{mongo::get_mongo_client, DataSource},
     vo::{biz::Ticker, core::AppContext},
     Result,
 };
 
+// cargo test --package sminer --test tests -- analysis::test_replay --exact --nocapture --ignored
 #[tokio::test]
 #[ignore = "manually run only, replay from file"]
 async fn test_replay() -> Result<()> {
@@ -16,8 +17,15 @@ async fn test_replay() -> Result<()> {
     // FIXME: temp sollution
     context.persistence.init_mongo().await?;
 
-    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+    let files = vec![
+        "tickers20220309",
+        "tickers20220310",
+        "tickers20220311",
+        "tickers20220314",
+        "tickers20220315",
+    ];
     for file in files {
+        info!("Loading tickers: {}", file);
         let tickers: Vec<Ticker> = read_from_file(file)?
             .iter()
             .map(|line| {
@@ -25,21 +33,23 @@ async fn test_replay() -> Result<()> {
                 ticker
             })
             .collect();
-        info!("Loaded tickers: {} for {}", tickers.len(), file);
+
+        let total = tickers.len();
+        let mut handl_count = 0;
+        let mut seconds = Utc::now().timestamp() / 60;
+
+        info!("Loaded tickers: {} for {}", total, file);
 
         for ticker in tickers {
             rebalance(&context, &ticker).await?;
+            handl_count = handl_count + 1;
+
+            if seconds < Utc::now().timestamp() / 60 {
+                info!("Hanlding process {}/{} for {}", handl_count, total, file);
+                seconds = seconds + 1;
+            }
         }
+        info!("Tickers: {} replay done", file);
     }
     Ok(())
 }
-
-struct Cmd {
-    text: String,
-}
-
-// #[tokio::test]
-// async fn test_send_message() -> Result<()> {
-//     let (a, b) = futures::channel::mpsc::channel(10);
-//     Ok(())
-// }
