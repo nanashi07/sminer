@@ -2,7 +2,7 @@ use crate::persist::read_from_file;
 use chrono::Utc;
 use log::info;
 use sminer::{
-    analysis::rebalance,
+    analysis::init_dispatcher,
     init_log,
     vo::{biz::Ticker, core::AppContext},
     Result,
@@ -14,6 +14,7 @@ use sminer::{
 async fn test_replay() -> Result<()> {
     init_log("INFO").await?;
     let context = AppContext::new();
+    init_dispatcher(&context.sender, &context.persistence).await?;
     // FIXME: temp sollution
     context.persistence.init_mongo().await?;
 
@@ -41,7 +42,7 @@ async fn test_replay() -> Result<()> {
         info!("Loaded tickers: {} for {}", total, file);
 
         for ticker in tickers {
-            rebalance(&context, &ticker).await?;
+            context.dispatch(&ticker).await?;
             handl_count = handl_count + 1;
 
             if seconds < Utc::now().timestamp() / 60 {

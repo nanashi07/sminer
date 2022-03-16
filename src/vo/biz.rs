@@ -1,5 +1,4 @@
-use crate::proto::yahoo::YahooMarketHoursType;
-use crate::proto::yahoo::YahooQuoteType;
+use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
 use serde::{Deserialize, Serialize};
 
@@ -30,27 +29,30 @@ pub enum QuoteType {
     Industry = 1000,
 }
 
-impl From<YahooQuoteType> for QuoteType {
-    fn from(value: YahooQuoteType) -> Self {
+impl TryFrom<i32> for QuoteType {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            YahooQuoteType::None => QuoteType::None,
-            YahooQuoteType::Altsymbol => QuoteType::Altsymbol,
-            YahooQuoteType::Heartbeat => QuoteType::Heartbeat,
-            YahooQuoteType::Equity => QuoteType::Equity,
-            YahooQuoteType::Index => QuoteType::Index,
-            YahooQuoteType::Mutualfund => QuoteType::Mutualfund,
-            YahooQuoteType::Moneymarket => QuoteType::Moneymarket,
-            YahooQuoteType::Option => QuoteType::Option,
-            YahooQuoteType::Currency => QuoteType::Currency,
-            YahooQuoteType::Warrant => QuoteType::Warrant,
-            YahooQuoteType::Bond => QuoteType::Bond,
-            YahooQuoteType::Future => QuoteType::Future,
-            YahooQuoteType::Etf => QuoteType::Etf,
-            YahooQuoteType::Commodity => QuoteType::Commodity,
-            YahooQuoteType::Ecnquote => QuoteType::Ecnquote,
-            YahooQuoteType::Cryptocurrency => QuoteType::Cryptocurrency,
-            YahooQuoteType::Indicator => QuoteType::Indicator,
-            YahooQuoteType::Industry => QuoteType::Industry,
+            x if x == QuoteType::None as i32 => Ok(QuoteType::None),
+            x if x == QuoteType::Altsymbol as i32 => Ok(QuoteType::Altsymbol),
+            x if x == QuoteType::Heartbeat as i32 => Ok(QuoteType::Heartbeat),
+            x if x == QuoteType::Equity as i32 => Ok(QuoteType::Equity),
+            x if x == QuoteType::Index as i32 => Ok(QuoteType::Index),
+            x if x == QuoteType::Mutualfund as i32 => Ok(QuoteType::Mutualfund),
+            x if x == QuoteType::Moneymarket as i32 => Ok(QuoteType::Moneymarket),
+            x if x == QuoteType::Option as i32 => Ok(QuoteType::Option),
+            x if x == QuoteType::Currency as i32 => Ok(QuoteType::Currency),
+            x if x == QuoteType::Warrant as i32 => Ok(QuoteType::Warrant),
+            x if x == QuoteType::Bond as i32 => Ok(QuoteType::Bond),
+            x if x == QuoteType::Future as i32 => Ok(QuoteType::Future),
+            x if x == QuoteType::Etf as i32 => Ok(QuoteType::Etf),
+            x if x == QuoteType::Commodity as i32 => Ok(QuoteType::Commodity),
+            x if x == QuoteType::Ecnquote as i32 => Ok(QuoteType::Ecnquote),
+            x if x == QuoteType::Cryptocurrency as i32 => Ok(QuoteType::Cryptocurrency),
+            x if x == QuoteType::Indicator as i32 => Ok(QuoteType::Indicator),
+            x if x == QuoteType::Industry as i32 => Ok(QuoteType::Industry),
+            _ => Err(()),
         }
     }
 }
@@ -63,13 +65,18 @@ pub enum MarketHoursType {
     ExtendedHoursMarket = 3,
 }
 
-impl From<YahooMarketHoursType> for MarketHoursType {
-    fn from(value: YahooMarketHoursType) -> Self {
+impl TryFrom<i32> for MarketHoursType {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            YahooMarketHoursType::PreMarket => MarketHoursType::PreMarket,
-            YahooMarketHoursType::RegularMarket => MarketHoursType::RegularMarket,
-            YahooMarketHoursType::PostMarket => MarketHoursType::PostMarket,
-            YahooMarketHoursType::ExtendedHoursMarket => MarketHoursType::ExtendedHoursMarket,
+            x if x == MarketHoursType::PreMarket as i32 => Ok(MarketHoursType::PreMarket),
+            x if x == MarketHoursType::RegularMarket as i32 => Ok(MarketHoursType::RegularMarket),
+            x if x == MarketHoursType::PostMarket as i32 => Ok(MarketHoursType::PostMarket),
+            x if x == MarketHoursType::ExtendedHoursMarket as i32 => {
+                Ok(MarketHoursType::ExtendedHoursMarket)
+            }
+            _ => Err(()),
         }
     }
 }
@@ -94,26 +101,44 @@ impl From<YahooTicker> for Ticker {
             id: value.id,
             price: value.price,
             time: value.time,
-            quote_type: YahooQuoteType::from_i32(value.quote_type).unwrap().into(),
-            market_hours: YahooMarketHoursType::from_i32(value.market_hours)
-                .unwrap()
-                .into(),
+            quote_type: value.quote_type.try_into().unwrap(),
+            market_hours: value.market_hours.try_into().unwrap(),
             day_volume: value.day_volume,
             change: value.change,
         }
     }
 }
 
-impl From<&Ticker> for Ticker {
+impl From<&Ticker> for TickerEvent {
     fn from(value: &Ticker) -> Self {
-        Ticker {
+        TickerEvent {
             id: value.id.to_string(),
             price: value.price,
             time: value.time,
-            quote_type: value.quote_type,
-            market_hours: value.market_hours,
+            quote_type: value.quote_type as i32,
+            market_hours: value.market_hours as i32,
             day_volume: value.day_volume,
             change: value.change,
         }
     }
+}
+
+impl From<TickerEvent> for Ticker {
+    fn from(value: TickerEvent) -> Self {
+        Ticker {
+            id: value.id.to_string(),
+            price: value.price,
+            time: value.time,
+            quote_type: value.quote_type.try_into().unwrap(),
+            market_hours: value.market_hours.try_into().unwrap(),
+            day_volume: value.day_volume,
+            change: value.change,
+        }
+    }
+}
+
+pub enum Event {
+    MonggoEvent { ticker: TickerEvent },
+    ElasticSearchEvent { ticker: TickerEvent },
+    CalculateEvent { ticker: TickerEvent },
 }

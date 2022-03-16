@@ -1,20 +1,36 @@
 use crate::{
-    persist::es::ElasticTicker,
-    vo::{biz::Ticker, core::AppContext},
+    persist::{es::ElasticTicker, PersistenceContext},
+    proto::biz::TickerEvent,
+    vo::biz::Ticker,
     Result,
 };
 use log::info;
+use std::sync::Arc;
+use tokio::sync::broadcast::Sender;
 
-pub async fn rebalance(context: &AppContext, ticker: &Ticker) -> Result<()> {
-    info!("Rebalance {:?}", ticker);
+pub async fn init_dispatcher(
+    sender: &Sender<TickerEvent>,
+    persistence: &Arc<PersistenceContext>,
+) -> Result<()> {
+    info!("Initialize mongo event handler");
+    let mut rx = sender.subscribe();
+    let context = Arc::clone(&persistence);
+    tokio::spawn(async move {
+        let ticker: Ticker = rx.recv().await.unwrap().into();
 
-    // Save to mongo
-    ticker.save_to_mongo(&context.persistence).await?;
+        ticker.save_to_mongo(Arc::clone(&context)).await.unwrap();
+    });
 
-    // Save to elasticsearch
-    let t: ElasticTicker = ticker.into();
-    t.save_to_elasticsearch(&context.persistence).await?;
+    info!("Initialize elasticsearch event handler");
+    let mut rx = sender.subscribe();
+    let context = Arc::clone(&persistence);
+    tokio::spawn(async move {
+        let ticker: ElasticTicker = rx.recv().await.unwrap().into();
 
-    // TODO: analysis
+        ticker
+            .save_to_elasticsearch(Arc::clone(&context))
+            .await
+            .unwrap();
+    });
     Ok(())
 }

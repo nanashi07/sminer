@@ -44,12 +44,12 @@ impl DataSource<Client> for PersistenceContext {
 }
 
 impl Ticker {
-    pub async fn save_to_mongo(&self, datasource: &dyn DataSource<Client>) -> Result<()> {
+    pub async fn save_to_mongo(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let collection_name = format!(
             "tickers{}",
             Utc.timestamp_millis(self.time).format("%Y%m%d")
         );
-        let client = datasource.get_connection()?;
+        let client: Client = datasource.get_connection()?;
         let db = client.database("yahoo");
         let typed_collection = db.collection::<Ticker>(&collection_name);
 

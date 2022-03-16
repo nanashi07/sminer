@@ -1,5 +1,6 @@
 use super::{DataSource, PersistenceContext};
 use crate::{
+    proto::biz::TickerEvent,
     vo::biz::{MarketHoursType, QuoteType, Ticker},
     Result,
 };
@@ -74,8 +75,8 @@ pub struct ElasticTicker {
     pub change: f32,
 }
 
-impl From<&Ticker> for ElasticTicker {
-    fn from(t: &Ticker) -> Self {
+impl From<Ticker> for ElasticTicker {
+    fn from(t: Ticker) -> Self {
         ElasticTicker {
             time: Utc.timestamp_millis(t.time).to_rfc3339(),
             id: t.id.clone(),
@@ -89,12 +90,24 @@ impl From<&Ticker> for ElasticTicker {
     }
 }
 
+impl From<TickerEvent> for ElasticTicker {
+    fn from(t: TickerEvent) -> Self {
+        ElasticTicker {
+            time: Utc.timestamp_millis(t.time).to_rfc3339(),
+            id: t.id.clone(),
+            price: t.price,
+            quote_type: t.quote_type.try_into().unwrap(),
+            market_hours: t.market_hours.try_into().unwrap(),
+            day_volume: t.day_volume,
+            day_volume_diff: 0,
+            change: t.change,
+        }
+    }
+}
+
 impl ElasticTicker {
-    pub async fn save_to_elasticsearch(
-        &self,
-        datasource: &dyn DataSource<Elasticsearch>,
-    ) -> Result<bool> {
-        let client = datasource.get_connection()?;
+    pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<bool> {
+        let client: Elasticsearch = datasource.get_connection()?;
 
         let time = DateTime::parse_from_rfc3339(&self.time)?;
 

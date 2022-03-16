@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sminer.vo.biz;
 
-enum QuoteType {
+enum EventQuoteType {
     NONE = 0;
     ALTSYMBOL = 5;
     HEARTBEAT = 7;
@@ -22,19 +22,19 @@ enum QuoteType {
     INDICATOR = 42;
     INDUSTRY = 1000;
 };
-enum MarketHoursType {
+enum EventMarketHoursType {
     PRE_MARKET = 0;
     REGULAR_MARKET = 1;
     POST_MARKET = 2;
     EXTENDED_HOURS_MARKET = 3;
 };
 
-message Ticker {
+message TickerEvent {
     string id = 1;
     float price = 2;
     sint64 time = 3;
-    QuoteType quoteType = 6;
-    MarketHoursType marketHours = 7;
+    EventQuoteType quoteType = 6;
+    EventMarketHoursType marketHours = 7;
     sint64 dayVolume = 9;
     float change = 12;
 };

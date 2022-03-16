@@ -1,4 +1,3 @@
-use crate::analysis::rebalance;
 use crate::provider::decoder::deserialize_yahoo_message;
 use crate::vo::biz::{SubscribeCommand, Ticker};
 use crate::vo::core::AppContext;
@@ -60,13 +59,15 @@ pub async fn send_subscribe(
     Ok(())
 }
 
-pub async fn consume(addr: &str, symbols: Vec<&str>, end_time: Option<i64>) -> Result<()> {
-    let context = AppContext::new();
-    // FIXME: temp init
-    context.persistence.init_mongo().await?;
-
+pub async fn consume(
+    context: &AppContext,
+    addr: &str,
+    symbols: Vec<&str>,
+    end_time: Option<i64>,
+) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
     send_subscribe(&symbols, &mut client).await?;
+
     let mut connected = true;
 
     loop {
@@ -123,7 +124,7 @@ async fn handle_message(
             debug!("Deserialize: {:?}", &message);
             let value = Ticker::from(message);
             // dispatch ticker
-            rebalance(context, &value).await?;
+            context.dispatch(&value).await?;
             debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
         }
         OwnedMessage::Binary(_) => {

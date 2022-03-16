@@ -15,6 +15,7 @@ use sminer::{
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
+    sync::Arc,
 };
 
 pub fn read_from_file(file: &str) -> Result<Vec<String>> {
@@ -94,7 +95,7 @@ async fn test_import_into_es_single() -> Result<()> {
 
     let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
 
-    let persistence = PersistenceContext::new();
+    let persistence = Arc::new(PersistenceContext::new());
 
     for file in files {
         let tickers: Vec<ElasticTicker> = read_from_file(file)?
@@ -103,14 +104,16 @@ async fn test_import_into_es_single() -> Result<()> {
                 let ticker: Ticker = serde_json::from_str(&line).unwrap();
                 ticker
             })
-            .map(|t| ElasticTicker::from(&t))
+            .map(|t| ElasticTicker::from(t))
             .collect();
 
         info!("ticker size: {} for file {}", &tickers.len(), file);
 
         for ticker in tickers {
             debug!("ticker = {:?}", &ticker);
-            let _ = ticker.save_to_elasticsearch(&persistence).await?;
+            let _ = ticker
+                .save_to_elasticsearch(Arc::clone(&persistence))
+                .await?;
         }
     }
     Ok(())
@@ -130,7 +133,7 @@ async fn test_import_into_es_bulk() -> Result<()> {
             let ticker: Ticker = serde_json::from_str(&line).unwrap();
             ticker
         })
-        .map(|t| ElasticTicker::from(&t))
+        .map(|t| ElasticTicker::from(t))
         .map(|t| json!(t).into())
         .collect();
 
