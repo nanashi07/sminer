@@ -16,21 +16,25 @@ pub async fn init_dispatcher(
     let mut rx = sender.subscribe();
     let context = Arc::clone(&persistence);
     tokio::spawn(async move {
-        let ticker: Ticker = rx.recv().await.unwrap().into();
+        loop {
+            let ticker: Ticker = rx.recv().await.unwrap().into();
 
-        ticker.save_to_mongo(Arc::clone(&context)).await.unwrap();
+            ticker.save_to_mongo(Arc::clone(&context)).await.unwrap();
+        }
     });
 
     info!("Initialize elasticsearch event handler");
     let mut rx = sender.subscribe();
     let context = Arc::clone(&persistence);
     tokio::spawn(async move {
-        let ticker: ElasticTicker = rx.recv().await.unwrap().into();
+        loop {
+            let ticker: ElasticTicker = rx.recv().await.unwrap().into();
 
-        ticker
-            .save_to_elasticsearch(Arc::clone(&context))
-            .await
-            .unwrap();
+            ticker
+                .save_to_elasticsearch(Arc::clone(&context))
+                .await
+                .unwrap();
+        }
     });
     Ok(())
 }
