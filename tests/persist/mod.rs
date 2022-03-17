@@ -67,7 +67,7 @@ async fn test_query_ticker() -> Result<()> {
 async fn test_export_mongo_by_order() -> Result<()> {
     init_log("INFO").await?;
 
-    let collections = vec!["tickers20220314"];
+    let collections = vec!["tickers20220316"];
     for collection in collections {
         let mut cursor = query_ticker("yahoo", collection).await?;
         std::fs::create_dir_all("tmp")?;

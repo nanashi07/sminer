@@ -70,6 +70,8 @@ pub async fn consume(
 
     let mut connected = true;
 
+    // TODO: recover from previous process
+
     loop {
         if connected {
             match handle_message(&context, &mut client).await {
