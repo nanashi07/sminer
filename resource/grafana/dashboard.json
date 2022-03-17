@@ -23,8 +23,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "ProShares UltraPro QQQ",
             "fieldConfig": {
                 "defaults": {
@@ -209,8 +209,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "ProShares UltraPro Short QQQ",
             "fieldConfig": {
                 "defaults": {
@@ -394,9 +394,9 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
-            "description": "Direxion Daily Semiconductor Bull 3X Shares\t",
+            "decimals": 3,
+            "description": "Direxion Daily Semiconductor Bull 3X Shares",
             "fieldConfig": {
                 "defaults": {
                     "custom": {}
@@ -580,9 +580,9 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
-            "description": "Direxion Daily Semiconductor Bear 3X Shares\t",
+            "decimals": 3,
+            "description": "Direxion Daily Semiconductor Bear 3X Shares",
             "fieldConfig": {
                 "defaults": {
                     "custom": {}
@@ -766,8 +766,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily S&P500 Bull 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -952,8 +952,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily S&P 500 Bear 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -1138,8 +1138,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily S&P Biotech Bull 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -1324,8 +1324,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily S&P Biotech Bear 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -1510,8 +1510,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily Small Cap Bull 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -1696,8 +1696,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "Direxion Daily Small Cap Bear 3X Shares",
             "fieldConfig": {
                 "defaults": {
@@ -1882,9 +1882,9 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
-            "description": "ProShares UltraPro Dow30",
+            "decimals": 3,
+            "description": "Direxion Daily FTSE China Bull 3X Shares",
             "fieldConfig": {
                 "defaults": {
                     "custom": {}
@@ -1898,6 +1898,378 @@
                 "w": 12,
                 "x": 0,
                 "y": 45
+            },
+            "hiddenSeries": false,
+            "id": 14,
+            "legend": {
+                "alignAsTable": true,
+                "avg": false,
+                "current": true,
+                "max": true,
+                "min": true,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": true
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "options": {
+                "dataLinks": []
+            },
+            "percentage": false,
+            "pointradius": 2,
+            "points": false,
+            "renderer": "flot",
+            "seriesOverrides": [],
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YINN AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YINN AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YINN AND market_hours: PostMarket",
+                    "refId": "C",
+                    "timeField": "time"
+                }
+            ],
+            "thresholds": [],
+            "timeFrom": null,
+            "timeRegions": [],
+            "timeShift": null,
+            "title": "YINN",
+            "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+            },
+            "type": "graph",
+            "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+            },
+            "yaxes": [
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                },
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                }
+            ],
+            "yaxis": {
+                "align": false,
+                "alignLevel": null
+            }
+        },
+        {
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
+            "description": "Direxion Daily FTSE China Bear 3X Shares",
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {}
+                },
+                "overrides": []
+            },
+            "fill": 1,
+            "fillGradient": 0,
+            "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 12,
+                "y": 45
+            },
+            "hiddenSeries": false,
+            "id": 15,
+            "legend": {
+                "alignAsTable": true,
+                "avg": false,
+                "current": true,
+                "max": true,
+                "min": true,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": true
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "options": {
+                "dataLinks": []
+            },
+            "percentage": false,
+            "pointradius": 2,
+            "points": false,
+            "renderer": "flot",
+            "seriesOverrides": [],
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YANG AND market_hours: RegularMarket",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YANG AND market_hours: PreMarket",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YANG AND market_hours: PostMarket",
+                    "refId": "C",
+                    "timeField": "time"
+                }
+            ],
+            "thresholds": [],
+            "timeFrom": null,
+            "timeRegions": [],
+            "timeShift": null,
+            "title": "YANG",
+            "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+            },
+            "type": "graph",
+            "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+            },
+            "yaxes": [
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                },
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                }
+            ],
+            "yaxis": {
+                "align": false,
+                "alignLevel": null
+            }
+        },
+        {
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
+            "description": "ProShares UltraPro Dow30",
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {}
+                },
+                "overrides": []
+            },
+            "fill": 1,
+            "fillGradient": 0,
+            "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 0,
+                "y": 54
             },
             "hiddenSeries": false,
             "id": 12,
@@ -2068,8 +2440,8 @@
             "bars": false,
             "dashLength": 10,
             "dashes": false,
-            "decimals": 3,
             "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
             "description": "ProShares UltraPro Short Dow30",
             "fieldConfig": {
                 "defaults": {
@@ -2083,7 +2455,7 @@
                 "h": 9,
                 "w": 12,
                 "x": 12,
-                "y": 45
+                "y": 54
             },
             "hiddenSeries": false,
             "id": 13,
@@ -2277,5 +2649,5 @@
     "timezone": "",
     "title": "Daily Trend",
     "uid": "8XT92WEnz",
-    "version": 11
+    "version": 16
 }

@@ -1,5 +1,9 @@
 use super::biz::Ticker;
-use crate::{persist::PersistenceContext, proto::biz::TickerEvent, Result};
+use crate::{
+    persist::{es::ElasticTicker, PersistenceContext},
+    proto::biz::TickerEvent,
+    Result,
+};
 use std::{
     collections::{HashMap, LinkedList},
     sync::Arc,
@@ -16,7 +20,7 @@ pub struct AppContext {
 
 impl AppContext {
     pub fn new() -> AppContext {
-        let (tx1, _) = channel::<TickerEvent>(64);
+        let (tx1, _) = channel::<TickerEvent>(2048);
         let (tx2, _) = channel::<TickerEvent>(64);
 
         AppContext {
@@ -29,6 +33,14 @@ impl AppContext {
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
         self.sender.send(ticker.into())?;
         // self.calculate.send(ticker.into())?;
+        Ok(())
+    }
+    pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
+        ticker.save_to_mongo(Arc::clone(&self.persistence)).await?;
+        let es_ticker: ElasticTicker = (*ticker).clone().into();
+        es_ticker
+            .save_to_elasticsearch(Arc::clone(&self.persistence))
+            .await?;
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
+use log::info;
 use sminer::{
-    analysis::{init_dispatcher, replay},
+    analysis::{init_dispatcher, replay, ReplayMode},
     init_log,
     vo::core::AppContext,
     Result,
@@ -20,15 +21,18 @@ fn test_replay() -> Result<()> {
 
         let files = vec![
             "tickers20220309",
-            // "tickers20220310",
-            // "tickers20220311",
-            // "tickers20220314",
-            // "tickers20220315",
+            "tickers20220310",
+            "tickers20220311",
+            "tickers20220314",
+            "tickers20220315",
+            "tickers20220316",
         ];
         let _delay_for_mongo: u64 = 20;
         let _delay_for_es: u64 = 10;
         for file in files {
-            replay(&context, &format!("tmp/{}", &file), _delay_for_mongo).await?
+            context.persistence.drop_collection(file).await?;
+            context.persistence.drop_index(file).await?;
+            replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
         }
         Ok(())
     });

@@ -3,11 +3,13 @@ use crate::{vo::biz::Ticker, Result};
 use chrono::{TimeZone, Utc};
 use log::info;
 use mongodb::{
-    bson::doc,
+    bson::{doc, Document},
     options::{ClientOptions, FindOptions},
     Client, Cursor,
 };
 use std::{sync::Arc, thread};
+
+const database_name: &str = "yahoo";
 
 pub async fn get_mongo_client() -> Result<Client> {
     let client_options = ClientOptions::parse("mongodb://root:password@localhost:27017").await?;
@@ -43,6 +45,18 @@ impl DataSource<Client> for PersistenceContext {
     }
 }
 
+impl PersistenceContext {
+    pub async fn drop_collection(&self, name: &str) -> Result<()> {
+        let client: Client = self.get_connection()?;
+        let db = client.database(database_name);
+        info!("Drop MongoDB collection: {}", name);
+        let collection = db.collection::<Document>(name);
+        collection.drop(None).await?;
+        self.close_connection(client)?;
+        Ok(())
+    }
+}
+
 impl Ticker {
     pub async fn save_to_mongo(&self, context: Arc<PersistenceContext>) -> Result<()> {
         let collection_name = format!(
@@ -50,10 +64,10 @@ impl Ticker {
             Utc.timestamp_millis(self.time).format("%Y%m%d")
         );
         let client: Client = context.get_connection()?;
-        let db = client.database("yahoo");
-        let typed_collection = db.collection::<Ticker>(&collection_name);
+        let db = client.database(database_name);
+        let collection = db.collection::<Ticker>(&collection_name);
 
-        let _ = typed_collection.insert_one(self, None).await?;
+        let _ = collection.insert_one(self, None).await?;
         context.close_connection(client)?;
         Ok(())
     }
@@ -62,8 +76,8 @@ impl Ticker {
 pub async fn query_ticker(db_name: &str, collection: &str) -> Result<Cursor<Ticker>> {
     let client = get_mongo_client().await?;
     let db = client.database(db_name);
-    let typed_collection = db.collection::<Ticker>(collection);
-    let cursor = typed_collection
+    let collection = db.collection::<Ticker>(collection);
+    let cursor = collection
         .find(
             doc! {},
             FindOptions::builder()

@@ -67,7 +67,15 @@ async fn handle_message_for_elasticsearch(
     Ok(())
 }
 
-pub async fn replay(context: &AppContext, file: &str, delay_per_record_millis: u64) -> Result<()> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReplayMode {
+    // Sync mode for normal replay
+    Sync,
+    // Async mode for dispatch test
+    Async { delay: u64 },
+}
+
+pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Result<()> {
     info!("Loading tickers: {}", file);
 
     let f = File::open(file)?;
@@ -89,7 +97,11 @@ pub async fn replay(context: &AppContext, file: &str, delay_per_record_millis: u
     info!("Loaded tickers: {} for {}", total, file);
 
     for ticker in tickers {
-        context.dispatch(&ticker).await?;
+        if mode == ReplayMode::Sync {
+            context.dispatch_direct(&ticker).await?;
+        } else {
+            context.dispatch(&ticker).await?;
+        }
         handl_count = handl_count + 1;
 
         if seconds < Utc::now().timestamp() / 60 {
@@ -98,8 +110,10 @@ pub async fn replay(context: &AppContext, file: &str, delay_per_record_millis: u
         }
 
         // delay for backpress
-        if delay_per_record_millis > 0 {
-            sleep(Duration::from_millis(delay_per_record_millis));
+        if let ReplayMode::Async { delay } = mode {
+            if delay > 0 {
+                sleep(Duration::from_millis(delay));
+            }
         }
     }
     info!("Tickers: {} replay done", file);

@@ -10,10 +10,11 @@ use elasticsearch::{
         transport::{SingleNodeConnectionPool, TransportBuilder},
         Url,
     },
+    indices::IndicesGetParts,
     Elasticsearch, IndexParts,
 };
 use futures::executor::block_on;
-use log::warn;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -44,6 +45,23 @@ impl DataSource<Elasticsearch> for PersistenceContext {
         let mutex = Arc::clone(&self.elastic_connections);
         let mut pool = mutex.lock().unwrap();
         pool.push(client);
+        Ok(())
+    }
+}
+
+impl PersistenceContext {
+    pub async fn drop_index(&self, _name: &str) -> Result<()> {
+        // let time = DateTime::parse_from_str(name, "tickers%Y%m%d")?;
+        // let index_name = &format!("tickers-{}", time.format("%Y-%m-%d"));
+        // let client: Elasticsearch = self.get_connection()?;
+        // info!("Drop ElasticSearch index: {}", index_name);
+        // let jj = client
+        //     .indices()
+        //     .get(IndicesGetParts::Index(&[index_name.as_str()]))
+        //     .allow_no_indices(true)
+        //     .send()
+        //     .await?;
+        // self.close_connection(client)?;
         Ok(())
     }
 }
@@ -106,7 +124,7 @@ impl From<TickerEvent> for ElasticTicker {
 }
 
 impl ElasticTicker {
-    pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<bool> {
+    pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let client: Elasticsearch = datasource.get_connection()?;
 
         let time = DateTime::parse_from_rfc3339(&self.time)?;
@@ -124,9 +142,7 @@ impl ElasticTicker {
         datasource.close_connection(client)?;
         if !successful {
             warn!("result = {:?}, {:?}", response, self);
-            Ok(false)
-        } else {
-            Ok(true)
         }
+        Ok(())
     }
 }

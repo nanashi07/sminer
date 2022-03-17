@@ -1,4 +1,4 @@
-use elasticsearch::{http::request::JsonBody, BulkParts};
+use elasticsearch::{cat::CatIndicesParts, http::request::JsonBody, BulkParts};
 use futures::TryStreamExt;
 use log::{debug, info};
 use serde_json::{json, Value};
@@ -111,7 +111,7 @@ async fn test_import_into_es_single() -> Result<()> {
 
         for ticker in tickers {
             debug!("ticker = {:?}", &ticker);
-            let _ = ticker
+            ticker
                 .save_to_elasticsearch(Arc::clone(&persistence))
                 .await?;
         }
@@ -150,6 +150,28 @@ async fn test_import_into_es_bulk() -> Result<()> {
 
     let response_body = response.json::<Value>().await?;
     info!("response = {}", response_body);
+
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_delete_index() -> Result<()> {
+    init_log("INFO").await?;
+    // FIXME
+    let client = get_elasticsearch_client().await?;
+
+    let response = client
+        .cat()
+        .indices(CatIndicesParts::Index(&["*"]))
+        .send()
+        .await?;
+
+    let response_body = response.json::<Value>().await?;
+    for record in response_body.as_array().unwrap() {
+        // print the name of each index
+        info!("index = {}", record["index"].as_str().unwrap());
+    }
 
     Ok(())
 }
