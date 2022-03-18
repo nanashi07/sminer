@@ -93,8 +93,6 @@ pub struct Ticker {
     pub change: f32,
 }
 
-impl Ticker {}
-
 impl From<YahooTicker> for Ticker {
     fn from(value: YahooTicker) -> Self {
         Ticker {
@@ -137,8 +135,23 @@ impl From<TickerEvent> for Ticker {
     }
 }
 
-pub enum Event {
-    MonggoEvent { ticker: TickerEvent },
-    ElasticSearchEvent { ticker: TickerEvent },
-    CalculateEvent { ticker: TickerEvent },
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TimeUnit {
+    SecondTen = 10,
+    SecondThirty = 30,
+    MinuteOne = 60,
+    MinuteTwo = 120,
+    MinuteThree = 180,
+    MinuteFour = 240,
+    MinuteFive = 300,
+    MinuteTen = 600,
+    MinuteTwenty = 1200,
+    MinuteThirty = 1800,
+    HourOne = 3600,
+}
+
+impl TimeUnit {
+    pub fn ii() -> Vec<TimeUnit> {
+        vec![]
+    }
 }

@@ -1,8 +1,7 @@
-use log::info;
 use sminer::{
-    analysis::{init_dispatcher, replay, ReplayMode},
+    analysis::{replay, ReplayMode},
     init_log,
-    vo::core::AppContext,
+    vo::core::{AppContext, Config},
     Result,
 };
 use tokio::runtime::Runtime;
@@ -14,18 +13,15 @@ fn test_replay() -> Result<()> {
     let rt = Runtime::new()?;
     let _: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
-        let context = AppContext::new();
-        init_dispatcher(&context.sender, &context.persistence).await?;
-        // FIXME: temp sollution
-        context.persistence.init_mongo().await?;
+        let context = AppContext::new().init(&Config::new()).await?;
 
         let files = vec![
             "tickers20220309",
-            "tickers20220310",
-            "tickers20220311",
-            "tickers20220314",
-            "tickers20220315",
-            "tickers20220316",
+            // "tickers20220310",
+            // "tickers20220311",
+            // "tickers20220314",
+            // "tickers20220315",
+            // "tickers20220316",
         ];
         let _delay_for_mongo: u64 = 20;
         let _delay_for_es: u64 = 10;

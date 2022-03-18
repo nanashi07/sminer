@@ -8,6 +8,7 @@ use log::{debug, error, info, warn};
 use std::error::Error;
 use std::fmt::Display;
 use std::net::TcpStream;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use websocket::header::{Headers, UserAgent};
@@ -60,7 +61,7 @@ pub async fn send_subscribe(
 }
 
 pub async fn consume(
-    context: &AppContext,
+    context: &Arc<AppContext>,
     addr: &str,
     symbols: Vec<&str>,
     end_time: Option<i64>,
@@ -74,7 +75,7 @@ pub async fn consume(
 
     loop {
         if connected {
-            match handle_message(&context, &mut client).await {
+            match handle_message(&Arc::clone(&context), &mut client).await {
                 Ok(HandleResult::NexMessage) => {
                     continue;
                 }
@@ -116,7 +117,7 @@ async fn pong(client: &mut Client<TlsStream<TcpStream>>, data: Vec<u8>) -> Resul
 }
 
 async fn handle_message(
-    context: &AppContext,
+    context: &Arc<AppContext>,
     client: &mut Client<TlsStream<TcpStream>>,
 ) -> Result<HandleResult> {
     match client.recv_message()? {

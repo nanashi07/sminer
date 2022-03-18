@@ -6,7 +6,7 @@ use sminer::{
     init_log,
     persist::{
         es::{get_elasticsearch_client, ElasticTicker},
-        mongo::{get_mongo_client, query_ticker},
+        mongo::{get_mongo_client, query_ticker, DATABASE_NAME},
         PersistenceContext,
     },
     vo::biz::Ticker,
@@ -44,7 +44,7 @@ async fn test_import_into_mongo() -> Result<()> {
             .collect();
         info!("Loaded tickers: {} for {}", tickers.len(), file);
 
-        let db = client.database("yahoo");
+        let db = client.database(DATABASE_NAME);
         let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
         typed_collection.insert_many(tickers, None).await?;
     }
@@ -55,7 +55,7 @@ async fn test_import_into_mongo() -> Result<()> {
 #[ignore = "used for test imported data"]
 async fn test_query_ticker() -> Result<()> {
     init_log("TRACE").await?;
-    let mut cursor = query_ticker("yahoo", "tickers20220311").await?;
+    let mut cursor = query_ticker(DATABASE_NAME, "tickers20220311").await?;
     while let Some(ticker) = cursor.try_next().await? {
         info!("{:?}", ticker);
     }
@@ -67,9 +67,9 @@ async fn test_query_ticker() -> Result<()> {
 async fn test_export_mongo_by_order() -> Result<()> {
     init_log("INFO").await?;
 
-    let collections = vec!["tickers20220316"];
+    let collections = vec!["tickers20220317"];
     for collection in collections {
-        let mut cursor = query_ticker("yahoo", collection).await?;
+        let mut cursor = query_ticker(DATABASE_NAME, collection).await?;
         std::fs::create_dir_all("tmp")?;
         let file = OpenOptions::new()
             .write(true)

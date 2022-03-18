@@ -4,17 +4,16 @@ use crate::{
     vo::biz::{MarketHoursType, QuoteType, Ticker},
     Result,
 };
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use elasticsearch::{
     http::{
         transport::{SingleNodeConnectionPool, TransportBuilder},
         Url,
     },
-    indices::IndicesGetParts,
     Elasticsearch, IndexParts,
 };
 use futures::executor::block_on;
-use log::{info, warn};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -67,22 +66,11 @@ impl PersistenceContext {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum DataType {
-    Realtime,
-    SecondTen,
-    SecondThirty,
-    MinuteOne,
-    MinuteTwo,
-    MinuteThree,
-    MinuteFour,
-    MinuteFive,
-    MinuteTen,
-    MinuteTwenty,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ElasticTicker {
+    // Symbol name
     pub id: String,
+    // TimeUnit
+    pub unit: i64,
     pub price: f32,
     pub time: String,
 
@@ -96,9 +84,10 @@ pub struct ElasticTicker {
 impl From<Ticker> for ElasticTicker {
     fn from(t: Ticker) -> Self {
         ElasticTicker {
-            time: Utc.timestamp_millis(t.time).to_rfc3339(),
             id: t.id.clone(),
+            unit: 0,
             price: t.price,
+            time: Utc.timestamp_millis(t.time).to_rfc3339(),
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             day_volume: t.day_volume,
@@ -111,9 +100,10 @@ impl From<Ticker> for ElasticTicker {
 impl From<TickerEvent> for ElasticTicker {
     fn from(t: TickerEvent) -> Self {
         ElasticTicker {
-            time: Utc.timestamp_millis(t.time).to_rfc3339(),
             id: t.id.clone(),
+            unit: 0,
             price: t.price,
+            time: Utc.timestamp_millis(t.time).to_rfc3339(),
             quote_type: t.quote_type.try_into().unwrap(),
             market_hours: t.market_hours.try_into().unwrap(),
             day_volume: t.day_volume,
@@ -124,16 +114,19 @@ impl From<TickerEvent> for ElasticTicker {
 }
 
 impl ElasticTicker {
+    // Get ticker info time
+    fn timestamp(&self) -> DateTime<FixedOffset> {
+        DateTime::parse_from_rfc3339(&self.time).unwrap()
+    }
+    // Resolve index name by ticker info time
+    fn index_name(&self) -> String {
+        format!("tickers-{}", self.timestamp().format("%Y-%m-%d"))
+    }
     pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let client: Elasticsearch = datasource.get_connection()?;
 
-        let time = DateTime::parse_from_rfc3339(&self.time)?;
-
         let response = client
-            .index(IndexParts::Index(&format!(
-                "tickers-{}",
-                time.format("%Y-%m-%d")
-            )))
+            .index(IndexParts::Index(&self.index_name()))
             .body(json!(self))
             .send()
             .await?;

@@ -1,30 +1,35 @@
 use crate::{
     persist::{es::ElasticTicker, PersistenceContext},
     proto::biz::TickerEvent,
-    vo::{biz::Ticker, core::AppContext},
+    vo::{
+        biz::{Ticker, TimeUnit},
+        core::AppContext,
+    },
     Result,
 };
 use chrono::Utc;
 use log::{error, info};
 use std::{
+    collections::LinkedList,
     fs::File,
     io::{BufRead, BufReader},
-    sync::Arc,
+    sync::{Arc, RwLock},
     thread::sleep,
     time::Duration,
 };
-use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::broadcast::Receiver;
 
-pub async fn init_dispatcher(
-    sender: &Sender<TickerEvent>,
-    persistence: &Arc<PersistenceContext>,
-) -> Result<()> {
+pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
+    let data_sender = &context.data_sender;
+    let statistic_sender = &context.statistic_sender;
+    let persistence = Arc::clone(&context.persistence);
+
     info!("Initialize mongo event handler");
-    let mut rx = sender.subscribe();
-    let context = Arc::clone(&persistence);
+    let mut rx = data_sender.subscribe();
+    let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
         loop {
-            match handle_message_for_mongo(&mut rx, &context).await {
+            match handle_message_for_mongo(&mut rx, &ctx).await {
                 Ok(_) => {}
                 Err(err) => {
                     error!("Handle ticker for mongo error: {:?}", err);
@@ -34,11 +39,11 @@ pub async fn init_dispatcher(
     });
 
     info!("Initialize elasticsearch event handler");
-    let mut rx = sender.subscribe();
-    let context = Arc::clone(&persistence);
+    let mut rx = data_sender.subscribe();
+    let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
         loop {
-            match handle_message_for_elasticsearch(&mut rx, &context).await {
+            match handle_message_for_elasticsearch(&mut rx, &ctx).await {
                 Ok(_) => {}
                 Err(err) => {
                     error!("Handle ticker for elasticsearch error: {:?}", err);
@@ -46,6 +51,21 @@ pub async fn init_dispatcher(
             }
         }
     });
+
+    info!("Initialize event statistic calculate handler");
+    let mut rx = statistic_sender.subscribe();
+    let root = Arc::clone(&context);
+    tokio::spawn(async move {
+        loop {
+            match handle_message_for_statistic(&mut rx, &root).await {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Handle ticker for statistc error: {:?}", err);
+                }
+            }
+        }
+    });
+
     Ok(())
 }
 
@@ -64,6 +84,27 @@ async fn handle_message_for_elasticsearch(
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
     ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
+    Ok(())
+}
+
+async fn handle_message_for_statistic(
+    rx: &mut Receiver<TickerEvent>,
+    context: &Arc<AppContext>,
+) -> Result<()> {
+    let ticker: Ticker = rx.recv().await?.into();
+    let ctx = Arc::clone(context);
+    // Add into source list
+    let tickers_map = ctx.tickers.write().unwrap();
+    if let Some(value) = tickers_map.get(&ticker.id) {
+        let mut list = value.write().unwrap();
+        list.push_front(ticker.clone());
+    } else {
+        let mut list: LinkedList<Ticker> = LinkedList::new();
+        list.push_front(ticker.clone());
+        let mut tickers_map = tickers_map;
+        tickers_map.insert(ticker.id, RwLock::new(list));
+    }
+    // TODO: analysis
     Ok(())
 }
 
