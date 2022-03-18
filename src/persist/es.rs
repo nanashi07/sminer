@@ -51,7 +51,7 @@ impl DataSource<Elasticsearch> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_index(&self, name: &str) -> Result<()> {
-        let time = DateTime::parse_from_str(name, "tickers%Y%m%d")?;
+        let time = Utc.datetime_from_str(&format!("{} 00:00:00", name)[7..], "%Y%m%d %H:%M:%S")?;
         let index_name = &format!("tickers-{}", time.format("%Y-%m-%d"));
         let client: Elasticsearch = self.get_connection()?;
         info!("Delete Elasticsearch index: {}", index_name);

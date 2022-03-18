@@ -1,3 +1,4 @@
+use log::error;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
@@ -11,7 +12,7 @@ use tokio::runtime::Runtime;
 #[ignore = "manually run only, replay from file"]
 fn test_replay() -> Result<()> {
     let rt = Runtime::new()?;
-    let _: Result<()> = rt.block_on(async {
+    let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
         let context = AppContext::new().init(&Config::new()).await?;
 
@@ -32,5 +33,8 @@ fn test_replay() -> Result<()> {
         }
         Ok(())
     });
+    if let Err(err) = result {
+        error!("{}", err);
+    }
     Ok(())
 }
