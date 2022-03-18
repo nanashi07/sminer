@@ -27,13 +27,15 @@ mod mongo {
         io::{BufWriter, Write},
     };
 
+    const MONGO_URI: &str = "mongodb://root:password@localhost:27017";
+
     #[tokio::test]
     #[ignore = "used for import data"]
     async fn test_import_into_mongo() -> Result<()> {
         init_log("DEBUG").await?;
 
         let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
-        let client = get_mongo_client().await?;
+        let client = get_mongo_client(MONGO_URI).await?;
 
         for file in files {
             let tickers: Vec<Ticker> = read_from_file(file)?
@@ -53,7 +55,7 @@ mod mongo {
     #[ignore = "used for test imported data"]
     async fn test_query_ticker() -> Result<()> {
         init_log("TRACE").await?;
-        let mut cursor = query_ticker(DATABASE_NAME, "tickers20220311").await?;
+        let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, "tickers20220311").await?;
         while let Some(ticker) = cursor.try_next().await? {
             info!("{:?}", ticker);
         }
@@ -67,7 +69,7 @@ mod mongo {
 
         let collections = vec!["tickers20220317"];
         for collection in collections {
-            let mut cursor = query_ticker(DATABASE_NAME, collection).await?;
+            let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, collection).await?;
             std::fs::create_dir_all("tmp")?;
             let file = OpenOptions::new()
                 .write(true)
@@ -100,16 +102,20 @@ mod elastic {
             es::{get_elasticsearch_client, ElasticTicker},
             DataSource, PersistenceContext,
         },
-        vo::biz::Ticker,
+        vo::{biz::Ticker, core::AppConfig},
         Result,
     };
     use std::sync::Arc;
+
+    const ELASTICSEARCH_URI: &str = "http://localhost:9200";
 
     #[tokio::test]
     #[ignore = "used for test imported data"]
     async fn test_import_into_es_single() -> Result<()> {
         init_log("INFO").await?;
-        let persistence = Arc::new(PersistenceContext::new());
+        let mut config = AppConfig::new();
+        config.data_source.elasticsearch.uri = ELASTICSEARCH_URI.to_string();
+        let persistence = Arc::new(PersistenceContext::new(Arc::new(config)));
 
         let files = vec!["tickers20220309"];
 
@@ -150,7 +156,7 @@ mod elastic {
 
         info!("ticker size: {}", &tickers.len());
 
-        let client = get_elasticsearch_client().await?;
+        let client = get_elasticsearch_client(ELASTICSEARCH_URI).await?;
 
         // FIXME: bulk failed
         let response = client
@@ -169,7 +175,9 @@ mod elastic {
     #[ignore]
     async fn test_delete_index() -> Result<()> {
         init_log("INFO").await?;
-        let persistence = Arc::new(PersistenceContext::new());
+        let mut config = AppConfig::new();
+        config.data_source.elasticsearch.uri = ELASTICSEARCH_URI.to_string();
+        let persistence = Arc::new(PersistenceContext::new(Arc::new(config)));
         let client: Elasticsearch = persistence.get_connection()?;
 
         let response = client

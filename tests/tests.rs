@@ -4,11 +4,13 @@ mod analysis;
 mod persist;
 #[cfg(test)]
 mod provider;
+#[cfg(test)]
+mod vo;
 
 use chrono::{Duration, TimeZone, Utc};
 use log::info;
 use sminer::provider::yahoo::consume;
-use sminer::vo::core::{AppContext, Config};
+use sminer::vo::core::{AppConfig, AppContext};
 use sminer::{init_log, Result};
 use std::ops::Add;
 use std::sync::Arc;
@@ -23,7 +25,9 @@ fn test_consume_yahoo_tickers() -> Result<()> {
     let rt = Runtime::new().unwrap();
     let _: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
-        let context = AppContext::new().init(&Config::new()).await?;
+        let context = AppContext::new(AppConfig::load("config.yaml")?)
+            .init()
+            .await?;
 
         let end_time = Utc::now().add(Duration::minutes(2)).timestamp();
         info!(
@@ -31,16 +35,11 @@ fn test_consume_yahoo_tickers() -> Result<()> {
             Utc.timestamp_millis(end_time),
         );
 
-        consume(
-            &Arc::clone(&context),
-            YAHOO_WS,
-            vec![
-                "SPY", "TQQQ", "SQQQ", "SOXL", "SOXS", "SPXL", "SPXS", "LABD", "LABU", "TNA",
-                "TZA", "UDOW", "SDOW", "YANG", "YINN",
-            ],
-            Option::None,
-        )
-        .await?;
+        let symbols = context.config.symbols();
+
+        info!("Loaded symbols: {:?}", &symbols);
+
+        consume(&Arc::clone(&context), YAHOO_WS, symbols, Option::None).await?;
 
         Ok(())
     });

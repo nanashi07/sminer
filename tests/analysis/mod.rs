@@ -2,7 +2,7 @@ use log::error;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
-    vo::core::{AppContext, Config},
+    vo::core::{AppConfig, AppContext},
     Result,
 };
 use tokio::runtime::Runtime;
@@ -14,7 +14,9 @@ fn test_replay() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
-        let context = AppContext::new().init(&Config::new()).await?;
+        let context = AppContext::new(AppConfig::load("config.yaml")?)
+            .init()
+            .await?;
 
         let files = vec![
             "tickers20220309",

@@ -11,8 +11,8 @@ use std::{sync::Arc, thread};
 
 pub const DATABASE_NAME: &str = "yahoo";
 
-pub async fn get_mongo_client() -> Result<Client> {
-    let client_options = ClientOptions::parse("mongodb://root:password@localhost:27017").await?;
+pub async fn get_mongo_client(uri: &str) -> Result<Client> {
+    let client_options = ClientOptions::parse(uri).await?;
     let client = Client::with_options(client_options)?;
     Ok(client)
 }
@@ -73,8 +73,8 @@ impl Ticker {
     }
 }
 
-pub async fn query_ticker(db_name: &str, collection: &str) -> Result<Cursor<Ticker>> {
-    let client = get_mongo_client().await?;
+pub async fn query_ticker(uri: &str, db_name: &str, collection: &str) -> Result<Cursor<Ticker>> {
+    let client = get_mongo_client(uri).await?;
     let db = client.database(db_name);
     let collection = db.collection::<Ticker>(collection);
     let cursor = collection

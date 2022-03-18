@@ -19,8 +19,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 
-pub async fn get_elasticsearch_client() -> Result<Elasticsearch> {
-    let url = Url::parse("http://localhost:9200")?;
+pub async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
+    let url = Url::parse(uri)?;
     let conn_pool = SingleNodeConnectionPool::new(url);
     let transport = TransportBuilder::new(conn_pool).disable_proxy().build()?;
     let client = Elasticsearch::new(transport);
@@ -33,7 +33,8 @@ impl DataSource<Elasticsearch> for PersistenceContext {
         let mutex = Arc::clone(&self.elastic_connections);
         let mut pool = mutex.lock().unwrap();
         if pool.is_empty() {
-            let client = block_on(get_elasticsearch_client())?;
+            let uri = &self.config.data_source.elasticsearch.uri;
+            let client = block_on(get_elasticsearch_client(uri))?;
             Ok(client)
         } else {
             let client = pool.pop().unwrap();

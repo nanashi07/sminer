@@ -1,0 +1,35 @@
+dataSource:
+  mongodb:
+    uri: mongodb://root:password@localhost:27017
+  elasticsearch:
+    uri: http://localhost:9200
+tickers:
+  symbols:
+    - bull:
+        id: TQQQ
+      bear:
+        id: SQQQ
+    - bull:
+        id: SOXL
+      bear:
+        id: SOXS
+    - bull:
+        id: SPXL
+      bear:
+        id: SPXS
+    - bull:
+        id: LABU
+      bear:
+        id: LABD
+    - bull:
+        id: TNA
+      bear:
+        id: TZA
+    - bull:
+        id: YINN
+      bear:
+        id: YANG
+    - bull:
+        id: UDOW
+      bear:
+        id: SDOW

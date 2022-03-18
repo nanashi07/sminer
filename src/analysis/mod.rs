@@ -102,6 +102,7 @@ async fn handle_message_for_statistic(
         tickers_map.insert(ticker.id, RwLock::new(list));
     }
     // TODO: analysis
+
     Ok(())
 }
 
