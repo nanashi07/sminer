@@ -1,24 +1,10 @@
-use elasticsearch::{cat::CatIndicesParts, http::request::JsonBody, BulkParts};
-use futures::TryStreamExt;
-use log::{debug, info};
-use serde_json::{json, Value};
-use sminer::{
-    init_log,
-    persist::{
-        es::{get_elasticsearch_client, ElasticTicker},
-        mongo::{get_mongo_client, query_ticker, DATABASE_NAME},
-        PersistenceContext,
-    },
-    vo::biz::Ticker,
-    Result,
-};
+use sminer::Result;
 use std::{
-    fs::{File, OpenOptions},
-    io::{BufRead, BufReader, BufWriter, Write},
-    sync::Arc,
+    fs::File,
+    io::{BufRead, BufReader},
 };
 
-pub fn read_from_file(file: &str) -> Result<Vec<String>> {
+fn read_from_file(file: &str) -> Result<Vec<String>> {
     let f = File::open(format!("tmp/{}", file))?;
     let reader = BufReader::new(f);
 
@@ -26,152 +12,178 @@ pub fn read_from_file(file: &str) -> Result<Vec<String>> {
     Ok(lines)
 }
 
-#[tokio::test]
-#[ignore = "used for import data"]
-async fn test_import_into_mongo() -> Result<()> {
-    init_log("DEBUG").await?;
+mod mongo {
+    use crate::persist::read_from_file;
+    use futures::TryStreamExt;
+    use log::{debug, info};
+    use sminer::{
+        init_log,
+        persist::mongo::{get_mongo_client, query_ticker, DATABASE_NAME},
+        vo::biz::Ticker,
+        Result,
+    };
+    use std::{
+        fs::OpenOptions,
+        io::{BufWriter, Write},
+    };
 
-    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
-    let client = get_mongo_client().await?;
+    #[tokio::test]
+    #[ignore = "used for import data"]
+    async fn test_import_into_mongo() -> Result<()> {
+        init_log("DEBUG").await?;
 
-    for file in files {
-        let tickers: Vec<Ticker> = read_from_file(file)?
-            .iter()
-            .map(|line| {
-                let ticker: Ticker = serde_json::from_str(line).unwrap();
-                ticker
-            })
-            .collect();
-        info!("Loaded tickers: {} for {}", tickers.len(), file);
+        let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+        let client = get_mongo_client().await?;
 
-        let db = client.database(DATABASE_NAME);
-        let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
-        typed_collection.insert_many(tickers, None).await?;
+        for file in files {
+            let tickers: Vec<Ticker> = read_from_file(file)?
+                .iter()
+                .map(|line| {
+                    let ticker: Ticker = serde_json::from_str(line).unwrap();
+                    ticker
+                })
+                .collect();
+            info!("Loaded tickers: {} for {}", tickers.len(), file);
+
+            let db = client.database(DATABASE_NAME);
+            let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
+            typed_collection.insert_many(tickers, None).await?;
+        }
+        Ok(())
     }
-    Ok(())
-}
 
-#[tokio::test]
-#[ignore = "used for test imported data"]
-async fn test_query_ticker() -> Result<()> {
-    init_log("TRACE").await?;
-    let mut cursor = query_ticker(DATABASE_NAME, "tickers20220311").await?;
-    while let Some(ticker) = cursor.try_next().await? {
-        info!("{:?}", ticker);
-    }
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "used for test imported data"]
-async fn test_export_mongo_by_order() -> Result<()> {
-    init_log("INFO").await?;
-
-    let collections = vec!["tickers20220317"];
-    for collection in collections {
-        let mut cursor = query_ticker(DATABASE_NAME, collection).await?;
-        std::fs::create_dir_all("tmp")?;
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&format!("tmp/{}", collection))?;
-        let mut writer = BufWriter::new(file);
-        info!("Export collection: {}", collection);
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_query_ticker() -> Result<()> {
+        init_log("TRACE").await?;
+        let mut cursor = query_ticker(DATABASE_NAME, "tickers20220311").await?;
         while let Some(ticker) = cursor.try_next().await? {
-            debug!("{:?}", ticker);
-            // write file
-            let json = serde_json::to_string(&ticker)?;
-            write!(&mut writer, "{}\n", &json)?;
+            info!("{:?}", ticker);
         }
+        Ok(())
     }
-    Ok(())
+
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_export_mongo_by_order() -> Result<()> {
+        init_log("INFO").await?;
+
+        let collections = vec!["tickers20220317"];
+        for collection in collections {
+            let mut cursor = query_ticker(DATABASE_NAME, collection).await?;
+            std::fs::create_dir_all("tmp")?;
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&format!("tmp/{}", collection))?;
+            let mut writer = BufWriter::new(file);
+            info!("Export collection: {}", collection);
+            while let Some(ticker) = cursor.try_next().await? {
+                debug!("{:?}", ticker);
+                // write file
+                let json = serde_json::to_string(&ticker)?;
+                write!(&mut writer, "{}\n", &json)?;
+            }
+        }
+        Ok(())
+    }
 }
 
-#[tokio::test]
-#[ignore = "used for test imported data"]
-async fn test_import_into_es_single() -> Result<()> {
-    init_log("INFO").await?;
+mod elastic {
+    use crate::persist::read_from_file;
+    use elasticsearch::{cat::CatIndicesParts, http::request::JsonBody, BulkParts};
+    use log::{debug, info};
+    use serde_json::{json, Value};
+    use sminer::{
+        init_log,
+        persist::{
+            es::{get_elasticsearch_client, ElasticTicker},
+            PersistenceContext,
+        },
+        vo::biz::Ticker,
+        Result,
+    };
+    use std::sync::Arc;
 
-    let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_import_into_es_single() -> Result<()> {
+        init_log("INFO").await?;
+        let persistence = Arc::new(PersistenceContext::new());
 
-    let persistence = Arc::new(PersistenceContext::new());
+        let files = vec!["tickers20220309"];
 
-    for file in files {
-        let tickers: Vec<ElasticTicker> = read_from_file(file)?
-            .iter()
-            .map(|line| {
-                let ticker: Ticker = serde_json::from_str(&line).unwrap();
+        for file in files {
+            let tickers: Vec<ElasticTicker> = read_from_file(file)?
+                .iter()
+                .take(1000) // only import 1000 documents
+                .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+                .map(|t| ElasticTicker::from(t))
+                .collect();
+
+            info!("ticker size: {} for file {}", &tickers.len(), file);
+
+            for ticker in tickers {
+                debug!("ticker = {:?}", &ticker);
                 ticker
-            })
+                    .save_to_elasticsearch(Arc::clone(&persistence))
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_import_into_es_bulk() -> Result<()> {
+        init_log("INFO").await?;
+
+        let file = "tickers20220309";
+
+        let tickers: Vec<JsonBody<_>> = read_from_file(file)?
+            .iter()
+            .take(10)
+            .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
             .map(|t| ElasticTicker::from(t))
+            .map(|t| json!(t).into())
             .collect();
 
-        info!("ticker size: {} for file {}", &tickers.len(), file);
+        info!("ticker size: {}", &tickers.len());
 
-        for ticker in tickers {
-            debug!("ticker = {:?}", &ticker);
-            ticker
-                .save_to_elasticsearch(Arc::clone(&persistence))
-                .await?;
+        let client = get_elasticsearch_client().await?;
+
+        // FIXME: bulk failed
+        let response = client
+            .bulk(BulkParts::Index("tickers-bulk"))
+            .body(tickers)
+            .send()
+            .await?;
+
+        let response_body = response.json::<Value>().await?;
+        info!("response = {}", response_body);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_delete_index() -> Result<()> {
+        init_log("INFO").await?;
+        let client = get_elasticsearch_client().await?;
+
+        let response = client
+            .cat()
+            .indices(CatIndicesParts::Index(&["*"]))
+            .send()
+            .await?;
+
+        let response_body = response.json::<Value>().await?;
+        for record in response_body.as_array().unwrap() {
+            // print the name of each index
+            info!("index = {}", record["index"].as_str().unwrap());
         }
+
+        Ok(())
     }
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "used for test imported data"]
-async fn test_import_into_es_bulk() -> Result<()> {
-    init_log("INFO").await?;
-
-    let file = "tickers20220309";
-
-    let tickers: Vec<JsonBody<_>> = read_from_file(file)?
-        .iter()
-        .take(10)
-        .map(|line| {
-            let ticker: Ticker = serde_json::from_str(&line).unwrap();
-            ticker
-        })
-        .map(|t| ElasticTicker::from(t))
-        .map(|t| json!(t).into())
-        .collect();
-
-    info!("ticker size: {}", &tickers.len());
-
-    let client = get_elasticsearch_client().await?;
-
-    // FIXME: bulk failed
-    let response = client
-        .bulk(BulkParts::Index("tickers-bulk"))
-        .body(tickers)
-        .send()
-        .await?;
-
-    let response_body = response.json::<Value>().await?;
-    info!("response = {}", response_body);
-
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore]
-async fn test_delete_index() -> Result<()> {
-    init_log("INFO").await?;
-    // FIXME
-    let client = get_elasticsearch_client().await?;
-
-    let response = client
-        .cat()
-        .indices(CatIndicesParts::Index(&["*"]))
-        .send()
-        .await?;
-
-    let response_body = response.json::<Value>().await?;
-    for record in response_body.as_array().unwrap() {
-        // print the name of each index
-        info!("index = {}", record["index"].as_str().unwrap());
-    }
-
-    Ok(())
 }
