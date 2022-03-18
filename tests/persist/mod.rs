@@ -38,10 +38,7 @@ mod mongo {
         for file in files {
             let tickers: Vec<Ticker> = read_from_file(file)?
                 .iter()
-                .map(|line| {
-                    let ticker: Ticker = serde_json::from_str(line).unwrap();
-                    ticker
-                })
+                .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
                 .collect();
             info!("Loaded tickers: {} for {}", tickers.len(), file);
 
@@ -92,14 +89,16 @@ mod mongo {
 
 mod elastic {
     use crate::persist::read_from_file;
-    use elasticsearch::{cat::CatIndicesParts, http::request::JsonBody, BulkParts};
-    use log::{debug, info};
+    use elasticsearch::{
+        http::request::JsonBody, indices::IndicesDeleteParts, BulkParts, Elasticsearch,
+    };
+    use log::{debug, error, info};
     use serde_json::{json, Value};
     use sminer::{
         init_log,
         persist::{
             es::{get_elasticsearch_client, ElasticTicker},
-            PersistenceContext,
+            DataSource, PersistenceContext,
         },
         vo::biz::Ticker,
         Result,
@@ -118,7 +117,7 @@ mod elastic {
             let tickers: Vec<ElasticTicker> = read_from_file(file)?
                 .iter()
                 .take(1000) // only import 1000 documents
-                .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+                .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
                 .map(|t| ElasticTicker::from(t))
                 .collect();
 
@@ -143,8 +142,8 @@ mod elastic {
 
         let tickers: Vec<JsonBody<_>> = read_from_file(file)?
             .iter()
-            .take(10)
-            .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+            .take(10) // take 10 documents for test only
+            .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
             .map(|t| ElasticTicker::from(t))
             .map(|t| json!(t).into())
             .collect();
@@ -170,20 +169,21 @@ mod elastic {
     #[ignore]
     async fn test_delete_index() -> Result<()> {
         init_log("INFO").await?;
-        let client = get_elasticsearch_client().await?;
+        let persistence = Arc::new(PersistenceContext::new());
+        let client: Elasticsearch = persistence.get_connection()?;
 
         let response = client
-            .cat()
-            .indices(CatIndicesParts::Index(&["*"]))
+            .indices()
+            .delete(IndicesDeleteParts::Index(&["tickers-2022-03-09"]))
             .send()
             .await?;
 
-        let response_body = response.json::<Value>().await?;
-        for record in response_body.as_array().unwrap() {
-            // print the name of each index
-            info!("index = {}", record["index"].as_str().unwrap());
+        if response.status_code().is_success() {
+            let response_body = response.json::<Value>().await?;
+            info!("body = {:?}", response_body);
+        } else {
+            error!("response: {:?}", response);
         }
-
         Ok(())
     }
 }

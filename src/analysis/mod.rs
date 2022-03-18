@@ -1,10 +1,7 @@
 use crate::{
     persist::{es::ElasticTicker, PersistenceContext},
     proto::biz::TickerEvent,
-    vo::{
-        biz::{Ticker, TimeUnit},
-        core::AppContext,
-    },
+    vo::{biz::Ticker, core::AppContext},
     Result,
 };
 use chrono::Utc;
@@ -125,10 +122,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         .lines()
         .into_iter()
         .map(|w| w.unwrap())
-        .map(|line| {
-            let ticker: Ticker = serde_json::from_str(&line).unwrap();
-            ticker
-        })
+        .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
         .collect();
 
     let total = tickers.len();

@@ -10,10 +10,11 @@ use elasticsearch::{
         transport::{SingleNodeConnectionPool, TransportBuilder},
         Url,
     },
+    indices::IndicesDeleteParts,
     Elasticsearch, IndexParts,
 };
 use futures::executor::block_on;
-use log::warn;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -49,18 +50,22 @@ impl DataSource<Elasticsearch> for PersistenceContext {
 }
 
 impl PersistenceContext {
-    pub async fn drop_index(&self, _name: &str) -> Result<()> {
-        // let time = DateTime::parse_from_str(name, "tickers%Y%m%d")?;
-        // let index_name = &format!("tickers-{}", time.format("%Y-%m-%d"));
-        // let client: Elasticsearch = self.get_connection()?;
-        // info!("Drop ElasticSearch index: {}", index_name);
-        // let jj = client
-        //     .indices()
-        //     .get(IndicesGetParts::Index(&[index_name.as_str()]))
-        //     .allow_no_indices(true)
-        //     .send()
-        //     .await?;
-        // self.close_connection(client)?;
+    pub async fn drop_index(&self, name: &str) -> Result<()> {
+        let time = DateTime::parse_from_str(name, "tickers%Y%m%d")?;
+        let index_name = &format!("tickers-{}", time.format("%Y-%m-%d"));
+        let client: Elasticsearch = self.get_connection()?;
+        info!("Delete Elasticsearch index: {}", index_name);
+        let response = client
+            .indices()
+            .delete(IndicesDeleteParts::Index(&[index_name]))
+            .send()
+            .await?;
+        self.close_connection(client)?;
+        if response.status_code().is_success() {
+            info!("Index {} has been removed", index_name);
+        } else {
+            warn!("Index {} removed failed", index_name);
+        }
         Ok(())
     }
 }
