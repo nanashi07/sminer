@@ -46,7 +46,7 @@ pub async fn create_websocket_client(address: &str) -> Result<Client<TlsStream<T
 }
 
 pub async fn send_subscribe(
-    symbols: &Vec<&str>,
+    symbols: &Vec<String>,
     client: &mut Client<TlsStream<TcpStream>>,
 ) -> Result<()> {
     let command = SubscribeCommand {
@@ -63,11 +63,11 @@ pub async fn send_subscribe(
 pub async fn consume(
     context: &Arc<AppContext>,
     addr: &str,
-    symbols: Vec<&str>,
+    symbols: &Vec<String>,
     end_time: Option<i64>,
 ) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
-    send_subscribe(&symbols, &mut client).await?;
+    send_subscribe(symbols, &mut client).await?;
 
     let mut connected = true;
 

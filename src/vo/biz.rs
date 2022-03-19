@@ -135,7 +135,7 @@ impl From<TickerEvent> for Ticker {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TimeUnit {
     SecondTen = 10,
     SecondThirty = 30,
@@ -151,7 +151,19 @@ pub enum TimeUnit {
 }
 
 impl TimeUnit {
-    pub fn ii() -> Vec<TimeUnit> {
-        vec![]
+    pub fn values() -> Vec<TimeUnit> {
+        vec![
+            TimeUnit::SecondTen,
+            TimeUnit::SecondThirty,
+            TimeUnit::MinuteOne,
+            TimeUnit::MinuteTwo,
+            TimeUnit::MinuteThree,
+            TimeUnit::MinuteFour,
+            TimeUnit::MinuteFive,
+            TimeUnit::MinuteTen,
+            TimeUnit::MinuteTwenty,
+            TimeUnit::MinuteThirty,
+            TimeUnit::HourOne,
+        ]
     }
 }

@@ -1,4 +1,4 @@
-use super::biz::Ticker;
+use super::biz::{Ticker, TimeUnit};
 use crate::{
     analysis::init_dispatcher,
     persist::{es::ElasticTicker, PersistenceContext},
@@ -17,28 +17,60 @@ use tokio::sync::broadcast::{channel, Sender};
 pub struct AppContext {
     pub config: Arc<AppConfig>,
     pub persistence: Arc<PersistenceContext>,
-    pub tickers: Arc<RwLock<HashMap<String, RwLock<LinkedList<Ticker>>>>>,
-    pub statistic: Arc<RwLock<HashMap<String, RwLock<LinkedList<Ticker>>>>>,
+    pub tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
+    pub categorization: Arc<HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Ticker>>>>>,
     // Sender for persist data
-    pub data_sender: Sender<TickerEvent>,
-    // Sender for statistic calculation
-    pub statistic_sender: Sender<TickerEvent>,
+    pub house_keeper: Sender<TickerEvent>,
+    // Sender for cache source data
+    pub preparatory: Sender<TickerEvent>,
+    // Sender for calculation
+    pub calculator: Sender<u64>,
 }
 
 impl AppContext {
     pub fn new(config: AppConfig) -> AppContext {
-        let (data_sender, _) = channel::<TickerEvent>(2048);
-        let (statistic_sender, _) = channel::<TickerEvent>(2048);
+        let (house_keeper, _) = channel::<TickerEvent>(2048);
+        let (preparatory, _) = channel::<TickerEvent>(2048);
+        let (calculator, _) = channel::<u64>(2048);
         let config_ref = Arc::new(config);
-        let c = Arc::clone(&config_ref);
+        let persistence = PersistenceContext::new(Arc::clone(&config_ref));
+        let tickers = AppContext::init_tickers(Arc::clone(&config_ref));
+        let categorization = AppContext::init_categorization(Arc::clone(&config_ref));
+
         AppContext {
             config: config_ref,
-            persistence: Arc::new(PersistenceContext::new(c)),
-            tickers: Arc::new(RwLock::new(HashMap::new())),
-            statistic: Arc::new(RwLock::new(HashMap::new())),
-            data_sender,
-            statistic_sender,
+            persistence: Arc::new(persistence),
+            tickers,
+            categorization,
+            house_keeper,
+            preparatory,
+            calculator,
         }
+    }
+    fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
+        let symbols = config.symbols();
+        let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
+        for symbol in symbols {
+            map.insert(symbol, RwLock::new(LinkedList::new()));
+        }
+        Arc::new(map)
+    }
+    // Init container
+    fn init_categorization(
+        config: Arc<AppConfig>,
+    ) -> Arc<HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Ticker>>>>> {
+        let symbols = config.symbols();
+        let units = TimeUnit::values();
+        let mut map: HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Ticker>>>> =
+            HashMap::new();
+        for symbol in symbols {
+            let mut uniter: HashMap<TimeUnit, RwLock<LinkedList<Ticker>>> = HashMap::new();
+            for unit in &units {
+                uniter.insert(*unit, RwLock::new(LinkedList::new()));
+            }
+            map.insert(symbol, uniter);
+        }
+        Arc::new(map)
     }
     pub async fn init(self) -> Result<Arc<AppContext>> {
         let me = Arc::new(self);
@@ -49,8 +81,8 @@ impl AppContext {
         Ok(Arc::clone(&me))
     }
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
-        self.data_sender.send(ticker.into())?;
-        self.statistic_sender.send(ticker.into())?;
+        self.house_keeper.send(ticker.into())?;
+        self.preparatory.send(ticker.into())?;
         Ok(())
     }
     pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
@@ -102,13 +134,13 @@ impl AppConfig {
         let config: AppConfig = settings.try_deserialize::<AppConfig>()?;
         Ok(config)
     }
-    pub fn symbols(&self) -> Vec<&str> {
+    pub fn symbols(&self) -> Vec<String> {
         self.tickers
             .symbols
             .iter()
             .flat_map(|g| [&g.bear.id, &g.bull.id])
-            .map(|id| id.as_str())
-            .collect::<Vec<&str>>()
+            .map(|id| id.to_string())
+            .collect::<Vec<String>>()
     }
 }
 

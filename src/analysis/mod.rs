@@ -1,28 +1,33 @@
+mod computor;
+
 use crate::{
     persist::{es::ElasticTicker, PersistenceContext},
     proto::biz::TickerEvent,
-    vo::{biz::Ticker, core::AppContext},
+    vo::{
+        biz::{Ticker, TimeUnit},
+        core::AppContext,
+    },
     Result,
 };
 use chrono::Utc;
 use log::{error, info};
 use std::{
-    collections::LinkedList,
     fs::File,
     io::{BufRead, BufReader},
-    sync::{Arc, RwLock},
+    sync::Arc,
     thread::sleep,
     time::Duration,
 };
 use tokio::sync::broadcast::Receiver;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
-    let data_sender = &context.data_sender;
-    let statistic_sender = &context.statistic_sender;
+    let house_keeper = &context.house_keeper;
+    let preparatory = &context.preparatory;
+    let calculator = &context.calculator;
     let persistence = Arc::clone(&context.persistence);
 
     info!("Initialize mongo event handler");
-    let mut rx = data_sender.subscribe();
+    let mut rx = house_keeper.subscribe();
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
         loop {
@@ -36,7 +41,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     });
 
     info!("Initialize elasticsearch event handler");
-    let mut rx = data_sender.subscribe();
+    let mut rx = house_keeper.subscribe();
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
         loop {
@@ -49,19 +54,41 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     });
 
-    info!("Initialize event statistic calculate handler");
-    let mut rx = statistic_sender.subscribe();
+    info!("Initialize event preparatory handler");
+    let mut rx = preparatory.subscribe();
     let root = Arc::clone(&context);
     tokio::spawn(async move {
         loop {
-            match handle_message_for_statistic(&mut rx, &root).await {
+            match handle_message_for_preparatory(&mut rx, &root).await {
                 Ok(_) => {}
                 Err(err) => {
-                    error!("Handle ticker for statistc error: {:?}", err);
+                    error!("Handle ticker for preparatory error: {:?}", err);
                 }
             }
         }
     });
+
+    let root = Arc::clone(&context);
+    for time_unit in TimeUnit::values() {
+        for symbol in root.config.symbols() {
+            info!(
+                "Initialize event calculate {} for {:?} handler",
+                symbol, time_unit
+            );
+            let mut rx = calculator.subscribe();
+            let root = Arc::clone(&context);
+            tokio::spawn(async move {
+                loop {
+                    match handle_message_for_calculator(&mut rx, &root, &symbol, &time_unit).await {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("Handle ticker for calculator error: {:?}", err);
+                        }
+                    }
+                }
+            });
+        }
+    }
 
     Ok(())
 }
@@ -71,6 +98,7 @@ async fn handle_message_for_mongo(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
+    // TODO: split for sync replay
     ticker.save_to_mongo(Arc::clone(context)).await?;
     Ok(())
 }
@@ -80,28 +108,57 @@ async fn handle_message_for_elasticsearch(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
+    // TODO: split for sync replay
     ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
     Ok(())
 }
 
-async fn handle_message_for_statistic(
+async fn handle_message_for_preparatory(
     rx: &mut Receiver<TickerEvent>,
     context: &Arc<AppContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
+    // TODO: split for sync replay
     let ctx = Arc::clone(context);
+
     // Add into source list
-    let tickers_map = ctx.tickers.write().unwrap();
-    if let Some(value) = tickers_map.get(&ticker.id) {
-        let mut list = value.write().unwrap();
+    let tickers = Arc::clone(&ctx.tickers);
+    if let Some(lock) = tickers.get(&ticker.id) {
+        let mut list = lock.write().unwrap();
         list.push_front(ticker.clone());
     } else {
-        let mut list: LinkedList<Ticker> = LinkedList::new();
-        list.push_front(ticker.clone());
-        let mut tickers_map = tickers_map;
-        tickers_map.insert(ticker.id, RwLock::new(list));
+        error!("No tickers container {} initialized", &ticker.id);
     }
+
     // TODO: analysis
+    let calculator = &context.calculator;
+
+    Ok(())
+}
+
+async fn handle_message_for_calculator(
+    rx: &mut Receiver<u64>,
+    context: &Arc<AppContext>,
+    symbol: &str,
+    unit: &TimeUnit,
+) -> Result<()> {
+    let _: u64 = rx.recv().await?.into();
+
+    // Get ticker source
+    let categorization = Arc::clone(&context.categorization);
+    if let Some(uniter) = categorization.get(symbol) {
+        if let Some(lock) = uniter.get(unit) {
+            let list = lock.write().unwrap();
+            // list.push_front()
+        } else {
+            error!(
+                "Not categorization container {:?} of {} initialized",
+                unit, symbol
+            );
+        }
+    } else {
+        error!("Not categorization container {} initialized", symbol);
+    }
 
     Ok(())
 }

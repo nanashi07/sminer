@@ -67,7 +67,7 @@ mod mongo {
     async fn test_export_mongo_by_order() -> Result<()> {
         init_log("INFO").await?;
 
-        let collections = vec!["tickers20220317"];
+        let collections = vec!["tickers20220318"];
         for collection in collections {
             let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, collection).await?;
             std::fs::create_dir_all("tmp")?;

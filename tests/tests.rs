@@ -39,7 +39,7 @@ fn test_consume_yahoo_tickers() -> Result<()> {
 
         info!("Loaded symbols: {:?}", &symbols);
 
-        consume(&Arc::clone(&context), YAHOO_WS, symbols, Option::None).await?;
+        consume(&Arc::clone(&context), YAHOO_WS, &symbols, Option::None).await?;
 
         Ok(())
     });
