@@ -1,7 +1,9 @@
 use crate::vo::biz::{Protfolio, Ticker, TimeUnit};
 use crate::Result;
+use chrono::Utc;
 use log::trace;
 use log::{debug, info};
+use rayon::prelude::*;
 use std::collections::{HashMap, LinkedList};
 
 fn slope(samples: &Vec<(f64, f64)>) -> f64 {
@@ -48,11 +50,17 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
     let price_open = last.price;
     let price_close = first.price;
 
-    let price_max = values.iter().map(|p| p.price).reduce(f32::max).unwrap();
-    let price_min = values.iter().map(|p| p.price).reduce(f32::min).unwrap();
+    let price_max = values
+        .par_iter()
+        .map(|p| p.price)
+        .reduce(|| 0.0, |a, b| if a >= b { a } else { b });
+    let price_min = values
+        .par_iter()
+        .map(|p| p.price)
+        .reduce(|| 0.0, |a, b| if a <= b { a } else { b });
 
     // Calculate average price
-    let price_sum: f64 = values.iter().map(|p| p.price as f64).sum();
+    let price_sum: f64 = values.par_iter().map(|p| p.price as f64).sum();
     let price_avg: f32 = (price_sum / values.len() as f64) as f32;
 
     let volume = first.volume - last.volume;
@@ -92,10 +100,10 @@ fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<
         .find(|p| p.unit_time == target.unit_time);
     if let Some(result) = find_result {
         result.update_by(target);
-        info!("Updated with {:?}", target);
+        debug!("Updated with {:?}", target);
     } else {
         protfolios.push_front((*target).clone());
-        info!("Added with {:?}", target);
+        debug!("Added with {:?}", target);
     }
     Ok(())
 }
@@ -235,7 +243,20 @@ impl TimeUnit {
         if sec > 0 {
             aggregate_fixed_unit(self, tickers, protfolios)?;
         } else {
+            let start = Utc::now().timestamp_millis();
             aggregate_moving_unit(self, tickers, protfolios)?;
+            let end = Utc::now().timestamp_millis();
+            let len = tickers.len();
+            if len % 1000 == 0 {
+                let id = &protfolios.front().unwrap().id;
+                info!(
+                    "moving {} tickers for {:?} of {} costs {:?}",
+                    len,
+                    &self,
+                    &id,
+                    std::time::Duration::from_millis((end - start) as u64),
+                );
+            }
         }
         Ok(())
     }

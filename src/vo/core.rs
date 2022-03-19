@@ -7,6 +7,7 @@ use crate::{
 };
 use config::Config;
 use log::{debug, error};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, LinkedList},
@@ -104,11 +105,15 @@ impl AppContext {
 
     pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
         // save data
-        ticker.save_to_mongo(Arc::clone(&self.persistence)).await?;
-        let es_ticker: ElasticTicker = (*ticker).clone().into();
-        es_ticker
-            .save_to_elasticsearch(Arc::clone(&self.persistence))
-            .await?;
+        if self.config.data_source.mongodb.enabled {
+            ticker.save_to_mongo(Arc::clone(&self.persistence)).await?;
+        }
+        if self.config.data_source.elasticsearch.enabled {
+            let es_ticker: ElasticTicker = (*ticker).clone().into();
+            es_ticker
+                .save_to_elasticsearch(Arc::clone(&self.persistence))
+                .await?;
+        }
 
         // Add into source list
         let tickers = Arc::clone(&self.tickers);
@@ -120,10 +125,10 @@ impl AppContext {
         }
 
         // calculate protfolios
-        for unit in TimeUnit::values() {
+        TimeUnit::values().par_iter_mut().for_each(|unit| {
             debug!("route calculation: {:?} of {}", unit, &ticker.id);
-            self.route(&ticker.id, &unit)?;
-        }
+            self.route(&ticker.id, &unit).unwrap();
+        });
         Ok(())
     }
 }
@@ -139,8 +144,14 @@ impl AppConfig {
     pub fn new() -> AppConfig {
         AppConfig {
             data_source: DataSource {
-                mongodb: DataSourceInfo { uri: String::new() },
-                elasticsearch: DataSourceInfo { uri: String::new() },
+                mongodb: DataSourceInfo {
+                    uri: String::new(),
+                    enabled: true,
+                },
+                elasticsearch: DataSourceInfo {
+                    uri: String::new(),
+                    enabled: true,
+                },
             },
             tickers: TickerList {
                 symbols: vec![
@@ -183,6 +194,7 @@ pub struct DataSource {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DataSourceInfo {
     pub uri: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

@@ -99,8 +99,10 @@ async fn handle_message_for_mongo(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
-    // TODO: split for sync replay
-    ticker.save_to_mongo(Arc::clone(context)).await?;
+    let config = Arc::clone(&context.config);
+    if config.data_source.mongodb.enabled {
+        ticker.save_to_mongo(Arc::clone(context)).await?;
+    }
     Ok(())
 }
 
@@ -109,8 +111,10 @@ async fn handle_message_for_elasticsearch(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
-    // TODO: split for sync replay
-    ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
+    let config = Arc::clone(&context.config);
+    if config.data_source.mongodb.enabled {
+        ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
+    }
     Ok(())
 }
 

@@ -12,7 +12,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct PersistenceContext {
-    config: Arc<AppConfig>,
+    pub config: Arc<AppConfig>,
     elastic_connections: Arc<Mutex<Vec<Elasticsearch>>>,
     mongo_connections: Arc<Mutex<Vec<Client>>>,
 }
