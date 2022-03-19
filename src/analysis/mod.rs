@@ -147,25 +147,36 @@ async fn handle_message_for_calculator(
 ) -> Result<()> {
     // Receive signal only
     let _: i64 = rx.recv().await?.into();
-
-    // Get ticker source
-    let protfolios = Arc::clone(&context.protfolios);
-    if let Some(uniter) = protfolios.get(symbol) {
-        if let Some(lock) = uniter.get(unit) {
-            debug!("handle calc for {} of {:?}", symbol, unit);
-            let list = lock.write().unwrap();
-            // list.push_front()
-        } else {
-            error!(
-                "Not protfolios container {:?} of {} initialized",
-                unit, symbol
-            );
-        }
-    } else {
-        error!("Not protfolios container {} initialized", symbol);
-    }
-
+    debug!("handle_message_for_calculator: {:?} of {}", unit, symbol);
+    context.route(symbol, unit).await?;
     Ok(())
+}
+
+impl AppContext {
+    pub async fn route(&self, symbol: &str, unit: &TimeUnit) -> Result<()> {
+        debug!("Route calculation for {:?} of {}", unit, symbol);
+        let protfolios = Arc::clone(&self.protfolios);
+        if let Some(uniter) = protfolios.get(symbol) {
+            if let Some(lock) = uniter.get(unit) {
+                debug!("handle calc for {} of {:?}", symbol, unit);
+                // Get ticker source
+                let tickers = self.tickers.get(symbol).unwrap();
+                let symbol_tickers = tickers.read().unwrap();
+                // Get target protfolios
+                let mut list = lock.write().unwrap();
+                // Start calculation
+                unit.rebalance(&symbol_tickers, &mut list)?;
+            } else {
+                error!(
+                    "Not protfolios container {:?} of {} initialized",
+                    unit, symbol
+                );
+            }
+        } else {
+            error!("Not protfolios container {} initialized", symbol);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

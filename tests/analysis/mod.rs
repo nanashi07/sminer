@@ -54,7 +54,7 @@ fn test_replay_async() -> Result<()> {
             .await?;
 
         let files = vec![
-            "tickers20220309-nospy",
+            "tickers20220309",
             // "tickers20220310",
             // "tickers20220311",
             // "tickers20220314",
@@ -72,7 +72,7 @@ fn test_replay_async() -> Result<()> {
             replay(
                 &context,
                 &format!("tmp/{}", &file),
-                ReplayMode::Async { delay: 1000 },
+                ReplayMode::Async { delay: 50 },
             )
             .await?
         }

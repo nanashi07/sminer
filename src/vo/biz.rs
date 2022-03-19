@@ -148,6 +148,18 @@ pub enum TimeUnit {
     MinuteTwenty = 1200,
     MinuteThirty = 1800,
     HourOne = 3600,
+
+    MovingSecondTen = -10,
+    MovingSecondThirty = -30,
+    MovingMinuteOne = -60,
+    MovingMinuteTwo = -120,
+    MovingMinuteThree = -180,
+    MovingMinuteFour = -240,
+    MovingMinuteFive = -300,
+    MovingMinuteTen = -600,
+    MovingMinuteTwenty = -1200,
+    MovingMinuteThirty = -1800,
+    MovingHourOne = -3600,
 }
 
 impl TimeUnit {
@@ -164,19 +176,43 @@ impl TimeUnit {
             TimeUnit::MinuteTwenty,
             TimeUnit::MinuteThirty,
             TimeUnit::HourOne,
+            TimeUnit::MovingSecondTen,
+            TimeUnit::MovingSecondThirty,
+            TimeUnit::MovingMinuteOne,
+            TimeUnit::MovingMinuteTwo,
+            TimeUnit::MovingMinuteThree,
+            TimeUnit::MovingMinuteFour,
+            TimeUnit::MovingMinuteFive,
+            TimeUnit::MovingMinuteTen,
+            TimeUnit::MovingMinuteTwenty,
+            TimeUnit::MovingMinuteThirty,
+            TimeUnit::MovingHourOne,
         ]
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Protfolio {
     pub id: String,
     pub price: f32,
     pub time: i64,
-    pub unit: TimeUnit,
 
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
-    pub day_volume: i64,
+
+    pub volume: i64,
     pub change: f32,
+    pub change_rate: f32,
+
+    // Calculation unit
+    pub unit: TimeUnit,
+    pub unit_time: i64,
+
+    pub max_price: f32,
+    pub min_price: f32,
+    pub open_price: f32,
+    pub close_price: f32,
+
+    pub sample_size: u32,
+    pub slope: f64,
 }

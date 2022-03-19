@@ -82,4 +82,4 @@ $$ y = 0.1612340375448714176425587006414405932x - 8.6450715000294238804213499676
 
 
 > * [最小平方法](https://zh.wikipedia.org/wiki/%E6%9C%80%E5%B0%8F%E4%BA%8C%E4%B9%98%E6%B3%95)
-> * [MathJax basic tutorial and quick reference](https://math.meta.stackexchange.com/questi =ons/5020/mathjax-basic-tutorial-and-quick-reference)
+> * [MathJax basic tutorial and quick reference](https://math.meta.stackexchange.com/questions/5020/mathjax-basic-tutorial-and-quick-reference)

@@ -16,6 +16,7 @@ mod mongo {
     use crate::persist::read_from_file;
     use futures::TryStreamExt;
     use log::{debug, info};
+    use mongodb::bson::Document;
     use sminer::{
         init_log,
         persist::mongo::{get_mongo_client, query_ticker, DATABASE_NAME},
@@ -34,7 +35,16 @@ mod mongo {
     async fn test_import_into_mongo() -> Result<()> {
         init_log("DEBUG").await?;
 
-        let files = vec!["tickers20220309", "tickers20220310", "tickers20220311"];
+        let files = vec![
+            "tickers20220309",
+            "tickers20220310",
+            "tickers20220311",
+            "tickers20220314",
+            "tickers20220315",
+            "tickers20220316",
+            "tickers20220317",
+            "tickers20220318",
+        ];
         let client = get_mongo_client(MONGO_URI).await?;
 
         for file in files {
@@ -45,8 +55,14 @@ mod mongo {
             info!("Loaded tickers: {} for {}", tickers.len(), file);
 
             let db = client.database(DATABASE_NAME);
+
+            // delete original
+            let collection = db.collection::<Document>(file);
+            collection.drop(None).await?;
+
             let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
             typed_collection.insert_many(tickers, None).await?;
+            info!("Import {} done", file);
         }
         Ok(())
     }
@@ -67,7 +83,16 @@ mod mongo {
     async fn test_export_mongo_by_order() -> Result<()> {
         init_log("INFO").await?;
 
-        let collections = vec!["tickers20220318"];
+        let collections = vec![
+            "tickers20220309",
+            "tickers20220310",
+            "tickers20220311",
+            "tickers20220314",
+            "tickers20220315",
+            "tickers20220316",
+            "tickers20220317",
+            "tickers20220318",
+        ];
         for collection in collections {
             let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, collection).await?;
             std::fs::create_dir_all("tmp")?;
@@ -79,11 +104,15 @@ mod mongo {
             let mut writer = BufWriter::new(file);
             info!("Export collection: {}", collection);
             while let Some(ticker) = cursor.try_next().await? {
+                if ticker.id == "SPY" {
+                    continue;
+                }
                 debug!("{:?}", ticker);
                 // write file
                 let json = serde_json::to_string(&ticker)?;
                 write!(&mut writer, "{}\n", &json)?;
             }
+            info!("Collection {} exported", collection);
         }
         Ok(())
     }

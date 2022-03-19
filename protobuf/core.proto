@@ -38,3 +38,4 @@ message TickerEvent {
     sint64 dayVolume = 9;
     float change = 12;
 };
+
