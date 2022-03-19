@@ -167,3 +167,16 @@ impl TimeUnit {
         ]
     }
 }
+
+#[derive(Debug)]
+pub struct Protfolio {
+    pub id: String,
+    pub price: f32,
+    pub time: i64,
+    pub unit: TimeUnit,
+
+    pub quote_type: QuoteType,
+    pub market_hours: MarketHoursType,
+    pub day_volume: i64,
+    pub change: f32,
+}

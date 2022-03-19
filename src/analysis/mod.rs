@@ -10,7 +10,7 @@ use crate::{
     Result,
 };
 use chrono::Utc;
-use log::{error, info};
+use log::{debug, error, info};
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -23,7 +23,6 @@ use tokio::sync::broadcast::Receiver;
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let house_keeper = &context.house_keeper;
     let preparatory = &context.preparatory;
-    let calculator = &context.calculator;
     let persistence = Arc::clone(&context.persistence);
 
     info!("Initialize mongo event handler");
@@ -75,7 +74,9 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
                 "Initialize event calculate {} for {:?} handler",
                 symbol, time_unit
             );
-            let mut rx = calculator.subscribe();
+            let calculator = Arc::clone(&context.calculator);
+
+            let mut rx = calculator.get(&symbol).unwrap().subscribe();
             let root = Arc::clone(&context);
             tokio::spawn(async move {
                 loop {
@@ -130,34 +131,38 @@ async fn handle_message_for_preparatory(
         error!("No tickers container {} initialized", &ticker.id);
     }
 
-    // TODO: analysis
-    let calculator = &context.calculator;
+    // Send signal for symbol analysis
+    let calculator = Arc::clone(&context.calculator);
+    let sender = calculator.get(&ticker.id).unwrap();
+    sender.send(Utc::now().timestamp_millis())?;
 
     Ok(())
 }
 
 async fn handle_message_for_calculator(
-    rx: &mut Receiver<u64>,
+    rx: &mut Receiver<i64>,
     context: &Arc<AppContext>,
     symbol: &str,
     unit: &TimeUnit,
 ) -> Result<()> {
-    let _: u64 = rx.recv().await?.into();
+    // Receive signal only
+    let _: i64 = rx.recv().await?.into();
 
     // Get ticker source
-    let categorization = Arc::clone(&context.categorization);
-    if let Some(uniter) = categorization.get(symbol) {
+    let protfolios = Arc::clone(&context.protfolios);
+    if let Some(uniter) = protfolios.get(symbol) {
         if let Some(lock) = uniter.get(unit) {
+            debug!("handle calc for {} of {:?}", symbol, unit);
             let list = lock.write().unwrap();
             // list.push_front()
         } else {
             error!(
-                "Not categorization container {:?} of {} initialized",
+                "Not protfolios container {:?} of {} initialized",
                 unit, symbol
             );
         }
     } else {
-        error!("Not categorization container {} initialized", symbol);
+        error!("Not protfolios container {} initialized", symbol);
     }
 
     Ok(())
