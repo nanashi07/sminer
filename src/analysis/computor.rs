@@ -1,13 +1,13 @@
 use crate::vo::biz::{Protfolio, Ticker, TimeUnit};
 use crate::Result;
-use chrono::Utc;
-use log::{debug, info, trace};
+use log::trace;
+use log::{debug, info};
 use std::collections::{HashMap, LinkedList};
 
 fn slope(samples: &Vec<(f64, f64)>) -> f64 {
     let count = samples.len() as f64;
-    let x_avg: f64 = samples.iter().map(|(x, y)| *x / count).sum();
-    let y_avg: f64 = samples.iter().map(|(x, y)| *y / count).sum();
+    let x_avg: f64 = samples.iter().map(|(x, _)| *x / count).sum();
+    let y_avg: f64 = samples.iter().map(|(_, y)| *y / count).sum();
 
     let xy: f64 = samples
         .iter()
@@ -19,13 +19,13 @@ fn slope(samples: &Vec<(f64, f64)>) -> f64 {
         .map(|(x, _)| (*x - x_avg) * (*x - x_avg))
         .sum();
 
-    let A = xy / x_x;
+    let a = xy / x_x;
 
     // A = 2, y = Ax + B
     // 2 = 2 * 1 + B, (x = 1, y = 2)
     // 4 = 2 * 2 + B, (x = 2, y = 4)
     // slope = delta-Y / delta-X = (4 - 2) / (2 - 1)
-    A
+    a
 }
 
 fn group_by(mut map: HashMap<i64, Vec<Protfolio>>, p: Protfolio) -> HashMap<i64, Vec<Protfolio>> {
@@ -75,7 +75,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         quote_type: first.quote_type,
         market_hours: first.market_hours,
         volume: volume,
-        change: 0.0,
+        change: 0.0, // TODO:
         change_rate: 0.0,
         max_price: price_max,
         min_price: price_min,
@@ -86,13 +86,114 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
     }
 }
 
+fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<()> {
+    let find_result = protfolios
+        .iter_mut()
+        .find(|p| p.unit_time == target.unit_time);
+    if let Some(result) = find_result {
+        result.update_by(target);
+        info!("Updated with {:?}", target);
+    } else {
+        protfolios.push_front((*target).clone());
+        info!("Added with {:?}", target);
+    }
+    Ok(())
+}
+
+fn aggregate_fixed_unit(
+    unit: &TimeUnit,
+    tickers: &LinkedList<Ticker>,
+    protfolios: &mut LinkedList<Protfolio>,
+) -> Result<()> {
+    // Take source data in 3x time range
+    let scope = *unit as i64 * 1000 * 3;
+    // Use latest ticker time to restrict time
+    let min_time = tickers.front().unwrap().time - scope;
+    // calculate
+    let mut result = tickers
+        .iter()
+        .take_while(|t| t.time >= min_time)
+        .map(|t| Protfolio::fixed(t, unit))
+        .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
+            group_by(map, p)
+        })
+        .values()
+        .map(|values| calculate(values))
+        .collect::<Vec<Protfolio>>();
+
+    // sort by unit time (desc)
+    result.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
+    trace!("Result = {:?}", result);
+
+    // update protfolio, only handle the latest 2 records
+    for (index, target) in result.iter().enumerate() {
+        if index > 0 {
+            update(target, protfolios)?;
+        }
+    }
+    Ok(())
+}
+
+fn aggregate_moving_unit(
+    unit: &TimeUnit,
+    tickers: &LinkedList<Ticker>,
+    protfolios: &mut LinkedList<Protfolio>,
+) -> Result<()> {
+    let last_timestamp = tickers.front().unwrap().time;
+    // calculate
+    let mut result = tickers
+        .iter()
+        .map(|t| Protfolio::moving(t, unit, last_timestamp))
+        .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
+            group_by(map, p)
+        })
+        .values()
+        .map(|values| calculate(values))
+        .collect::<Vec<Protfolio>>();
+
+    // sort by unit time (desc)
+    result.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
+    trace!("Result = {:?}", result);
+
+    // update protfolio, only handle the latest 2 records
+    for (index, target) in result.iter().enumerate() {
+        if index > 0 {
+            update(target, protfolios)?;
+        }
+    }
+    Ok(())
+}
+
 impl Protfolio {
-    fn from(t: &Ticker, unit: &TimeUnit) -> Self {
+    fn fixed(t: &Ticker, unit: &TimeUnit) -> Self {
         Protfolio {
             id: t.id.clone(),
             price: t.price,
             time: t.time,
+            // fixed time range, accroding time unit
             unit_time: t.time - t.time % (*unit as i64 * 1000),
+            unit: unit.clone(),
+            quote_type: t.quote_type,
+            market_hours: t.market_hours,
+            volume: t.day_volume,
+            change: t.change,
+            change_rate: 0.0,
+            max_price: 0.0,
+            min_price: 0.0,
+            open_price: 0.0,
+            close_price: 0.0,
+            sample_size: 0,
+            slope: 0.0,
+        }
+    }
+
+    fn moving(t: &Ticker, unit: &TimeUnit, base_time: i64) -> Self {
+        Protfolio {
+            id: t.id.clone(),
+            price: t.price,
+            time: t.time,
+            // moving time range, according base_time
+            unit_time: base_time + (base_time - t.time) % (*unit as i64 * -1000),
             unit: unit.clone(),
             quote_type: t.quote_type,
             market_hours: t.market_hours,
@@ -129,46 +230,12 @@ impl TimeUnit {
         protfolios: &mut LinkedList<Protfolio>,
     ) -> Result<()> {
         debug!("Rebalance count: {}", &tickers.len());
-        // Duration in milliseconds
-        let sec = *self as i64 * 1000;
+        // Duration in second
+        let sec = *self as i64;
         if sec > 0 {
-            // Take source data in 3x time range
-            let scope = sec * 3;
-            // Use latest ticker time to restrict time
-            let min_time = tickers.front().unwrap().time - scope;
-            let mut result = tickers
-                .iter()
-                .take_while(|t| t.time >= min_time)
-                .map(|t| Protfolio::from(t, self))
-                .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
-                    group_by(map, p)
-                })
-                .values()
-                .map(|values| calculate(values))
-                .collect::<Vec<Protfolio>>();
-            // sort by unit time (desc)
-            result.sort_by(|x, y| y.unit_time.partial_cmp(&x.unit_time).unwrap());
-            info!("Result = {:?}", result);
-
-            // update protfolio
-            if result.len() > 0 {
-                let latest = &result[0];
-                let find_result = protfolios
-                    .iter_mut()
-                    .find(|p| p.unit_time == latest.unit_time);
-                if let Some(result) = find_result {
-                    result.update_by(latest);
-                } else {
-                }
-
-                // let j = protfolios.(|p| p.unit_time == latest.unit_time);
-            }
-            if result.len() > 1 {
-                let second = &result[1];
-            }
+            aggregate_fixed_unit(self, tickers, protfolios)?;
         } else {
-            // 1646830800000
-            // 1646830830000
+            aggregate_moving_unit(self, tickers, protfolios)?;
         }
         Ok(())
     }

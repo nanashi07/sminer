@@ -6,6 +6,7 @@ use crate::{
     Result,
 };
 use config::Config;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, LinkedList},
@@ -108,8 +109,21 @@ impl AppContext {
         es_ticker
             .save_to_elasticsearch(Arc::clone(&self.persistence))
             .await?;
-        // TODO: calculate
 
+        // Add into source list
+        let tickers = Arc::clone(&self.tickers);
+        if let Some(lock) = tickers.get(&ticker.id) {
+            let mut list = lock.write().unwrap();
+            list.push_front(ticker.clone());
+        } else {
+            error!("No tickers container {} initialized", &ticker.id);
+        }
+
+        // calculate protfolios
+        for unit in TimeUnit::values() {
+            debug!("route calculation: {:?} of {}", unit, &ticker.id);
+            self.route(&ticker.id, &unit)?;
+        }
         Ok(())
     }
 }

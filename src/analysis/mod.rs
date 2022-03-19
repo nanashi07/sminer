@@ -148,12 +148,12 @@ async fn handle_message_for_calculator(
     // Receive signal only
     let _: i64 = rx.recv().await?.into();
     debug!("handle_message_for_calculator: {:?} of {}", unit, symbol);
-    context.route(symbol, unit).await?;
+    context.route(symbol, unit)?;
     Ok(())
 }
 
 impl AppContext {
-    pub async fn route(&self, symbol: &str, unit: &TimeUnit) -> Result<()> {
+    pub fn route(&self, symbol: &str, unit: &TimeUnit) -> Result<()> {
         debug!("Route calculation for {:?} of {}", unit, symbol);
         let protfolios = Arc::clone(&self.protfolios);
         if let Some(uniter) = protfolios.get(symbol) {
