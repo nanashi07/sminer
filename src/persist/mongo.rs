@@ -5,7 +5,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use futures::TryStreamExt;
-use log::{debug, info, trace};
+use log::{info, trace};
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOptions},

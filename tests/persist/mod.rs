@@ -137,7 +137,7 @@ mod mongo {
 }
 
 mod elastic {
-    use crate::{analysis::take_digitals, persist::read_from_file};
+    use crate::persist::read_from_file;
     use chrono::{TimeZone, Utc};
     use elasticsearch::{
         http::request::JsonBody, indices::IndicesDeleteParts, BulkParts, Elasticsearch,
@@ -146,7 +146,10 @@ mod elastic {
     use serde_json::{json, Value};
     use sminer::{
         init_log,
-        persist::{es::ElasticTicker, DataSource, PersistenceContext},
+        persist::{
+            es::{take_digitals, ElasticTicker},
+            DataSource, PersistenceContext,
+        },
         vo::{biz::Ticker, core::AppConfig},
         Result,
     };

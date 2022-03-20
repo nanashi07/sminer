@@ -3,7 +3,10 @@ use log::debug;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
-    persist::mongo::{export, import},
+    persist::{
+        es::{index_tickers, take_digitals},
+        mongo::{export, import},
+    },
     vo::core::{AppConfig, AppContext},
     Result,
 };
@@ -54,7 +57,24 @@ async fn main() -> Result<()> {
                     }
                 }
                 "index" => {
-                    // TODO
+                    let r#type = sub_matches.value_of("type").unwrap().to_lowercase();
+                    debug!("Input type: {}", &r#type);
+                    let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
+                    debug!("Input files: {:?}", files);
+
+                    match r#type.as_str() {
+                        "tickers" => {
+                            for file in files {
+                                index_tickers(&context, file).await?;
+                            }
+                        }
+                        "protfolio" => {
+                            // for file in files {
+                            //     // export(&context, &file).await?;
+                            // }
+                        }
+                        _ => {}
+                    }
                 }
                 _ => {}
             }
@@ -67,9 +87,7 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-fn take_digitals(str: &str) -> String {
-    str.chars().filter(|c| c.is_numeric()).collect::<String>()
-}
+
 /// Create command line arguments
 fn command_args<'help>() -> Command<'help> {
     let level = Arg::new("log-level")
@@ -119,6 +137,12 @@ fn command_args<'help>() -> Command<'help> {
                 .about("Index message to Elasticsearch")
                 .args(&[
                     level.clone(),
+                    Arg::new("type")
+                        .short('t')
+                        .long("type")
+                        .possible_values(["tickers", "protfolio"])
+                        .default_value("protfolio")
+                        .ignore_case(true),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)

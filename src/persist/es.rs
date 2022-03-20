@@ -1,23 +1,31 @@
 use super::{DataSource, PersistenceContext};
 use crate::{
     proto::biz::TickerEvent,
-    vo::biz::{MarketHoursType, QuoteType, Ticker},
+    vo::{
+        biz::{MarketHoursType, QuoteType, Ticker},
+        core::AppContext,
+    },
     Result,
 };
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use elasticsearch::{
     http::{
+        request::JsonBody,
         transport::{SingleNodeConnectionPool, TransportBuilder},
         Url,
     },
     indices::IndicesDeleteParts,
-    Elasticsearch, IndexParts,
+    BulkParts, Elasticsearch, IndexParts,
 };
 use futures::executor::block_on;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    sync::Arc,
+};
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -149,4 +157,61 @@ impl ElasticTicker {
         }
         Ok(())
     }
+}
+
+pub fn take_digitals(str: &str) -> String {
+    str.chars().filter(|c| c.is_numeric()).collect::<String>()
+}
+
+pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
+    info!("Import messages from {}", &path);
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    let tickers: Vec<ElasticTicker> = reader
+        .lines()
+        .into_iter()
+        .map(|w| w.unwrap())
+        .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+        .map(|t| ElasticTicker::from(t))
+        .collect();
+
+    info!("ticker size: {} for {}", &tickers.len(), &path);
+
+    let persistence = Arc::clone(&context.persistence);
+    let client: Elasticsearch = persistence.get_connection()?;
+
+    let mut body: Vec<JsonBody<_>> = Vec::new();
+    for ticker in tickers {
+        body.push(json!({"index": {}}).into());
+        body.push(json!(ticker).into());
+    }
+
+    // generate index name
+    let digital = take_digitals(&path);
+    let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
+    let index_name = format!("tickers-{}", time.format("%Y-%m-%d"));
+
+    // drop index first
+    persistence.drop_index(&digital).await?;
+
+    info!("Bulk import messages into index: {}", &index_name);
+    let response = client
+        .bulk(BulkParts::Index(&index_name))
+        .body(body)
+        .send()
+        .await?;
+
+    info!(
+        "response {} for index {}",
+        response.status_code(),
+        &index_name
+    );
+
+    Ok(())
+}
+
+pub async fn index_protfolios() -> Result<()> {
+    Ok(())
 }

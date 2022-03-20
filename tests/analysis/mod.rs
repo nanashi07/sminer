@@ -2,14 +2,11 @@ use log::error;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
+    persist::es::take_digitals,
     vo::core::{AppConfig, AppContext},
     Result,
 };
 use tokio::runtime::Runtime;
-
-pub fn take_digitals(str: &str) -> String {
-    str.chars().filter(|c| c.is_numeric()).collect::<String>()
-}
 
 // cargo test --package sminer --test tests -- analysis::test_replay --exact --nocapture --ignored
 #[test]
