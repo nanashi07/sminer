@@ -36,7 +36,7 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
-        let config = Arc::clone(&context.config);
+        let config = context.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 
@@ -78,7 +78,7 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
-        let config = Arc::clone(&context.config);
+        let config = context.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 
@@ -96,7 +96,7 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
-        let config = Arc::clone(&context.config);
+        let config = context.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 

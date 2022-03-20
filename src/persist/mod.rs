@@ -25,6 +25,11 @@ impl PersistenceContext {
             mongo_connections: Arc::new(Mutex::new(Vec::new())),
         }
     }
+
+    pub fn config(&self) -> Arc<AppConfig> {
+        Arc::clone(&self.config)
+    }
+
     pub async fn init_mongo(&self) -> Result<()> {
         // TODO: temp sollution
         for _ in 1..10 {

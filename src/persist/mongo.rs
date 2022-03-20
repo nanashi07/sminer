@@ -55,7 +55,7 @@ impl DataSource<Client> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_collection(&self, name: &str) -> Result<()> {
-        let config = Arc::clone(&self.config);
+        let config = self.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = self.get_connection()?;
         let db = client.database(db_name);
@@ -73,7 +73,7 @@ impl Ticker {
             "tickers{}",
             Utc.timestamp_millis(self.time).format("%Y%m%d")
         );
-        let config = Arc::clone(&context.config);
+        let config = context.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
         let db = client.database(db_name);
@@ -118,8 +118,8 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
 
     info!("Loaded tickers: {} for {}", tickers.len(), path);
 
-    let persistence = Arc::clone(&context.persistence);
-    let config = Arc::clone(&context.config);
+    let persistence = context.persistence();
+    let config = context.config();
     let db_name = config.data_source.mongodb.target.as_ref().unwrap();
     let client: Client = persistence.get_connection()?;
     let db = client.database(db_name);
@@ -143,8 +143,8 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
 }
 
 pub async fn export(context: &AppContext, name: &str) -> Result<()> {
-    let persistence = Arc::clone(&context.persistence);
-    let config = Arc::clone(&context.config);
+    let persistence = context.persistence();
+    let config = context.config();
     let db_name = config.data_source.mongodb.target.as_ref().unwrap();
     let base_path = config.analysis.output.base_folder.as_str();
     let client: Client = persistence.get_connection()?;

@@ -179,7 +179,7 @@ pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
 
     info!("ticker size: {} for {}", &tickers.len(), &path);
 
-    let persistence = Arc::clone(&context.persistence);
+    let persistence = context.persistence();
     let client: Elasticsearch = persistence.get_connection()?;
 
     let mut body: Vec<JsonBody<_>> = Vec::new();

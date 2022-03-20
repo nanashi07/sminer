@@ -51,6 +51,14 @@ impl AppContext {
         }
     }
 
+    pub fn config(&self) -> Arc<AppConfig> {
+        Arc::clone(&self.config)
+    }
+
+    pub fn persistence(&self) -> Arc<PersistenceContext> {
+        Arc::clone(&self.persistence)
+    }
+
     fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
         let symbols = config.symbols();
         let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
@@ -108,13 +116,11 @@ impl AppContext {
     pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
         // save data
         if self.config.data_source.mongodb.enabled {
-            ticker.save_to_mongo(Arc::clone(&self.persistence)).await?;
+            ticker.save_to_mongo(self.persistence()).await?;
         }
         if self.config.data_source.elasticsearch.enabled {
             let es_ticker: ElasticTicker = (*ticker).clone().into();
-            es_ticker
-                .save_to_elasticsearch(Arc::clone(&self.persistence))
-                .await?;
+            es_ticker.save_to_elasticsearch(self.persistence()).await?;
         }
 
         // Add into source list

@@ -24,7 +24,7 @@ use tokio::sync::broadcast::Receiver;
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let house_keeper = &context.house_keeper;
     let preparatory = &context.preparatory;
-    let persistence = Arc::clone(&context.persistence);
+    let persistence = context.persistence();
 
     info!("Initialize mongo event handler");
     let mut rx = house_keeper.subscribe();
@@ -100,7 +100,7 @@ async fn handle_message_for_mongo(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
-    let config = Arc::clone(&context.config);
+    let config = context.config();
     if config.data_source.mongodb.enabled {
         ticker.save_to_mongo(Arc::clone(context)).await?;
     }
@@ -112,7 +112,7 @@ async fn handle_message_for_elasticsearch(
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
-    let config = Arc::clone(&context.config);
+    let config = context.config();
     if config.data_source.mongodb.enabled {
         ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
     }
@@ -242,7 +242,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 }
 
 fn output_protfolios(context: &AppContext, file: &str) {
-    let config = Arc::clone(&context.config);
+    let config = context.config();
     let protfolios = Arc::clone(&context.protfolios);
     protfolios.iter().for_each(|(ticker_id, groups)| {
         groups.iter().for_each(|(unit, lock)| {
