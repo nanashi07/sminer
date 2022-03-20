@@ -4,7 +4,7 @@ use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
     persist::{
-        es::{index_tickers, take_digitals},
+        es::{index_protfolios, index_tickers, take_digitals},
         mongo::{export, import},
     },
     provider::yahoo::consume,
@@ -80,9 +80,9 @@ async fn main() -> Result<()> {
                             }
                         }
                         "protfolio" => {
-                            // for file in files {
-                            //     // export(&context, &file).await?;
-                            // }
+                            for file in files {
+                                index_protfolios(&context, file).await?;
+                            }
                         }
                         _ => {}
                     }

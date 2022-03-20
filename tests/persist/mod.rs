@@ -147,7 +147,7 @@ mod elastic {
     use sminer::{
         init_log,
         persist::{
-            es::{take_digitals, ElasticTicker},
+            es::{take_digitals, ElasticTicker, INDEX_PREFIX_TICKER},
             DataSource, PersistenceContext,
         },
         vo::{biz::Ticker, core::AppConfig},
@@ -223,7 +223,7 @@ mod elastic {
             let digital = take_digitals(&file);
             let time =
                 Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
-            let index_name = format!("tickers-{}", time.format("%Y-%m-%d"));
+            let index_name = format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
 
             // drop index first
             context.drop_index(&take_digitals(&file)).await?;
@@ -290,7 +290,7 @@ mod elastic {
 
         let response = client
             .indices()
-            .delete(IndicesDeleteParts::Index(&["tickers-2022-03-09"]))
+            .delete(IndicesDeleteParts::Index(&["sminer-tickers-2022-03-09"]))
             .send()
             .await?;
 

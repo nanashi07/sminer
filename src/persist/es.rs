@@ -2,7 +2,7 @@ use super::{DataSource, PersistenceContext};
 use crate::{
     proto::biz::TickerEvent,
     vo::{
-        biz::{MarketHoursType, QuoteType, Ticker},
+        biz::{MarketHoursType, Protfolio, QuoteType, Ticker},
         core::AppContext,
     },
     Result,
@@ -26,6 +26,9 @@ use std::{
     io::{BufRead, BufReader},
     sync::Arc,
 };
+
+pub const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
+pub const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -61,7 +64,7 @@ impl DataSource<Elasticsearch> for PersistenceContext {
 impl PersistenceContext {
     pub async fn drop_index(&self, name: &str) -> Result<()> {
         let time = Utc.datetime_from_str(&format!("{} 00:00:00", name), "%Y%m%d %H:%M:%S")?;
-        let index_name = &format!("tickers-{}", time.format("%Y-%m-%d"));
+        let index_name = &format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
         let client: Elasticsearch = self.get_connection()?;
         info!("Delete Elasticsearch index: {}", index_name);
         let response = client
@@ -139,7 +142,11 @@ impl ElasticTicker {
     }
     // Resolve index name by ticker info time
     fn index_name(&self) -> String {
-        format!("tickers-{}", self.timestamp().format("%Y-%m-%d"))
+        format!(
+            "{}-{}",
+            INDEX_PREFIX_TICKER,
+            self.timestamp().format("%Y-%m-%d")
+        )
     }
     pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let client: Elasticsearch = datasource.get_connection()?;
@@ -191,7 +198,7 @@ pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
     // generate index name
     let digital = take_digitals(&path);
     let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
-    let index_name = format!("tickers-{}", time.format("%Y-%m-%d"));
+    let index_name = format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
 
     // drop index first
     persistence.drop_index(&digital).await?;
@@ -212,6 +219,50 @@ pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn index_protfolios() -> Result<()> {
+pub async fn index_protfolios(context: &AppContext, path: &str) -> Result<()> {
+    info!("Import messages from {}", &path);
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    let tickers: Vec<Protfolio> = reader
+        .lines()
+        .into_iter()
+        .map(|w| w.unwrap())
+        .map(|line| serde_json::from_str::<Protfolio>(&line).unwrap())
+        .collect();
+
+    info!("protfolio size: {} for {}", &tickers.len(), &path);
+
+    let persistence = context.persistence();
+    let client: Elasticsearch = persistence.get_connection()?;
+
+    let mut body: Vec<JsonBody<_>> = Vec::new();
+    for ticker in tickers {
+        body.push(json!({"index": {}}).into());
+        body.push(json!(ticker).into());
+    }
+
+    // generate index name
+    let digital = take_digitals(&path);
+    let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
+    let index_name = format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"));
+
+    // drop index first
+    persistence.drop_index(&digital).await?;
+
+    info!("Bulk import messages into index: {}", &index_name);
+    let response = client
+        .bulk(BulkParts::Index(&index_name))
+        .body(body)
+        .send()
+        .await?;
+
+    info!(
+        "response {} for index {}",
+        response.status_code(),
+        &index_name
+    );
+
     Ok(())
 }
