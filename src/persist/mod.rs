@@ -25,10 +25,10 @@ impl PersistenceContext {
             mongo_connections: Arc::new(Mutex::new(Vec::new())),
         }
     }
-    pub async fn init_mongo(&self, conifg: &AppConfig) -> Result<()> {
+    pub async fn init_mongo(&self) -> Result<()> {
         // TODO: temp sollution
         for _ in 1..10 {
-            let conn = get_mongo_client(&conifg.data_source.mongodb.uri).await?;
+            let conn = get_mongo_client(&self.config.data_source.mongodb.uri).await?;
             self.close_connection(conn)?;
         }
         Ok(())

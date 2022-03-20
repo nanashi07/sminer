@@ -73,8 +73,11 @@ impl Ticker {
     }
 }
 
-pub async fn query_ticker(uri: &str, db_name: &str, collection: &str) -> Result<Cursor<Ticker>> {
-    let client = get_mongo_client(uri).await?;
+pub async fn query_ticker(
+    client: &Client,
+    db_name: &str,
+    collection: &str,
+) -> Result<Cursor<Ticker>> {
     let db = client.database(db_name);
     let collection = db.collection::<Ticker>(collection);
     let cursor = collection

@@ -92,8 +92,7 @@ impl AppContext {
         let me = Arc::new(self);
         init_dispatcher(&Arc::clone(&me)).await?;
         // FIXME: init mongo for temp solution
-        let config = &me.config;
-        Arc::clone(&me).persistence.init_mongo(config).await?;
+        Arc::clone(&me).persistence.init_mongo().await?;
         Ok(Arc::clone(&me))
     }
 

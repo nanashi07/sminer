@@ -16,24 +16,30 @@ mod mongo {
     use crate::persist::read_from_file;
     use futures::TryStreamExt;
     use log::{debug, info};
-    use mongodb::bson::Document;
+    use mongodb::{bson::Document, Client};
     use sminer::{
         init_log,
-        persist::mongo::{get_mongo_client, query_ticker, DATABASE_NAME},
-        vo::biz::Ticker,
+        persist::{
+            mongo::{query_ticker, DATABASE_NAME},
+            DataSource, PersistenceContext,
+        },
+        vo::{biz::Ticker, core::AppConfig},
         Result,
     };
     use std::{
         fs::OpenOptions,
         io::{BufWriter, Write},
+        sync::Arc,
     };
-
-    const MONGO_URI: &str = "mongodb://root:password@localhost:27017";
 
     #[tokio::test]
     #[ignore = "used for import data"]
     async fn test_import_into_mongo() -> Result<()> {
         init_log("DEBUG").await?;
+
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
+        context.init_mongo().await?;
+        let client: Client = context.get_connection()?;
 
         let files = vec![
             "tickers20220309",
@@ -45,7 +51,6 @@ mod mongo {
             "tickers20220317",
             "tickers20220318",
         ];
-        let client = get_mongo_client(MONGO_URI).await?;
 
         for file in files {
             let tickers: Vec<Ticker> = read_from_file(file)?
@@ -71,7 +76,12 @@ mod mongo {
     #[ignore = "used for test imported data"]
     async fn test_query_ticker() -> Result<()> {
         init_log("TRACE").await?;
-        let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, "tickers20220311").await?;
+
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
+        context.init_mongo().await?;
+        let client: Client = context.get_connection()?;
+
+        let mut cursor = query_ticker(&client, DATABASE_NAME, "tickers20220311").await?;
         while let Some(ticker) = cursor.try_next().await? {
             info!("{:?}", ticker);
         }
@@ -83,6 +93,10 @@ mod mongo {
     async fn test_export_mongo_by_order() -> Result<()> {
         init_log("INFO").await?;
 
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
+        context.init_mongo().await?;
+        let client: Client = context.get_connection()?;
+
         let collections = vec![
             "tickers20220309",
             "tickers20220310",
@@ -93,8 +107,9 @@ mod mongo {
             "tickers20220317",
             "tickers20220318",
         ];
+
         for collection in collections {
-            let mut cursor = query_ticker(MONGO_URI, DATABASE_NAME, collection).await?;
+            let mut cursor = query_ticker(&client, DATABASE_NAME, collection).await?;
             std::fs::create_dir_all("tmp")?;
             let file = OpenOptions::new()
                 .write(true)
@@ -119,7 +134,8 @@ mod mongo {
 }
 
 mod elastic {
-    use crate::persist::read_from_file;
+    use crate::{analysis::take_digitals, persist::read_from_file};
+    use chrono::{TimeZone, Utc};
     use elasticsearch::{
         http::request::JsonBody, indices::IndicesDeleteParts, BulkParts, Elasticsearch,
     };
@@ -127,24 +143,19 @@ mod elastic {
     use serde_json::{json, Value};
     use sminer::{
         init_log,
-        persist::{
-            es::{get_elasticsearch_client, ElasticTicker},
-            DataSource, PersistenceContext,
-        },
+        persist::{es::ElasticTicker, DataSource, PersistenceContext},
         vo::{biz::Ticker, core::AppConfig},
         Result,
     };
     use std::sync::Arc;
 
-    const ELASTICSEARCH_URI: &str = "http://localhost:9200";
-
     #[tokio::test]
     #[ignore = "used for test imported data"]
     async fn test_import_into_es_single() -> Result<()> {
         init_log("INFO").await?;
-        let mut config = AppConfig::new();
-        config.data_source.elasticsearch.uri = ELASTICSEARCH_URI.to_string();
-        let persistence = Arc::new(PersistenceContext::new(Arc::new(config)));
+        let context = Arc::new(PersistenceContext::new(Arc::new(AppConfig::load(
+            "config.yaml",
+        )?)));
 
         let files = vec!["tickers20220309"];
 
@@ -160,9 +171,7 @@ mod elastic {
 
             for ticker in tickers {
                 debug!("ticker = {:?}", &ticker);
-                ticker
-                    .save_to_elasticsearch(Arc::clone(&persistence))
-                    .await?;
+                ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
             }
         }
         Ok(())
@@ -171,9 +180,20 @@ mod elastic {
     #[tokio::test]
     #[ignore = "used for test imported data"]
     async fn test_import_into_es_bulk() -> Result<()> {
-        init_log("TRACE").await?;
+        init_log("DEBUG").await?;
 
-        let files = vec!["tickers20220309.LABU"];
+        let files = vec![
+            "tickers20220309",
+            "tickers20220310",
+            "tickers20220311",
+            "tickers20220314",
+            "tickers20220315",
+            "tickers20220316",
+            "tickers20220317",
+            "tickers20220318",
+        ];
+
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
 
         for file in files {
             let tickers: Vec<ElasticTicker> = read_from_file(file)?
@@ -182,9 +202,9 @@ mod elastic {
                 .map(|t| ElasticTicker::from(t))
                 .collect();
 
-            info!("ticker size: {}", &tickers.len());
+            info!("ticker size: {} for {}", &tickers.len(), &file);
 
-            let client = get_elasticsearch_client(ELASTICSEARCH_URI).await?;
+            let client: Elasticsearch = context.get_connection()?;
 
             let mut body: Vec<JsonBody<_>> = Vec::new();
             for ticker in tickers {
@@ -193,14 +213,22 @@ mod elastic {
                 body.push(json!(ticker).into());
             }
 
+            // generate index name
+            let digital = take_digitals(&file);
+            let time =
+                Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
+            let index_name = format!("tickers-{}", time.format("%Y-%m-%d"));
+
+            // drop index first
+            context.drop_index(&take_digitals(&file)).await?;
+
             let response = client
-                .bulk(BulkParts::Index("tickers-bulk"))
+                .bulk(BulkParts::Index(&index_name))
                 .body(body)
                 .send()
                 .await?;
 
-            let response_body = response.json::<Value>().await?;
-            info!("response = {}", response_body);
+            info!("response = {} for {}", response.status_code(), &file);
         }
         Ok(())
     }
@@ -209,6 +237,7 @@ mod elastic {
     #[ignore = "used for test imported data"]
     async fn test_bulk_index() -> Result<()> {
         init_log("TRACE").await?;
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
 
         let mut body: Vec<JsonBody<_>> = Vec::with_capacity(4);
 
@@ -236,7 +265,7 @@ mod elastic {
             .into(),
         );
 
-        let client = get_elasticsearch_client(ELASTICSEARCH_URI).await?;
+        let client: Elasticsearch = context.get_connection()?;
         let _ = client
             .bulk(BulkParts::Index("tweets"))
             .body(body)
@@ -250,10 +279,8 @@ mod elastic {
     #[ignore]
     async fn test_delete_index() -> Result<()> {
         init_log("INFO").await?;
-        let mut config = AppConfig::new();
-        config.data_source.elasticsearch.uri = ELASTICSEARCH_URI.to_string();
-        let persistence = Arc::new(PersistenceContext::new(Arc::new(config)));
-        let client: Elasticsearch = persistence.get_connection()?;
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
+        let client: Elasticsearch = context.get_connection()?;
 
         let response = client
             .indices()

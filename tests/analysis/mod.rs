@@ -7,7 +7,7 @@ use sminer::{
 };
 use tokio::runtime::Runtime;
 
-fn take_digitals(str: &str) -> String {
+pub fn take_digitals(str: &str) -> String {
     str.chars().filter(|c| c.is_numeric()).collect::<String>()
 }
 
