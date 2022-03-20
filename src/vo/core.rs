@@ -139,6 +139,7 @@ impl AppContext {
 pub struct AppConfig {
     #[serde(rename = "dataSource")]
     pub data_source: DataSource,
+    pub platform: Platform,
     pub analysis: AnalysisBehavior,
     pub tickers: TickerList,
 }
@@ -175,6 +176,16 @@ pub struct DataSourceInfo {
     pub uri: String,
     pub enabled: bool,
     pub target: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Platform {
+    pub yahoo: YahooFinance,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct YahooFinance {
+    pub uri: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

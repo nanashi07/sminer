@@ -13,10 +13,7 @@ use sminer::provider::yahoo::consume;
 use sminer::vo::core::{AppConfig, AppContext};
 use sminer::{init_log, Result};
 use std::ops::Add;
-use std::sync::Arc;
 use tokio::runtime::Runtime;
-
-const YAHOO_WS: &str = "wss://streamer.finance.yahoo.com/";
 
 // cargo test --package sminer --test tests -- test_consume_yahoo_tickers --exact --nocapture --ignored
 #[test]
@@ -36,10 +33,11 @@ fn test_consume_yahoo_tickers() -> Result<()> {
         );
 
         let symbols = context.config.symbols();
+        let uri = &context.config.platform.yahoo.uri;
 
         info!("Loaded symbols: {:?}", &symbols);
 
-        consume(&Arc::clone(&context), YAHOO_WS, &symbols, Option::None).await?;
+        consume(&context, &uri, &symbols, Option::None).await?;
 
         Ok(())
     });

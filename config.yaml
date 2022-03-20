@@ -1,11 +1,14 @@
 dataSource:
   mongodb:
-    enabled: false
+    enabled: true
     uri: mongodb://root:password@localhost:27017
     # target: yahoo22
   elasticsearch:
-    enabled: false
+    enabled: true
     uri: http://localhost:9200
+platform:
+  yahoo:
+    uri: "wss://streamer.finance.yahoo.com/"
 analysis:
   output:
     # baseFolder: tmp

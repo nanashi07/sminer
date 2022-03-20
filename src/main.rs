@@ -1,5 +1,5 @@
 use clap::{Arg, Command};
-use log::debug;
+use log::{debug, info};
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
@@ -7,6 +7,7 @@ use sminer::{
         es::{index_tickers, take_digitals},
         mongo::{export, import},
     },
+    provider::yahoo::consume,
     vo::core::{AppConfig, AppContext},
     Result,
 };
@@ -28,9 +29,19 @@ async fn main() -> Result<()> {
             let context = AppContext::new(config).init().await?;
 
             match name {
+                "consume" => {
+                    let symbols = context.config.symbols();
+                    let uri = &context.config.platform.yahoo.uri;
+
+                    info!("Loaded symbols: {:?}", &symbols);
+                    consume(&context, &uri, &symbols, Option::None).await?;
+                }
                 "replay" => {
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
+                    // let mongo = sub_matches.is_present("mongo");
+                    // let elasticsearch = sub_matches.is_present("elasticsearch");
+                    // config.data_source.mongodb.enabled = mongo;
 
                     for file in files {
                         if &context.config.data_source.mongodb.enabled == &true {
@@ -103,6 +114,9 @@ fn command_args<'help>() -> Command<'help> {
         .author("Bruce Tsai")
         .subcommand_required(true)
         .subcommands(vec![
+            Command::new("consume")
+                .about("Consume message for analysis")
+                .args(&[level.clone()]),
             Command::new("replay")
                 .about("Replay message for analysis")
                 .args(&[
@@ -112,6 +126,16 @@ fn command_args<'help>() -> Command<'help> {
                         .multiple_values(true)
                         .required(true)
                         .help("Source files to be replay"),
+                    Arg::new("mongo")
+                        .short('m')
+                        .long("mongo")
+                        .takes_value(false)
+                        .help("Enable transfer to MongoDB"),
+                    Arg::new("elasticsearch")
+                        .short('e')
+                        .long("elasticsearch")
+                        .takes_value(false)
+                        .help("Enable transfer to Elasticsearch"),
                 ]),
             Command::new("import")
                 .about("Import message into MongoDB collection")
