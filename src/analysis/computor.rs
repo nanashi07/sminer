@@ -81,6 +81,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         time: first.unit_time,
         unit_time: first.unit_time,
         unit: first.unit,
+        period_type: first.unit as i32,
         quote_type: first.quote_type,
         market_hours: first.market_hours,
         volume: volume,
@@ -186,6 +187,7 @@ impl Protfolio {
             // fixed time range, accroding time unit
             unit_time: t.time - t.time % (*unit as i64 * 1000),
             unit: unit.clone(),
+            period_type: *unit as i32,
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             volume: t.day_volume,
@@ -208,6 +210,7 @@ impl Protfolio {
             // moving time range, according base_time
             unit_time: base_time + (base_time - t.time) % (*unit as i64 * -1000),
             unit: unit.clone(),
+            period_type: *unit as i32,
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             volume: t.day_volume,

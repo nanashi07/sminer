@@ -207,6 +207,8 @@ pub struct Protfolio {
     // Calculation unit
     pub unit: TimeUnit,
     pub unit_time: i64,
+    // Period type
+    pub period_type: i32,
 
     pub max_price: f32,
     pub min_price: f32,

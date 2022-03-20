@@ -85,6 +85,9 @@ pub struct ElasticTicker {
     pub day_volume: i64,
     pub day_volume_diff: i64,
     pub change: f32,
+
+    // Period type
+    pub period_type: i32,
 }
 
 impl From<Ticker> for ElasticTicker {
@@ -99,6 +102,7 @@ impl From<Ticker> for ElasticTicker {
             day_volume: t.day_volume,
             day_volume_diff: 0,
             change: t.change,
+            period_type: 0,
         }
     }
 }
@@ -115,6 +119,7 @@ impl From<TickerEvent> for ElasticTicker {
             day_volume: t.day_volume,
             day_volume_diff: 0,
             change: t.change,
+            period_type: 0,
         }
     }
 }
