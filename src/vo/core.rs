@@ -6,7 +6,7 @@ use crate::{
     Result,
 };
 use config::Config;
-use log::{debug, error};
+use log::{debug, error, info};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -136,6 +136,22 @@ impl AppContext {
         TimeUnit::values().par_iter_mut().for_each(|unit| {
             debug!("route calculation: {:?} of {}", unit, &ticker.id);
             self.route(&ticker.id, &unit).unwrap();
+        });
+        Ok(())
+    }
+
+    pub fn clean(&self) -> Result<()> {
+        self.tickers.iter().for_each(|(id, lock)| {
+            let mut list_writer = lock.write().unwrap();
+            list_writer.clear();
+            info!("Clean up cached data for ticker: {}", id)
+        });
+        self.protfolios.iter().for_each(|(id, map)| {
+            map.iter().for_each(|(unit, lock)| {
+                let mut list_writer = lock.write().unwrap();
+                list_writer.clear();
+                info!("Clean up cached data for protfolio: {:?} of {}", unit, id)
+            });
         });
         Ok(())
     }

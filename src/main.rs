@@ -8,7 +8,10 @@ use sminer::{
         mongo::{export, import},
     },
     provider::yahoo::consume,
-    vo::core::{AppConfig, AppContext},
+    vo::{
+        biz::TimeUnit,
+        core::{AppConfig, AppContext},
+    },
     Result,
 };
 
@@ -37,11 +40,24 @@ async fn main() -> Result<()> {
                     consume(&context, &uri, &symbols, Option::None).await?;
                 }
                 "replay" => {
+                    // override first init
+                    let mut config = AppConfig::load("config.yaml")?;
+                    let mongo = sub_matches.is_present("mongo");
+                    let elasticsearch = sub_matches.is_present("elasticsearch");
+                    info!(
+                        "Transfer MongoDB: {}, transfer Elasticsearch: {}",
+                        mongo, elasticsearch
+                    );
+                    config.data_source.mongodb.enabled = mongo;
+                    config.data_source.elasticsearch.enabled = elasticsearch;
+
+                    info!("Available tickers: {:?}", &config.symbols());
+                    info!("Available time unit: {:?}", TimeUnit::values());
+
+                    let context = AppContext::new(config).init().await?;
+
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
-                    // let mongo = sub_matches.is_present("mongo");
-                    // let elasticsearch = sub_matches.is_present("elasticsearch");
-                    // config.data_source.mongodb.enabled = mongo;
 
                     for file in files {
                         if &context.config.data_source.mongodb.enabled == &true {

@@ -10,7 +10,7 @@ use crate::{
     Result,
 };
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
@@ -26,7 +26,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let preparatory = &context.preparatory;
     let persistence = context.persistence();
 
-    info!("Initialize mongo event handler");
+    debug!("Initialize mongo event handler");
     let mut rx = house_keeper.subscribe();
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
@@ -40,7 +40,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     });
 
-    info!("Initialize elasticsearch event handler");
+    debug!("Initialize elasticsearch event handler");
     let mut rx = house_keeper.subscribe();
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
@@ -54,7 +54,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     });
 
-    info!("Initialize event preparatory handler");
+    debug!("Initialize event preparatory handler");
     let mut rx = preparatory.subscribe();
     let root = Arc::clone(&context);
     tokio::spawn(async move {
@@ -71,7 +71,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let root = Arc::clone(&context);
     for time_unit in TimeUnit::values() {
         for symbol in root.config.symbols() {
-            info!(
+            debug!(
                 "Initialize event calculate {} for {:?} handler",
                 symbol, time_unit
             );
@@ -152,7 +152,7 @@ async fn handle_message_for_calculator(
 ) -> Result<()> {
     // Receive signal only
     let _: i64 = rx.recv().await?.into();
-    debug!("handle_message_for_calculator: {:?} of {}", unit, symbol);
+    trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
     context.route(symbol, unit)?;
     Ok(())
 }
@@ -238,6 +238,9 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         output_protfolios(&context, filename);
     }
 
+    // clean memory
+    context.clean()?;
+
     Ok(())
 }
 
@@ -261,7 +264,7 @@ fn output_protfolios(context: &AppContext, file: &str) {
                     .open(&output_name)
                     .unwrap();
                 let mut writer = BufWriter::new(output);
-                info!("Dump analysis: {}", &output_name);
+                debug!("Dump analysis: {}", &output_name);
 
                 list_reader.iter().rev().for_each(|item| {
                     let json = serde_json::to_string(&item).unwrap();
