@@ -19,10 +19,7 @@ mod mongo {
     use mongodb::{bson::Document, Client};
     use sminer::{
         init_log,
-        persist::{
-            mongo::{query_ticker, DATABASE_NAME},
-            DataSource, PersistenceContext,
-        },
+        persist::{mongo::query_ticker, DataSource, PersistenceContext},
         vo::{biz::Ticker, core::AppConfig},
         Result,
     };
@@ -39,6 +36,8 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
+        let config = Arc::clone(&context.config);
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 
         let files = vec![
@@ -59,7 +58,7 @@ mod mongo {
                 .collect();
             info!("Loaded tickers: {} for {}", tickers.len(), file);
 
-            let db = client.database(DATABASE_NAME);
+            let db = client.database(db_name);
 
             // delete original
             let collection = db.collection::<Document>(file);
@@ -79,9 +78,11 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
+        let config = Arc::clone(&context.config);
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 
-        let mut cursor = query_ticker(&client, DATABASE_NAME, "tickers20220311").await?;
+        let mut cursor = query_ticker(&client, db_name, "tickers20220311").await?;
         while let Some(ticker) = cursor.try_next().await? {
             info!("{:?}", ticker);
         }
@@ -95,6 +96,8 @@ mod mongo {
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
         context.init_mongo().await?;
+        let config = Arc::clone(&context.config);
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
 
         let collections = vec![
@@ -109,7 +112,7 @@ mod mongo {
         ];
 
         for collection in collections {
-            let mut cursor = query_ticker(&client, DATABASE_NAME, collection).await?;
+            let mut cursor = query_ticker(&client, db_name, collection).await?;
             std::fs::create_dir_all("tmp")?;
             let file = OpenOptions::new()
                 .write(true)

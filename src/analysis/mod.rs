@@ -242,12 +242,16 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 }
 
 fn output_protfolios(context: &AppContext, file: &str) {
+    let config = Arc::clone(&context.config);
     let protfolios = Arc::clone(&context.protfolios);
     protfolios.iter().for_each(|(ticker_id, groups)| {
         groups.iter().for_each(|(unit, lock)| {
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                let output_name = format!("tmp/analysis/{}/{}-{:?}.json", file, ticker_id, unit);
+                let output_name = format!(
+                    "{}/analysis/{}/{}-{:?}.json",
+                    &config.analysis.output.base_folder, file, ticker_id, unit
+                );
                 let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                 std::fs::create_dir_all(&path).unwrap();
                 let output = OpenOptions::new()

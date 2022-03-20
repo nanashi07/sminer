@@ -9,8 +9,6 @@ use mongodb::{
 };
 use std::{sync::Arc, thread};
 
-pub const DATABASE_NAME: &str = "yahoo";
-
 pub async fn get_mongo_client(uri: &str) -> Result<Client> {
     let client_options = ClientOptions::parse(uri).await?;
     let client = Client::with_options(client_options)?;
@@ -47,8 +45,10 @@ impl DataSource<Client> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_collection(&self, name: &str) -> Result<()> {
+        let config = Arc::clone(&self.config);
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = self.get_connection()?;
-        let db = client.database(DATABASE_NAME);
+        let db = client.database(db_name);
         info!("Drop MongoDB collection: {}", name);
         let collection = db.collection::<Document>(name);
         collection.drop(None).await?;
@@ -63,8 +63,10 @@ impl Ticker {
             "tickers{}",
             Utc.timestamp_millis(self.time).format("%Y%m%d")
         );
+        let config = Arc::clone(&context.config);
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
-        let db = client.database(DATABASE_NAME);
+        let db = client.database(db_name);
         let collection = db.collection::<Ticker>(&collection_name);
 
         let _ = collection.insert_one(self, None).await?;

@@ -144,41 +144,11 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn new() -> AppConfig {
-        AppConfig {
-            data_source: DataSource {
-                mongodb: DataSourceInfo {
-                    uri: String::new(),
-                    enabled: true,
-                },
-                elasticsearch: DataSourceInfo {
-                    uri: String::new(),
-                    enabled: true,
-                },
-            },
-            analysis: AnalysisBehavior {
-                output: Outputs {
-                    file: OutputType { enabled: true },
-                    elasticsearch: OutputType { enabled: true },
-                },
-            },
-            tickers: TickerList {
-                symbols: vec![
-                    TickerGroup {
-                        bull: Symbol { id: String::new() },
-                        bear: Symbol { id: String::new() },
-                    },
-                    TickerGroup {
-                        bull: Symbol { id: String::new() },
-                        bear: Symbol { id: String::new() },
-                    },
-                ],
-            },
-        }
-    }
     pub fn load(file: &str) -> Result<AppConfig> {
         let settings = Config::builder()
             .add_source(config::File::with_name(file))
+            .set_default("analysis.output.baseFolder", "tmp")?
+            .set_default("dataSource.mongodb.target", "yahoo")?
             .build()?;
 
         let config: AppConfig = settings.try_deserialize::<AppConfig>()?;
@@ -204,6 +174,7 @@ pub struct DataSource {
 pub struct DataSourceInfo {
     pub uri: String,
     pub enabled: bool,
+    pub target: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -213,6 +184,8 @@ pub struct AnalysisBehavior {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Outputs {
+    #[serde(rename = "baseFolder")]
+    pub base_folder: String,
     pub file: OutputType,
     pub elasticsearch: OutputType,
 }

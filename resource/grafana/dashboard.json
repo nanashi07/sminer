@@ -97,7 +97,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TQQQ AND market_hours: RegularMarket",
+                    "query": "id: TQQQ AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -127,7 +127,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TQQQ AND market_hours: PreMarket",
+                    "query": "id: TQQQ AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -158,7 +158,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TQQQ AND market_hours: PostMarket",
+                    "query": "id: TQQQ AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -282,7 +282,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SQQQ AND market_hours: RegularMarket",
+                    "query": "id: SQQQ AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -312,7 +312,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SQQQ AND market_hours: PreMarket",
+                    "query": "id: SQQQ AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -343,7 +343,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SQQQ AND market_hours: PostMarket",
+                    "query": "id: SQQQ AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -468,7 +468,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXL AND market_hours: RegularMarket",
+                    "query": "id: SOXL AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -498,7 +498,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXL AND market_hours: PreMarket",
+                    "query": "id: SOXL AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -529,7 +529,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXL AND market_hours: PostMarket",
+                    "query": "id: SOXL AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -654,7 +654,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXS AND market_hours: RegularMarket",
+                    "query": "id: SOXS AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -684,7 +684,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXS AND market_hours: PreMarket",
+                    "query": "id: SOXS AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -715,7 +715,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SOXS AND market_hours: PostMarket",
+                    "query": "id: SOXS AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -840,7 +840,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXL AND market_hours: RegularMarket",
+                    "query": "id: SPXL AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -870,7 +870,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXL AND market_hours: PreMarket",
+                    "query": "id: SPXL AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -901,7 +901,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXL AND market_hours: PostMarket",
+                    "query": "id: SPXL AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1026,7 +1026,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXS AND market_hours: RegularMarket",
+                    "query": "id: SPXS AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1056,7 +1056,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXS AND market_hours: PreMarket",
+                    "query": "id: SPXS AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -1087,7 +1087,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SPXS AND market_hours: PostMarket",
+                    "query": "id: SPXS AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1212,7 +1212,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABU AND market_hours: RegularMarket",
+                    "query": "id: LABU AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1242,7 +1242,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABU AND market_hours: PreMarket",
+                    "query": "id: LABU AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -1273,7 +1273,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABU AND market_hours: PostMarket",
+                    "query": "id: LABU AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1398,7 +1398,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABD AND market_hours: RegularMarket",
+                    "query": "id: LABD AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1428,7 +1428,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABD AND market_hours: PreMarket",
+                    "query": "id: LABD AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -1459,7 +1459,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: LABD AND market_hours: PostMarket",
+                    "query": "id: LABD AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1584,7 +1584,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TNA AND market_hours: RegularMarket",
+                    "query": "id: TNA AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1614,7 +1614,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TNA AND market_hours: PreMarket",
+                    "query": "id: TNA AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -1645,7 +1645,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TNA AND market_hours: PostMarket",
+                    "query": "id: TNA AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1770,7 +1770,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TZA AND market_hours: RegularMarket",
+                    "query": "id: TZA AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1800,7 +1800,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TZA AND market_hours: PreMarket",
+                    "query": "id: TZA AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -1831,7 +1831,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: TZA AND market_hours: PostMarket",
+                    "query": "id: TZA AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -1956,7 +1956,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YINN AND market_hours: RegularMarket",
+                    "query": "id: YINN AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -1986,7 +1986,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YINN AND market_hours: PreMarket",
+                    "query": "id: YINN AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -2017,7 +2017,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YINN AND market_hours: PostMarket",
+                    "query": "id: YINN AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -2142,7 +2142,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YANG AND market_hours: RegularMarket",
+                    "query": "id: YANG AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -2172,7 +2172,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YANG AND market_hours: PreMarket",
+                    "query": "id: YANG AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -2203,7 +2203,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: YANG AND market_hours: PostMarket",
+                    "query": "id: YANG AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -2328,7 +2328,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: UDOW AND market_hours: RegularMarket",
+                    "query": "id: UDOW AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -2358,7 +2358,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: UDOW AND market_hours: PreMarket",
+                    "query": "id: UDOW AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -2389,7 +2389,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: UDOW AND market_hours: PostMarket",
+                    "query": "id: UDOW AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }
@@ -2514,7 +2514,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SDOW AND market_hours: RegularMarket",
+                    "query": "id: SDOW AND market_hours: RegularMarket AND period_type: 0",
                     "refId": "A",
                     "timeField": "time"
                 },
@@ -2544,7 +2544,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SDOW AND market_hours: PreMarket",
+                    "query": "id: SDOW AND market_hours: PreMarket AND period_type: 0",
                     "refId": "B",
                     "timeField": "time"
                 },
@@ -2575,7 +2575,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: SDOW AND market_hours: PostMarket",
+                    "query": "id: SDOW AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
                 }

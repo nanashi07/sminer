@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use std::collections::{HashMap, LinkedList};
 use std::f64::NAN;
 
+// Calculate slop for nearest line
+// Reference to doc/trend.md
 fn slope(samples: &Vec<(f64, f64)>) -> f64 {
     let count = samples.len() as f64;
     let x_avg: f64 = samples.iter().map(|(x, _)| *x / count).sum();

@@ -2,11 +2,13 @@ dataSource:
   mongodb:
     enabled: false
     uri: mongodb://root:password@localhost:27017
+    # target: yahoo
   elasticsearch:
     enabled: false
     uri: http://localhost:9200
 analysis:
   output:
+    # baseFolder: tmp
     file:
       enabled: true
     elasticsearch:
