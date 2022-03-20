@@ -5,6 +5,7 @@ use log::trace;
 use log::{debug, info};
 use rayon::prelude::*;
 use std::collections::{HashMap, LinkedList};
+use std::f64::NAN;
 
 fn slope(samples: &Vec<(f64, f64)>) -> f64 {
     let count = samples.len() as f64;
@@ -57,13 +58,13 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
     let price_min = values
         .par_iter()
         .map(|p| p.price)
-        .reduce(|| 0.0, |a, b| if a <= b { a } else { b });
+        .reduce(|| price_max, |a, b| if a <= b { a } else { b });
 
     // Calculate average price
     let price_sum: f64 = values.par_iter().map(|p| p.price as f64).sum();
     let price_avg: f32 = (price_sum / values.len() as f64) as f32;
 
-    let volume = first.volume - last.volume;
+    let volume = first.volume - last.volume; // FIXME : lack of the volume of first item
 
     let samples = values.len() as u32;
 
@@ -90,7 +91,11 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         open_price: price_open,
         close_price: price_close,
         sample_size: samples,
-        slope: slope,
+        slope: if slope == NAN && values.len() < 2 {
+            0.0 // no data in this period
+        } else {
+            slope
+        },
     }
 }
 

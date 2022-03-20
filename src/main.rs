@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
             if &context.config.data_source.elasticsearch.enabled == &true {
                 context.persistence.drop_index(&take_digitals(file)).await?;
             }
-            replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
+            replay(&context, &file, ReplayMode::Sync).await?
         }
 
         return Ok(());

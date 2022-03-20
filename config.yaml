@@ -5,6 +5,12 @@ dataSource:
   elasticsearch:
     enabled: false
     uri: http://localhost:9200
+analysis:
+  output:
+    file:
+      enabled: true
+    elasticsearch:
+      enabled: false
 tickers:
   symbols:
     - bull:

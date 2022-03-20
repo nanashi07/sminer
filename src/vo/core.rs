@@ -140,6 +140,7 @@ impl AppContext {
 pub struct AppConfig {
     #[serde(rename = "dataSource")]
     pub data_source: DataSource,
+    pub analysis: AnalysisBehavior,
     pub tickers: TickerList,
 }
 
@@ -154,6 +155,12 @@ impl AppConfig {
                 elasticsearch: DataSourceInfo {
                     uri: String::new(),
                     enabled: true,
+                },
+            },
+            analysis: AnalysisBehavior {
+                output: Outputs {
+                    file: OutputType { enabled: true },
+                    elasticsearch: OutputType { enabled: true },
                 },
             },
             tickers: TickerList {
@@ -197,6 +204,22 @@ pub struct DataSource {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DataSourceInfo {
     pub uri: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AnalysisBehavior {
+    pub output: Outputs,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Outputs {
+    pub file: OutputType,
+    pub elasticsearch: OutputType,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct OutputType {
     pub enabled: bool,
 }
 

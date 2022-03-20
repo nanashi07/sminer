@@ -12,8 +12,9 @@ use crate::{
 use chrono::Utc;
 use log::{debug, error, info};
 use std::{
-    fs::File,
-    io::{BufRead, BufReader},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, BufWriter, Write},
+    path::Path,
     sync::Arc,
     thread::sleep,
     time::Duration,
@@ -218,7 +219,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         handl_count = handl_count + 1;
 
         if seconds < Utc::now().timestamp() / 60 {
-            info!("Handling process {}/{} for {}", handl_count, total, file);
+            info!("Handled items {}/{} for {}", handl_count, total, file);
             seconds = seconds + 1;
         }
 
@@ -229,6 +230,41 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
             }
         }
     }
-    info!("Tickers: {} replay done", file);
+    info!("Tickers: {} replay done", &file);
+
+    if context.config.analysis.output.file.enabled {
+        // output analysis file
+        let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
+        output_protfolios(&context, filename);
+    }
+
     Ok(())
+}
+
+fn output_protfolios(context: &AppContext, file: &str) {
+    let protfolios = Arc::clone(&context.protfolios);
+    protfolios.iter().for_each(|(ticker_id, groups)| {
+        groups.iter().for_each(|(unit, lock)| {
+            let list_reader = lock.read().unwrap();
+            if !list_reader.is_empty() {
+                let output_name = format!("tmp/analysis/{}/{}-{:?}.json", file, ticker_id, unit);
+                let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
+                std::fs::create_dir_all(&path).unwrap();
+                let output = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&output_name)
+                    .unwrap();
+                let mut writer = BufWriter::new(output);
+                info!("Dump analysis: {}", &output_name);
+
+                list_reader.iter().rev().for_each(|item| {
+                    let json = serde_json::to_string(&item).unwrap();
+                    write!(&mut writer, "{}\n", &json).unwrap();
+                });
+                info!("Finish analysis: {} file", &output_name);
+            }
+        });
+    });
 }

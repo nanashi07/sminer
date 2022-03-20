@@ -26,7 +26,7 @@ fn test_replay() -> Result<()> {
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
-            "tickers20220309",
+            "tickers20220309.LABU",
             // "tickers20220310",
             // "tickers20220311",
             // "tickers20220314",
