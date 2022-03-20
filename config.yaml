@@ -2,7 +2,7 @@ dataSource:
   mongodb:
     enabled: false
     uri: mongodb://root:password@localhost:27017
-    # target: yahoo
+    # target: yahoo22
   elasticsearch:
     enabled: false
     uri: http://localhost:9200

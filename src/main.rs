@@ -3,22 +3,22 @@ use log::debug;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
+    persist::mongo::import,
     vo::core::{AppConfig, AppContext},
     Result,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut cmd = command_args();
-    let matches = cmd.clone().get_matches();
-    debug!("matches: {:?}", matches);
+    let cmd = command_args();
+    let matches = cmd.get_matches();
 
-    match matches.subcommand_name() {
-        Some(name) => {
-            let level: String = matches.value_of_t("level")?;
+    match matches.subcommand() {
+        Some((name, sub_matches)) => {
+            let level = sub_matches.value_of("log-level").unwrap();
             init_log(&level).await?;
 
-            debug!("Subommand: {}", &name);
+            debug!("matches: {:?}", sub_matches);
 
             // init
             let config = AppConfig::load("config.yaml")?;
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
             match name {
                 "replay" => {
-                    let files: Vec<&str> = matches.values_of("files").unwrap().collect();
+                    let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
 
                     for file in files {
@@ -40,7 +40,11 @@ async fn main() -> Result<()> {
                     }
                 }
                 "import" => {
-                    // TODO
+                    let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
+                    debug!("Input files: {:?}", files);
+                    for file in files {
+                        import(&context, &file).await?;
+                    }
                 }
                 "export" => {
                     // TODO
@@ -52,7 +56,7 @@ async fn main() -> Result<()> {
             }
         }
         None => {
-            cmd.print_help()?;
+            // cmd.clone().print_help()?;
             println!();
         }
     }
@@ -64,9 +68,10 @@ fn take_digitals(str: &str) -> String {
 }
 /// Create command line arguments
 fn command_args<'help>() -> Command<'help> {
-    let level = Arg::new("level")
+    let level = Arg::new("log-level")
         .short('l')
         .long("level")
+        .ignore_case(true)
         .possible_values(["TRACE", "DEBUG", "INFO", "WARN", "ERROR"])
         .default_value("INFO")
         .help("Log level for standard output");
@@ -100,7 +105,7 @@ fn command_args<'help>() -> Command<'help> {
                 .about("Export message from MongoDB collection")
                 .args(&[
                     level.clone(),
-                    Arg::new("files")
+                    Arg::new("collections")
                         .takes_value(true)
                         .multiple_values(true)
                         .required(true)

@@ -1,5 +1,8 @@
 use super::{DataSource, PersistenceContext};
-use crate::{vo::biz::Ticker, Result};
+use crate::{
+    vo::{biz::Ticker, core::AppContext},
+    Result,
+};
 use chrono::{TimeZone, Utc};
 use log::info;
 use mongodb::{
@@ -7,7 +10,13 @@ use mongodb::{
     options::{ClientOptions, FindOptions},
     Client, Cursor,
 };
-use std::{sync::Arc, thread};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+    sync::Arc,
+    thread,
+};
 
 pub async fn get_mongo_client(uri: &str) -> Result<Client> {
     let client_options = ClientOptions::parse(uri).await?;
@@ -91,4 +100,43 @@ pub async fn query_ticker(
         )
         .await?;
     Ok(cursor)
+}
+
+pub async fn import(context: &AppContext, path: &str) -> Result<()> {
+    info!("Import messages from {}", &path);
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    let tickers: Vec<Ticker> = reader
+        .lines()
+        .into_iter()
+        .map(|w| w.unwrap())
+        .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+        .collect();
+
+    info!("Loaded tickers: {} for {}", tickers.len(), path);
+
+    let persistence = Arc::clone(&context.persistence);
+    let config = Arc::clone(&context.config);
+    let db_name = config.data_source.mongodb.target.as_ref().unwrap();
+    let client: Client = persistence.get_connection()?;
+    let db = client.database(db_name);
+
+    let collection_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
+
+    // delete original
+    info!(
+        "Drop collection {}.{} for clean data",
+        &db_name, &collection_name
+    );
+    let collection = db.collection::<Document>(&collection_name);
+    collection.drop(None).await?;
+
+    info!("Importing data into {}.{}", &db_name, &collection_name);
+    let typed_collection = db.collection::<Ticker>(&collection_name);
+    typed_collection.insert_many(tickers, None).await?;
+    info!("Import {} done", &path);
+
+    Ok(())
 }
