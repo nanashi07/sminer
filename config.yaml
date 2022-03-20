@@ -1,9 +1,9 @@
 dataSource:
   mongodb:
-    enabled: true
+    enabled: false
     uri: mongodb://root:password@localhost:27017
   elasticsearch:
-    enabled: true
+    enabled: false
     uri: http://localhost:9200
 tickers:
   symbols:

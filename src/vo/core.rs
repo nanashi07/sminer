@@ -98,7 +98,10 @@ impl AppContext {
     }
 
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
-        self.house_keeper.send(ticker.into())?;
+        if self.config.data_source.mongodb.enabled || self.config.data_source.elasticsearch.enabled
+        {
+            self.house_keeper.send(ticker.into())?;
+        }
         self.preparatory.send(ticker.into())?;
         Ok(())
     }
