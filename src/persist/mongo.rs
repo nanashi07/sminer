@@ -4,15 +4,16 @@ use crate::{
     Result,
 };
 use chrono::{TimeZone, Utc};
-use log::info;
+use futures::TryStreamExt;
+use log::{debug, info, trace};
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOptions},
     Client, Cursor,
 };
 use std::{
-    fs::File,
-    io::{BufRead, BufReader},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
     sync::Arc,
     thread,
@@ -137,6 +138,36 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
     let typed_collection = db.collection::<Ticker>(&collection_name);
     typed_collection.insert_many(tickers, None).await?;
     info!("Import {} done", &path);
+
+    Ok(())
+}
+
+pub async fn export(context: &AppContext, name: &str) -> Result<()> {
+    let persistence = Arc::clone(&context.persistence);
+    let config = Arc::clone(&context.config);
+    let db_name = config.data_source.mongodb.target.as_ref().unwrap();
+    let base_path = config.analysis.output.base_folder.as_str();
+    let client: Client = persistence.get_connection()?;
+    let path = format!("{}/{}", &base_path, &name);
+
+    std::fs::create_dir_all(&base_path)?;
+
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&path)?;
+    let mut writer = BufWriter::new(file);
+
+    info!("Export collection: {}", &name);
+    let mut cursor = query_ticker(&client, &db_name, &name).await?;
+    while let Some(ticker) = cursor.try_next().await? {
+        trace!("{:?}", ticker);
+        // write file
+        let json = serde_json::to_string(&ticker)?;
+        write!(&mut writer, "{}\n", &json)?;
+    }
+    info!("File {} exported", &path);
 
     Ok(())
 }

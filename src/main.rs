@@ -3,7 +3,7 @@ use log::debug;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
-    persist::mongo::import,
+    persist::mongo::{export, import},
     vo::core::{AppConfig, AppContext},
     Result,
 };
@@ -47,7 +47,11 @@ async fn main() -> Result<()> {
                     }
                 }
                 "export" => {
-                    // TODO
+                    let files: Vec<&str> = sub_matches.values_of("collections").unwrap().collect();
+                    debug!("Target collections: {:?}", files);
+                    for file in files {
+                        export(&context, &file).await?;
+                    }
                 }
                 "index" => {
                     // TODO
