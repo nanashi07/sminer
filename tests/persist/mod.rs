@@ -171,31 +171,77 @@ mod elastic {
     #[tokio::test]
     #[ignore = "used for test imported data"]
     async fn test_import_into_es_bulk() -> Result<()> {
-        init_log("INFO").await?;
+        init_log("TRACE").await?;
 
-        let file = "tickers20220309";
+        let files = vec!["tickers20220309.LABU"];
 
-        let tickers: Vec<JsonBody<_>> = read_from_file(file)?
-            .iter()
-            .take(10) // take 10 documents for test only
-            .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
-            .map(|t| ElasticTicker::from(t))
-            .map(|t| json!(t).into())
-            .collect();
+        for file in files {
+            let tickers: Vec<ElasticTicker> = read_from_file(file)?
+                .iter()
+                .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
+                .map(|t| ElasticTicker::from(t))
+                .collect();
 
-        info!("ticker size: {}", &tickers.len());
+            info!("ticker size: {}", &tickers.len());
+
+            let client = get_elasticsearch_client(ELASTICSEARCH_URI).await?;
+
+            let mut body: Vec<JsonBody<_>> = Vec::new();
+            for ticker in tickers {
+                // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
+                body.push(json!({"index": {}}).into());
+                body.push(json!(ticker).into());
+            }
+
+            let response = client
+                .bulk(BulkParts::Index("tickers-bulk"))
+                .body(body)
+                .send()
+                .await?;
+
+            let response_body = response.json::<Value>().await?;
+            info!("response = {}", response_body);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_bulk_index() -> Result<()> {
+        init_log("TRACE").await?;
+
+        let mut body: Vec<JsonBody<_>> = Vec::with_capacity(4);
+
+        // add the first operation and document
+        body.push(json!({"index": {"_id": "1"}}).into());
+        body.push(
+            json!({
+                "id": 1,
+                "user": "kimchy",
+                "post_date": "2009-11-15T00:00:00Z",
+                "message": "Trying out Elasticsearch, so far so good?"
+            })
+            .into(),
+        );
+
+        // add the second operation and document
+        body.push(json!({"index": {"_id": "2"}}).into());
+        body.push(
+            json!({
+                "id": 2,
+                "user": "forloop",
+                "post_date": "2020-01-08T00:00:00Z",
+                "message": "Bulk indexing with the rust client, yeah!"
+            })
+            .into(),
+        );
 
         let client = get_elasticsearch_client(ELASTICSEARCH_URI).await?;
-
-        // FIXME: bulk failed
-        let response = client
-            .bulk(BulkParts::Index("tickers-bulk"))
-            .body(tickers)
+        let _ = client
+            .bulk(BulkParts::Index("tweets"))
+            .body(body)
             .send()
             .await?;
-
-        let response_body = response.json::<Value>().await?;
-        info!("response = {}", response_body);
 
         Ok(())
     }
