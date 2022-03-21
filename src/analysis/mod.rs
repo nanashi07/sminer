@@ -113,7 +113,7 @@ async fn handle_message_for_elasticsearch(
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
     let config = context.config();
-    if config.mongo_enabled() {
+    if config.elasticsearch_enabled() {
         ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
     }
     Ok(())
@@ -124,7 +124,6 @@ async fn handle_message_for_preparatory(
     context: &Arc<AppContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
-    // TODO: split for sync replay
     let ctx = Arc::clone(context);
 
     // Add into source list
