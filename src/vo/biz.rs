@@ -216,5 +216,5 @@ pub struct Protfolio {
     pub close_price: f32,
 
     pub sample_size: u32,
-    pub slope: f64,
+    pub slope: Option<f64>,
 }

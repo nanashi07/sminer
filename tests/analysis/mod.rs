@@ -3,7 +3,7 @@ use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
     persist::es::take_digitals,
-    vo::core::{AppConfig, AppContext},
+    vo::core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO},
     Result,
 };
 use tokio::runtime::Runtime;
@@ -17,9 +17,9 @@ fn test_replay() -> Result<()> {
         init_log("INFO").await?;
         let mut config = AppConfig::load("config.yaml")?;
         // disable mongodb persistence
-        config.data_source.mongodb.enabled = false;
+        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
         // disable elasticsearch persistence
-        config.data_source.elasticsearch.enabled = false;
+        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
@@ -31,10 +31,10 @@ fn test_replay() -> Result<()> {
             // "tickers20220316",
         ];
         for file in files {
-            if &context.config.data_source.mongodb.enabled == &true {
+            if context.config.mongo_enabled() {
                 context.persistence.drop_collection(file).await?;
             }
-            if &context.config.data_source.elasticsearch.enabled == &true {
+            if context.config.elasticsearch_enabled() {
                 context.persistence.drop_index(&take_digitals(file)).await?;
             }
             replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
@@ -55,9 +55,9 @@ fn test_replay_async() -> Result<()> {
         init_log("INFO").await?;
         let mut config = AppConfig::load("config.yaml")?;
         // disable mongodb persistence
-        config.data_source.mongodb.enabled = false;
+        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
         // disable elasticsearch persistence
-        config.data_source.elasticsearch.enabled = false;
+        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
@@ -74,10 +74,10 @@ fn test_replay_async() -> Result<()> {
         let _delay_for_es: u64 = 10;
 
         for file in files {
-            if &context.config.data_source.mongodb.enabled == &true {
+            if context.config.mongo_enabled() {
                 context.persistence.drop_collection(file).await?;
             }
-            if &context.config.data_source.elasticsearch.enabled == &true {
+            if context.config.elasticsearch_enabled() {
                 context.persistence.drop_index(&take_digitals(file)).await?;
             }
             replay(

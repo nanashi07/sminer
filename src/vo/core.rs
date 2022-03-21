@@ -15,6 +15,10 @@ use std::{
 };
 use tokio::sync::broadcast::{channel, Sender};
 
+pub const KEY_EXTRA_DISABLE_MONGO: &str = "disable_transfer_mongo";
+pub const KEY_EXTRA_DISABLE_ELASTICSEARCH: &str = "disable_transfer_elasticsearch";
+pub const KEY_EXTRA_DISABLE_TRUNCAT: &str = "disable_clean_data_before_operation";
+
 #[derive(Debug)]
 pub struct AppContext {
     pub config: Arc<AppConfig>,
@@ -105,8 +109,7 @@ impl AppContext {
     }
 
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
-        if self.config.data_source.mongodb.enabled || self.config.data_source.elasticsearch.enabled
-        {
+        if self.config.mongo_enabled() || self.config.elasticsearch_enabled() {
             self.house_keeper.send(ticker.into())?;
         }
         self.preparatory.send(ticker.into())?;
@@ -115,10 +118,10 @@ impl AppContext {
 
     pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
         // save data
-        if self.config.data_source.mongodb.enabled {
+        if self.config.mongo_enabled() {
             ticker.save_to_mongo(self.persistence()).await?;
         }
-        if self.config.data_source.elasticsearch.enabled {
+        if self.config.elasticsearch_enabled() {
             let es_ticker: ElasticTicker = (*ticker).clone().into();
             es_ticker.save_to_elasticsearch(self.persistence()).await?;
         }
@@ -164,6 +167,12 @@ pub struct AppConfig {
     pub platform: Platform,
     pub analysis: AnalysisBehavior,
     pub tickers: TickerList,
+    #[serde(default = "empty_map")]
+    runtime: HashMap<String, String>,
+}
+
+fn empty_map() -> HashMap<String, String> {
+    HashMap::new()
 }
 
 impl AppConfig {
@@ -177,6 +186,19 @@ impl AppConfig {
         let config: AppConfig = settings.try_deserialize::<AppConfig>()?;
         Ok(config)
     }
+
+    pub fn extra_put(&mut self, key: &str, value: &str) {
+        self.runtime.insert(key.to_string(), value.to_string());
+    }
+
+    pub fn extra_get(&self, key: &str) -> Option<&String> {
+        self.runtime.get(key)
+    }
+
+    pub fn extra_present(&self, key: &str) -> bool {
+        self.runtime.contains_key(key)
+    }
+
     pub fn symbols(&self) -> Vec<String> {
         self.tickers
             .symbols
@@ -184,6 +206,19 @@ impl AppConfig {
             .flat_map(|g| [&g.bear.id, &g.bull.id])
             .map(|id| id.to_string())
             .collect::<Vec<String>>()
+    }
+
+    pub fn mongo_enabled(&self) -> bool {
+        self.data_source.mongodb.enabled && !self.extra_present(KEY_EXTRA_DISABLE_MONGO)
+    }
+
+    pub fn elasticsearch_enabled(&self) -> bool {
+        self.data_source.elasticsearch.enabled
+            && !self.extra_present(KEY_EXTRA_DISABLE_ELASTICSEARCH)
+    }
+
+    pub fn truncat_enabled(&self) -> bool {
+        !self.extra_present(KEY_EXTRA_DISABLE_TRUNCAT)
     }
 }
 

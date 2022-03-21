@@ -94,10 +94,14 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         open_price: price_open,
         close_price: price_close,
         sample_size: samples,
-        slope: if slope == NAN && values.len() < 2 {
-            0.0 // no data in this period
+        slope: if slope == NAN {
+            if values.len() < 2 {
+                Some(0.0) // no data in this period
+            } else {
+                Some(slope)
+            }
         } else {
-            slope
+            None
         },
     }
 }
@@ -200,7 +204,7 @@ impl Protfolio {
             open_price: 0.0,
             close_price: 0.0,
             sample_size: 0,
-            slope: 0.0,
+            slope: None,
         }
     }
 
@@ -223,7 +227,7 @@ impl Protfolio {
             open_price: 0.0,
             close_price: 0.0,
             sample_size: 0,
-            slope: 0.0,
+            slope: None,
         }
     }
 

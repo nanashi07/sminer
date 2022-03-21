@@ -5,7 +5,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use futures::TryStreamExt;
-use log::{info, trace};
+use log::{debug, info, trace};
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOptions},
@@ -55,6 +55,11 @@ impl DataSource<Client> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_collection(&self, name: &str) -> Result<()> {
+        if !self.config.truncat_enabled() {
+            debug!("Ignore drop index");
+            return Ok(());
+        }
+
         let config = self.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = self.get_connection()?;
@@ -127,12 +132,16 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
     let collection_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
 
     // delete original
-    info!(
-        "Drop collection {}.{} for clean data",
-        &db_name, &collection_name
-    );
-    let collection = db.collection::<Document>(&collection_name);
-    collection.drop(None).await?;
+    if context.config().truncat_enabled() {
+        info!(
+            "Drop collection {}.{} for clean data",
+            &db_name, &collection_name
+        );
+        let collection = db.collection::<Document>(&collection_name);
+        collection.drop(None).await?;
+    } else {
+        debug!("Ignore drop index");
+    }
 
     info!("Importing data into {}.{}", &db_name, &collection_name);
     let typed_collection = db.collection::<Ticker>(&collection_name);

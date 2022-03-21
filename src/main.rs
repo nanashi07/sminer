@@ -10,7 +10,10 @@ use sminer::{
     provider::yahoo::consume,
     vo::{
         biz::TimeUnit,
-        core::{AppConfig, AppContext},
+        core::{
+            AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO,
+            KEY_EXTRA_DISABLE_TRUNCAT,
+        },
     },
     Result,
 };
@@ -28,11 +31,12 @@ async fn main() -> Result<()> {
             debug!("matches: {:?}", sub_matches);
 
             // init
-            let config = AppConfig::load("config.yaml")?;
-            let context = AppContext::new(config).init().await?;
+            let mut config = AppConfig::load("config.yaml")?;
 
             match name {
                 "consume" => {
+                    let context = AppContext::new(config).init().await?;
+
                     let symbols = context.config.symbols();
                     let uri = &context.config.platform.yahoo.uri;
 
@@ -41,15 +45,21 @@ async fn main() -> Result<()> {
                 }
                 "replay" => {
                     // override first init
-                    let mut config = AppConfig::load("config.yaml")?;
-                    let mongo = sub_matches.is_present("mongo");
-                    let elasticsearch = sub_matches.is_present("elasticsearch");
+                    let disable_transfer_to_mongo = sub_matches.is_present("no-mongo");
+                    let disable_transfer_to_elasticsearch =
+                        sub_matches.is_present("no-elasticsearch");
                     info!(
                         "Transfer MongoDB: {}, transfer Elasticsearch: {}",
-                        mongo, elasticsearch
+                        disable_transfer_to_mongo, disable_transfer_to_elasticsearch
                     );
-                    config.data_source.mongodb.enabled = mongo;
-                    config.data_source.elasticsearch.enabled = elasticsearch;
+
+                    if disable_transfer_to_mongo {
+                        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
+                    }
+                    if disable_transfer_to_elasticsearch {
+                        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
+                    }
+                    // config.extra_put("truncat", "true")
 
                     info!("Available tickers: {:?}", &config.symbols());
                     info!("Available time unit: {:?}", TimeUnit::values());
@@ -60,16 +70,18 @@ async fn main() -> Result<()> {
                     debug!("Input files: {:?}", files);
 
                     for file in files {
-                        if &context.config.data_source.mongodb.enabled == &true {
+                        if context.config.mongo_enabled() {
                             context.persistence.drop_collection(file).await?;
                         }
-                        if &context.config.data_source.elasticsearch.enabled == &true {
+                        if context.config.elasticsearch_enabled() {
                             context.persistence.drop_index(&take_digitals(file)).await?;
                         }
                         replay(&context, &file, ReplayMode::Sync).await?
                     }
                 }
                 "import" => {
+                    let context = AppContext::new(config).init().await?;
+
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
                     for file in files {
@@ -77,6 +89,8 @@ async fn main() -> Result<()> {
                     }
                 }
                 "export" => {
+                    let context = AppContext::new(config).init().await?;
+
                     let files: Vec<&str> = sub_matches.values_of("collections").unwrap().collect();
                     debug!("Target collections: {:?}", files);
                     for file in files {
@@ -84,6 +98,12 @@ async fn main() -> Result<()> {
                     }
                 }
                 "index" => {
+                    let keep_exists_data = sub_matches.is_present("keep-data");
+                    if keep_exists_data {
+                        config.extra_put(KEY_EXTRA_DISABLE_TRUNCAT, "disabled");
+                    }
+                    let context = AppContext::new(config).init().await?;
+
                     let r#type = sub_matches.value_of("type").unwrap().to_lowercase();
                     debug!("Input type: {}", &r#type);
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
@@ -142,16 +162,16 @@ fn command_args<'help>() -> Command<'help> {
                         .multiple_values(true)
                         .required(true)
                         .help("Source files to be replay"),
-                    Arg::new("mongo")
+                    Arg::new("no-mongo")
                         .short('m')
-                        .long("mongo")
+                        .long("no-mongo")
                         .takes_value(false)
-                        .help("Enable transfer to MongoDB"),
-                    Arg::new("elasticsearch")
+                        .help("Disable transfer to MongoDB"),
+                    Arg::new("no-elasticsearch")
                         .short('e')
-                        .long("elasticsearch")
+                        .long("no-elasticsearch")
                         .takes_value(false)
-                        .help("Enable transfer to Elasticsearch"),
+                        .help("Disable transfer to Elasticsearch"),
                 ]),
             Command::new("import")
                 .about("Import message into MongoDB collection")
@@ -182,6 +202,11 @@ fn command_args<'help>() -> Command<'help> {
                         .long("type")
                         .possible_values(["tickers", "protfolio"])
                         .default_value("protfolio")
+                        .ignore_case(true),
+                    Arg::new("keep-data")
+                        .short('k')
+                        .long("keep-data")
+                        .takes_value(false)
                         .ignore_case(true),
                     Arg::new("files")
                         .takes_value(true)

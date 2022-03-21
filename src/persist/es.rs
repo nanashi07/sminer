@@ -18,7 +18,7 @@ use elasticsearch::{
     BulkParts, Elasticsearch, IndexParts,
 };
 use futures::executor::block_on;
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
@@ -63,6 +63,11 @@ impl DataSource<Elasticsearch> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_index(&self, name: &str) -> Result<()> {
+        if !self.config.truncat_enabled() {
+            debug!("Ignore drop index");
+            return Ok(());
+        }
+
         let time = Utc.datetime_from_str(&format!("{} 00:00:00", name), "%Y%m%d %H:%M:%S")?;
         let index_name = &format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
         let client: Elasticsearch = self.get_connection()?;

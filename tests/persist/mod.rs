@@ -60,11 +60,16 @@ mod mongo {
 
             let db = client.database(db_name);
 
-            // delete original
-            let collection = db.collection::<Document>(file);
-            collection.drop(None).await?;
+            if context.config().truncat_enabled() {
+                // delete original
+                info!("Drop collection {}.{} for clean data", &db_name, &file);
+                let collection = db.collection::<Document>(&file);
+                collection.drop(None).await?;
+            } else {
+                debug!("Ignore drop index");
+            }
 
-            let typed_collection = db.collection::<Ticker>(&format!("tickers{}", &file[7..]));
+            let typed_collection = db.collection::<Ticker>(&file);
             typed_collection.insert_many(tickers, None).await?;
             info!("Import {} done", file);
         }
