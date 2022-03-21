@@ -361,7 +361,7 @@
             }
         }
     ],
-    "refresh": false,
+    "refresh": "5s",
     "schemaVersion": 25,
     "style": "dark",
     "tags": [],
@@ -533,8 +533,8 @@
         ]
     },
     "time": {
-        "from": "2022-03-16T17:35:35.127Z",
-        "to": "2022-03-16T19:07:39.806Z"
+        "from": "now-1h",
+        "to": "now"
     },
     "timepicker": {
         "refresh_intervals": [
@@ -552,5 +552,5 @@
     "timezone": "",
     "title": "Daily Analysis",
     "uid": "8XT92WEnz11",
-    "version": 9
+    "version": 10
 }

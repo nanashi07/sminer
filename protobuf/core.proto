@@ -36,6 +36,7 @@ message TickerEvent {
     EventQuoteType quoteType = 6;
     EventMarketHoursType marketHours = 7;
     sint64 dayVolume = 9;
+    sint64 volume = 10;
     float change = 12;
 };
 

@@ -108,11 +108,37 @@ impl AppContext {
         Ok(Arc::clone(&me))
     }
 
-    pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
-        if self.config.mongo_enabled() || self.config.elasticsearch_enabled() {
-            self.house_keeper.send(ticker.into())?;
+    fn last_volume(&self, symbol: &str) -> i64 {
+        let lock = &self.tickers.get(symbol).unwrap();
+        let list = lock.read().unwrap();
+        if let Some(ticker) = list.front() {
+            ticker.day_volume
+        } else {
+            0
         }
-        self.preparatory.send(ticker.into())?;
+    }
+
+    pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
+        // calculate volume diff
+        let last_volume = self.last_volume(&ticker.id);
+        let volume_diff = if ticker.day_volume > last_volume {
+            last_volume - ticker.day_volume
+        } else {
+            0
+        };
+
+        // send to persist
+        if self.config.mongo_enabled() || self.config.elasticsearch_enabled() {
+            let mut event: TickerEvent = ticker.into();
+            event.volume = volume_diff;
+            self.house_keeper.send(event)?;
+        }
+
+        // send to analysis
+        let mut event: TickerEvent = ticker.into();
+        event.volume = volume_diff;
+        self.preparatory.send(event)?;
+
         Ok(())
     }
 

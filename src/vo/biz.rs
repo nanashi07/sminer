@@ -90,6 +90,7 @@ pub struct Ticker {
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
     pub day_volume: i64,
+    pub volume: i64,
     pub change: f32,
 }
 
@@ -102,6 +103,7 @@ impl From<YahooTicker> for Ticker {
             quote_type: value.quote_type.try_into().unwrap(),
             market_hours: value.market_hours.try_into().unwrap(),
             day_volume: value.day_volume,
+            volume: 0,
             change: value.change,
         }
     }
@@ -116,6 +118,7 @@ impl From<&Ticker> for TickerEvent {
             quote_type: value.quote_type as i32,
             market_hours: value.market_hours as i32,
             day_volume: value.day_volume,
+            volume: value.volume,
             change: value.change,
         }
     }
@@ -130,6 +133,7 @@ impl From<TickerEvent> for Ticker {
             quote_type: value.quote_type.try_into().unwrap(),
             market_hours: value.market_hours.try_into().unwrap(),
             day_volume: value.day_volume,
+            volume: value.volume,
             change: value.change,
         }
     }
