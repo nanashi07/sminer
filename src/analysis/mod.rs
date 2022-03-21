@@ -150,7 +150,7 @@ async fn handle_message_for_calculator(
     unit: &TimeUnit,
 ) -> Result<()> {
     // Receive signal only
-    let _: i64 = rx.recv().await?.into();
+    let _: i64 = rx.recv().await?.into();  // TODO : use as update id?
     trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
     context.route(symbol, unit)?;
     Ok(())

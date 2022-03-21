@@ -1,8 +1,8 @@
 use crate::vo::biz::{Protfolio, Ticker, TimeUnit};
 use crate::Result;
-use chrono::Utc;
+use chrono::{Duration, Utc};
+use log::debug;
 use log::trace;
-use log::{debug, info};
 use rayon::prelude::*;
 use std::collections::{HashMap, LinkedList};
 use std::f64::NAN;
@@ -142,7 +142,7 @@ fn aggregate_fixed_unit(
         .collect::<Vec<Protfolio>>();
 
     // sort by unit time (desc)
-    result.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
+    result.sort_by(|x, y| y.unit_time.partial_cmp(&x.unit_time).unwrap());
     trace!("Result = {:?}", result);
 
     // update protfolio, only handle the latest 2 records
@@ -160,9 +160,11 @@ fn aggregate_moving_unit(
     protfolios: &mut LinkedList<Protfolio>,
 ) -> Result<()> {
     let last_timestamp = tickers.front().unwrap().time;
+    let scope = (Utc::now() - Duration::minutes(10)).timestamp_millis();
     // calculate
     let mut result = tickers
         .iter()
+        .take_while(|t| t.time > scope) // only take items in 10 min
         .map(|t| Protfolio::moving(t, unit, last_timestamp))
         .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
             group_by(map, p)
@@ -171,15 +173,14 @@ fn aggregate_moving_unit(
         .map(|values| calculate(values))
         .collect::<Vec<Protfolio>>();
 
-    // sort by unit time (desc)
+    // sort by unit time (asc)
     result.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
     trace!("Result = {:?}", result);
 
-    // update protfolio, only handle the latest 2 records
-    for (index, target) in result.iter().enumerate() {
-        if index > 0 {
-            update(target, protfolios)?;
-        }
+    // update protfolio, renew all records
+    protfolios.clear();
+    for item in result {
+        protfolios.push_front(item);
     }
     Ok(())
 }
@@ -257,20 +258,7 @@ impl TimeUnit {
         if sec > 0 {
             aggregate_fixed_unit(self, tickers, protfolios)?;
         } else {
-            let start = Utc::now().timestamp_millis();
             aggregate_moving_unit(self, tickers, protfolios)?;
-            let end = Utc::now().timestamp_millis();
-            let len = tickers.len();
-            if len % 1000 == 0 {
-                let id = &protfolios.front().unwrap().id;
-                info!(
-                    "moving {} tickers for {:?} of {} costs {:?}",
-                    len,
-                    &self,
-                    &id,
-                    std::time::Duration::from_millis((end - start) as u64),
-                );
-            }
         }
         Ok(())
     }

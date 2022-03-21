@@ -1,9 +1,12 @@
-use log::error;
+use log::{error, info};
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
     persist::es::take_digitals,
-    vo::core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO},
+    vo::{
+        biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit},
+        core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO},
+    },
     Result,
 };
 use tokio::runtime::Runtime;
@@ -93,4 +96,53 @@ fn test_replay_async() -> Result<()> {
         error!("{}", err);
     }
     Ok(())
+}
+
+#[test]
+fn test_sort() {
+    let mut protfolios = vec![
+        Protfolio {
+            id: "1".to_string(),
+            price: 0.0,
+            time: 10,
+            quote_type: QuoteType::Etf,
+            market_hours: MarketHoursType::RegularMarket,
+            volume: 0,
+            change: 0.0,
+            change_rate: 0.0,
+            unit: TimeUnit::MovingMinuteOne,
+            unit_time: 10,
+            period_type: 0,
+            max_price: 0.0,
+            min_price: 0.0,
+            open_price: 0.0,
+            close_price: 0.0,
+            sample_size: 0,
+            slope: None,
+        },
+        Protfolio {
+            id: "1".to_string(),
+            price: 0.0,
+            time: 20,
+            quote_type: QuoteType::Etf,
+            market_hours: MarketHoursType::RegularMarket,
+            volume: 0,
+            change: 0.0,
+            change_rate: 0.0,
+            unit: TimeUnit::MovingMinuteOne,
+            unit_time: 20,
+            period_type: 0,
+            max_price: 0.0,
+            min_price: 0.0,
+            open_price: 0.0,
+            close_price: 0.0,
+            sample_size: 0,
+            slope: None,
+        },
+    ];
+    protfolios.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
+    println!("asc: {:?}", &protfolios);
+
+    protfolios.sort_by(|x, y| y.unit_time.partial_cmp(&x.unit_time).unwrap());
+    println!("desc: {:?}", &protfolios);
 }
