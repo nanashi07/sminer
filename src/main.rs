@@ -26,12 +26,13 @@ async fn main() -> Result<()> {
     match matches.subcommand() {
         Some((name, sub_matches)) => {
             let level = sub_matches.value_of("log-level").unwrap();
+            let config_file = sub_matches.value_of("config-file").unwrap();
             init_log(&level).await?;
 
             debug!("matches: {:?}", sub_matches);
 
             // init
-            let mut config = AppConfig::load("config.yaml")?;
+            let mut config = AppConfig::load(config_file)?;
 
             match name {
                 "consume" => {
@@ -145,6 +146,12 @@ fn command_args<'help>() -> Command<'help> {
         .default_value("INFO")
         .help("Log level for standard output");
 
+    let config_file = Arg::new("config-file")
+        .short('f')
+        .long("config")
+        .default_value("config.yaml")
+        .help("Path of config file");
+
     Command::new("sminer - Analysis and miner for stock infomation")
         .version("0.1.0")
         .author("Bruce Tsai")
@@ -152,11 +159,12 @@ fn command_args<'help>() -> Command<'help> {
         .subcommands(vec![
             Command::new("consume")
                 .about("Consume message for analysis")
-                .args(&[level.clone()]),
+                .args(&[level.clone(), config_file.clone()]),
             Command::new("replay")
                 .about("Replay message for analysis")
                 .args(&[
                     level.clone(),
+                    config_file.clone(),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)
@@ -177,6 +185,7 @@ fn command_args<'help>() -> Command<'help> {
                 .about("Import message into MongoDB collection")
                 .args(&[
                     level.clone(),
+                    config_file.clone(),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)
@@ -187,6 +196,7 @@ fn command_args<'help>() -> Command<'help> {
                 .about("Export message from MongoDB collection")
                 .args(&[
                     level.clone(),
+                    config_file.clone(),
                     Arg::new("collections")
                         .takes_value(true)
                         .multiple_values(true)
@@ -197,6 +207,7 @@ fn command_args<'help>() -> Command<'help> {
                 .about("Index message to Elasticsearch")
                 .args(&[
                     level.clone(),
+                    config_file.clone(),
                     Arg::new("type")
                         .short('t')
                         .long("type")
