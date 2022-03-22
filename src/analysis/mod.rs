@@ -2,7 +2,7 @@ mod computor;
 
 use crate::{
     persist::{
-        es::{index, ElasticTicker},
+        es::{index_protfolios, index_slope_points, ElasticTicker},
         PersistenceContext,
     },
     proto::biz::TickerEvent,
@@ -23,6 +23,8 @@ use std::{
     time::Duration,
 };
 use tokio::sync::broadcast::Receiver;
+
+use self::computor::draw_slop_lines;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let house_keeper = &context.house_keeper;
@@ -246,6 +248,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         output_protfolios(&context, filename).await?;
 
         // TODO: output ticker decision
+        output_slope_points(&context, filename).await?;
     }
 
     info!("Clean up cached data for next run");
@@ -261,14 +264,14 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
 
     for (ticker_id, groups) in protfolios.as_ref() {
         for (unit, lock) in groups {
-            // ignore moving protpolios
+            // ignore moving protfolios
             if TimeUnit::find(unit).unwrap().period > 0 {
                 continue;
             }
 
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                if context.config.analysis.output.file.enabled {
+                if config.analysis.output.file.enabled {
                     let output_name = format!(
                         "{}/analysis/{}/{}-{:?}.json",
                         &config.analysis.output.base_folder, file, ticker_id, unit
@@ -290,10 +293,36 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                     });
                     debug!("Finish analysis: {} file", &output_name);
                 }
-                if context.config.analysis.output.elasticsearch.enabled {
+                if config.analysis.output.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
-                    index(&context, &protfolios).await?;
+                    index_protfolios(&context, &protfolios).await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn output_slope_points(context: &AppContext, _file: &str) -> Result<()> {
+    let config = context.config();
+    let protfolios = Arc::clone(&context.protfolios);
+
+    for (_, groups) in protfolios.as_ref() {
+        for (unit, lock) in groups {
+            // ignore moving protfolios
+            if TimeUnit::find(unit).unwrap().period > 0 {
+                continue;
+            }
+
+            let list_reader = lock.read().unwrap();
+            if !list_reader.is_empty() {
+                if config.analysis.output.elasticsearch.enabled {
+                    let protfolios: Vec<Protfolio> =
+                        list_reader.iter().map(|p| p.clone()).collect();
+                    let points = draw_slop_lines(&protfolios);
+                    index_slope_points(&context, &points).await?;
                 }
             }
         }

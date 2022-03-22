@@ -1,4 +1,4 @@
-use crate::vo::biz::{Protfolio, Ticker, TimeUnit};
+use crate::vo::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
 use crate::Result;
 use chrono::{Duration, Utc};
 use log::debug;
@@ -9,7 +9,7 @@ use std::f64::NAN;
 
 // Calculate slop for nearest line
 // Reference to doc/trend.md
-fn slope(samples: &Vec<(f64, f64)>) -> f64 {
+fn slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
     let count = samples.len() as f64;
     let x_avg: f64 = samples.iter().map(|(x, _)| *x / count).sum();
     let y_avg: f64 = samples.iter().map(|(_, y)| *y / count).sum();
@@ -25,12 +25,13 @@ fn slope(samples: &Vec<(f64, f64)>) -> f64 {
         .sum();
 
     let a = xy / x_x;
+    let b = y_avg - a * x_avg;
 
     // A = 2, y = Ax + B
     // 2 = 2 * 1 + B, (x = 1, y = 2)
     // 4 = 2 * 2 + B, (x = 2, y = 4)
-    // slope = delta-Y / delta-X = (4 - 2) / (2 - 1)
-    a
+    // A = slope = delta-Y / delta-X = (4 - 2) / (2 - 1)
+    (a, b)
 }
 
 fn group_by(mut map: HashMap<i64, Vec<Protfolio>>, p: Protfolio) -> HashMap<i64, Vec<Protfolio>> {
@@ -70,7 +71,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
 
     let samples = values.len() as u32;
 
-    let slope = slope(
+    let (slope, b_num) = slope(
         &values
             .iter()
             .map(|p| (p.time as f64, p.price as f64))
@@ -103,6 +104,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         } else {
             None
         },
+        b_num: if b_num == NAN { None } else { Some(b_num) },
     }
 }
 
@@ -192,6 +194,49 @@ fn aggregate_moving_unit(
     Ok(())
 }
 
+pub fn draw_slop_lines(protfolios: &Vec<Protfolio>) -> Vec<SlopePoint> {
+    let unit = &protfolios.first().unwrap().unit;
+
+    let mut points: Vec<SlopePoint> = Vec::new();
+
+    for protfolio in protfolios {
+        // y = ax + b
+        // price = slope * time + b_num
+
+        // start point
+        points.push(SlopePoint {
+            id: protfolio.id.clone(),
+            price: get_y(protfolio.slope, protfolio.b_num, protfolio.time + 1),
+            time: protfolio.time + 1,
+            period_type: protfolio.period_type,
+        });
+        // end point
+        points.push(SlopePoint {
+            id: protfolio.id.clone(),
+            price: get_y(
+                protfolio.slope,
+                protfolio.b_num,
+                protfolio.time + unit.duration as i64 - 1,
+            ),
+            time: protfolio.time + unit.duration as i64 - 1,
+            period_type: protfolio.period_type,
+        });
+    }
+
+    points
+}
+
+fn get_y(slope: Option<f64>, b_num: Option<f64>, time: i64) -> f64 {
+    if slope == None || b_num == None {
+        0.0
+    } else {
+        let a = slope.unwrap();
+        let x = time as f64;
+        let b = b_num.unwrap();
+        a * x + b
+    }
+}
+
 impl Protfolio {
     fn fixed(t: &Ticker, unit: &TimeUnit) -> Self {
         Protfolio {
@@ -213,6 +258,7 @@ impl Protfolio {
             close_price: 0.0,
             sample_size: 0,
             slope: None,
+            b_num: None,
         }
     }
 
@@ -236,6 +282,7 @@ impl Protfolio {
             close_price: 0.0,
             sample_size: 0,
             slope: None,
+            b_num: None,
         }
     }
 

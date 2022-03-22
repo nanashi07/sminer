@@ -4,7 +4,7 @@ use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
     persist::{
-        es::{index_protfolios, index_tickers, take_digitals},
+        es::{index_protfolios_from_file, index_tickers_from_file, take_digitals},
         mongo::{export, import},
     },
     provider::yahoo::consume,
@@ -119,12 +119,12 @@ async fn main() -> Result<()> {
                     match r#type.as_str() {
                         "tickers" => {
                             for file in files {
-                                index_tickers(&context, file).await?;
+                                index_tickers_from_file(&context, file).await?;
                             }
                         }
                         "protfolio" => {
                             for file in files {
-                                index_protfolios(&context, file).await?;
+                                index_protfolios_from_file(&context, file).await?;
                             }
                         }
                         _ => {}

@@ -2,7 +2,7 @@ use super::{DataSource, PersistenceContext};
 use crate::{
     proto::biz::TickerEvent,
     vo::{
-        biz::{MarketHoursType, Protfolio, QuoteType, Ticker},
+        biz::{MarketHoursType, Protfolio, QuoteType, SlopePoint, Ticker},
         core::AppContext,
     },
     Result,
@@ -30,7 +30,6 @@ use std::{
 pub const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
 pub const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
 pub const INDEX_PREFIX_SOLOPE: &str = "sminer-slope";
-pub const INDEX_PREFIX_E: &str = "sminer-";
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -179,7 +178,7 @@ pub fn take_digitals(str: &str) -> String {
     str.chars().filter(|c| c.is_numeric()).collect::<String>()
 }
 
-pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
+pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result<()> {
     info!("Import messages from {}", &path);
 
     let file = File::open(path)?;
@@ -228,7 +227,7 @@ pub async fn index_tickers(context: &AppContext, path: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn index_protfolios(context: &AppContext, path: &str) -> Result<()> {
+pub async fn index_protfolios_from_file(context: &AppContext, path: &str) -> Result<()> {
     info!("Import messages from {}", &path);
 
     let file = File::open(path)?;
@@ -243,12 +242,12 @@ pub async fn index_protfolios(context: &AppContext, path: &str) -> Result<()> {
 
     info!("Protfolio size: {} for {}", &protfolios.len(), &path);
 
-    index(&context, &protfolios).await?;
+    index_protfolios(&context, &protfolios).await?;
 
     Ok(())
 }
 
-pub async fn index(context: &AppContext, protfolios: &Vec<Protfolio>) -> Result<()> {
+pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>) -> Result<()> {
     let persistence = context.persistence();
     let client: Elasticsearch = persistence.get_connection()?;
 
@@ -261,6 +260,42 @@ pub async fn index(context: &AppContext, protfolios: &Vec<Protfolio>) -> Result<
     // generate index name
     let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
     let index_name = format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"));
+
+    // drop index first
+    // FIXME: persistence.drop_index(&index_name).await?;
+
+    debug!("Bulk import messages into index: {}", &index_name);
+    let response = client
+        .bulk(BulkParts::Index(&index_name))
+        .body(body)
+        .send()
+        .await?;
+
+    info!(
+        "response {} for index {}",
+        response.status_code(),
+        &index_name
+    );
+
+    Ok(())
+}
+
+pub async fn index_slope_points(
+    context: &AppContext,
+    slope_points: &Vec<SlopePoint>,
+) -> Result<()> {
+    let persistence = context.persistence();
+    let client: Elasticsearch = persistence.get_connection()?;
+
+    let mut body: Vec<JsonBody<_>> = Vec::new();
+    for point in slope_points {
+        body.push(json!({"index": {}}).into());
+        body.push(json!(point).into());
+    }
+
+    // generate index name
+    let time = Utc.timestamp_millis(slope_points.first().unwrap().time);
+    let index_name = format!("{}-{}", INDEX_PREFIX_SOLOPE, time.format("%Y-%m-%d"));
 
     // drop index first
     // FIXME: persistence.drop_index(&index_name).await?;

@@ -291,4 +291,15 @@ pub struct Protfolio {
 
     pub sample_size: u32,
     pub slope: Option<f64>,
+    pub b_num: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SlopePoint {
+    pub id: String,
+    pub price: f64,
+    pub time: i64,
+
+    // Period type
+    pub period_type: i32,
 }

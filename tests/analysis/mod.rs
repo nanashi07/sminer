@@ -119,6 +119,7 @@ fn test_sort() {
             close_price: 0.0,
             sample_size: 0,
             slope: None,
+            b_num: None,
         },
         Protfolio {
             id: "1".to_string(),
@@ -138,6 +139,7 @@ fn test_sort() {
             close_price: 0.0,
             sample_size: 0,
             slope: None,
+            b_num: None,
         },
     ];
     protfolios.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
