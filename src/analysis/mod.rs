@@ -1,10 +1,13 @@
 mod computor;
 
 use crate::{
-    persist::{es::ElasticTicker, PersistenceContext},
+    persist::{
+        es::{index, ElasticTicker},
+        PersistenceContext,
+    },
     proto::biz::TickerEvent,
     vo::{
-        biz::{Ticker, TimeUnit},
+        biz::{Protfolio, Ticker, TimeUnit},
         core::AppContext,
     },
     Result,
@@ -136,6 +139,8 @@ async fn handle_message_for_preparatory(
         error!("No tickers container {} initialized", &ticker.id);
     }
 
+    // TODO: Add ticker decision data first (id/time... with empty analysis data)
+
     // Send signal for symbol analysis
     let calculator = Arc::clone(&context.calculator);
     let sender = calculator.get(&ticker.id).unwrap();
@@ -232,28 +237,38 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     }
     info!("Tickers: {} replay done", &file);
 
-    if context.config.analysis.output.file.enabled {
+    if context.config.analysis.output.file.enabled
+        || context.config.analysis.output.elasticsearch.enabled
+    {
+        info!("Exporting profpolios for {}", &file);
         // output analysis file
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
-        output_protfolios(&context, filename);
+        output_protfolios(&context, filename).await?;
+
+        // TODO: output ticker decision
     }
 
+    info!("Clean up cached data for next run");
     // clean memory
     context.clean()?;
 
     Ok(())
 }
 
-fn output_protfolios(context: &AppContext, file: &str) {
+async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let protfolios = Arc::clone(&context.protfolios);
-    protfolios.iter().for_each(|(ticker_id, groups)| {
-        groups
-            .iter()
-            .filter(|(unit, _)| TimeUnit::find(unit).unwrap().period > 0)
-            .for_each(|(unit, lock)| {
-                let list_reader = lock.read().unwrap();
-                if !list_reader.is_empty() {
+
+    for (ticker_id, groups) in protfolios.as_ref() {
+        for (unit, lock) in groups {
+            // ignore moving protpolios
+            if TimeUnit::find(unit).unwrap().period > 0 {
+                continue;
+            }
+
+            let list_reader = lock.read().unwrap();
+            if !list_reader.is_empty() {
+                if context.config.analysis.output.file.enabled {
                     let output_name = format!(
                         "{}/analysis/{}/{}-{:?}.json",
                         &config.analysis.output.base_folder, file, ticker_id, unit
@@ -267,14 +282,22 @@ fn output_protfolios(context: &AppContext, file: &str) {
                         .open(&output_name)
                         .unwrap();
                     let mut writer = BufWriter::new(output);
-                    debug!("Dump analysis: {}", &output_name);
 
+                    debug!("Dump analysis: {}", &output_name);
                     list_reader.iter().rev().for_each(|item| {
                         let json = serde_json::to_string(&item).unwrap();
                         write!(&mut writer, "{}\n", &json).unwrap();
                     });
-                    info!("Finish analysis: {} file", &output_name);
+                    debug!("Finish analysis: {} file", &output_name);
                 }
-            });
-    });
+                if context.config.analysis.output.elasticsearch.enabled {
+                    let protfolios: Vec<Protfolio> =
+                        list_reader.iter().map(|p| p.clone()).collect();
+                    index(&context, &protfolios).await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

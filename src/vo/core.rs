@@ -6,7 +6,7 @@ use crate::{
     Result,
 };
 use config::Config;
-use log::{debug, error, info};
+use log::{debug, error};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -173,13 +173,13 @@ impl AppContext {
         self.tickers.iter().for_each(|(id, lock)| {
             let mut list_writer = lock.write().unwrap();
             list_writer.clear();
-            info!("Clean up cached data for ticker: {}", id)
+            debug!("Clean up cached data for ticker: {}", id)
         });
         self.protfolios.iter().for_each(|(id, map)| {
             map.iter().for_each(|(unit, lock)| {
                 let mut list_writer = lock.write().unwrap();
                 list_writer.clear();
-                info!("Clean up cached data for protfolio: {:?} of {}", unit, id)
+                debug!("Clean up cached data for protfolio: {:?} of {}", unit, id)
             });
         });
         Ok(())

@@ -234,33 +234,38 @@ pub async fn index_protfolios(context: &AppContext, path: &str) -> Result<()> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 
-    let tickers: Vec<Protfolio> = reader
+    let protfolios: Vec<Protfolio> = reader
         .lines()
         .into_iter()
         .map(|w| w.unwrap())
         .map(|line| serde_json::from_str::<Protfolio>(&line).unwrap())
         .collect();
 
-    info!("protfolio size: {} for {}", &tickers.len(), &path);
+    info!("Protfolio size: {} for {}", &protfolios.len(), &path);
 
+    index(&context, &protfolios).await?;
+
+    Ok(())
+}
+
+pub async fn index(context: &AppContext, protfolios: &Vec<Protfolio>) -> Result<()> {
     let persistence = context.persistence();
     let client: Elasticsearch = persistence.get_connection()?;
 
     let mut body: Vec<JsonBody<_>> = Vec::new();
-    for ticker in tickers {
+    for protfolio in protfolios {
         body.push(json!({"index": {}}).into());
-        body.push(json!(ticker).into());
+        body.push(json!(protfolio).into());
     }
 
     // generate index name
-    let digital = take_digitals(&path);
-    let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
+    let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
     let index_name = format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"));
 
     // drop index first
-    persistence.drop_index(&digital).await?;
+    // FIXME: persistence.drop_index(&index_name).await?;
 
-    info!("Bulk import messages into index: {}", &index_name);
+    debug!("Bulk import messages into index: {}", &index_name);
     let response = client
         .bulk(BulkParts::Index(&index_name))
         .body(body)

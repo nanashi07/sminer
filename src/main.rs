@@ -63,7 +63,13 @@ async fn main() -> Result<()> {
                     // config.extra_put("truncat", "true")
 
                     info!("Available tickers: {:?}", &config.symbols());
-                    info!("Available time unit: {:?}", TimeUnit::values());
+                    info!(
+                        "Available time unit: {:?}",
+                        TimeUnit::values()
+                            .iter()
+                            .map(|u| u.name.clone())
+                            .collect::<Vec<_>>()
+                    );
 
                     let context = AppContext::new(config).init().await?;
 

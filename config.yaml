@@ -15,7 +15,7 @@ analysis:
     file:
       enabled: true
     elasticsearch:
-      enabled: false
+      enabled: true
 tickers:
   symbols:
     - bull:

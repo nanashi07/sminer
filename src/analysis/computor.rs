@@ -151,6 +151,9 @@ fn aggregate_fixed_unit(
             update(target, protfolios)?;
         }
     }
+
+    // TODO: update ticker decision
+
     Ok(())
 }
 
@@ -160,7 +163,8 @@ fn aggregate_moving_unit(
     protfolios: &mut LinkedList<Protfolio>,
 ) -> Result<()> {
     let last_timestamp = tickers.front().unwrap().time;
-    let scope = (Utc::now() - Duration::minutes(10)).timestamp_millis();
+    let scope = (Utc::now() - Duration::seconds(unit.duration as i64 * unit.period as i64))
+        .timestamp_millis();
     // calculate
     let mut result = tickers
         .iter()
@@ -182,6 +186,9 @@ fn aggregate_moving_unit(
     for item in result {
         protfolios.push_front(item);
     }
+
+    // TODO: update ticker decision
+
     Ok(())
 }
 
