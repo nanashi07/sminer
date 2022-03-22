@@ -29,6 +29,8 @@ use std::{
 
 pub const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
 pub const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
+pub const INDEX_PREFIX_SOLOPE: &str = "sminer-slope";
+pub const INDEX_PREFIX_E: &str = "sminer-";
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -145,6 +147,7 @@ impl ElasticTicker {
     fn timestamp(&self) -> DateTime<FixedOffset> {
         DateTime::parse_from_rfc3339(&self.time).unwrap()
     }
+
     // Resolve index name by ticker info time
     fn index_name(&self) -> String {
         format!(
@@ -153,6 +156,7 @@ impl ElasticTicker {
             self.timestamp().format("%Y-%m-%d")
         )
     }
+
     pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let client: Elasticsearch = datasource.get_connection()?;
 

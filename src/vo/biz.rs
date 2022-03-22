@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
 use serde::{Deserialize, Serialize};
@@ -91,7 +93,7 @@ pub struct Ticker {
     pub market_hours: MarketHoursType,
     pub day_volume: i64,
     #[serde(skip_serializing)]
-    pub volume: i64,
+    pub volume: Option<i64>,
     pub change: f32,
 }
 
@@ -104,7 +106,7 @@ impl From<YahooTicker> for Ticker {
             quote_type: value.quote_type.try_into().unwrap(),
             market_hours: value.market_hours.try_into().unwrap(),
             day_volume: value.day_volume,
-            volume: 0,
+            volume: None,
             change: value.change,
         }
     }
@@ -119,7 +121,7 @@ impl From<&Ticker> for TickerEvent {
             quote_type: value.quote_type as i32,
             market_hours: value.market_hours as i32,
             day_volume: value.day_volume,
-            volume: value.volume,
+            volume: value.volume.unwrap_or(0),
             change: value.change,
         }
     }
@@ -134,65 +136,132 @@ impl From<TickerEvent> for Ticker {
             quote_type: value.quote_type.try_into().unwrap(),
             market_hours: value.market_hours.try_into().unwrap(),
             day_volume: value.day_volume,
-            volume: value.volume,
+            volume: if value.volume == 0 {
+                None
+            } else {
+                Some(value.volume)
+            },
             change: value.change,
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TimeUnit {
-    SecondTen = 10,
-    SecondThirty = 30,
-    MinuteOne = 60,
-    MinuteTwo = 120,
-    MinuteThree = 180,
-    MinuteFour = 240,
-    MinuteFive = 300,
-    MinuteTen = 600,
-    MinuteTwenty = 1200,
-    MinuteThirty = 1800,
-    HourOne = 3600,
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub struct TimeUnit {
+    pub name: String,
+    pub duration: i32,
+    pub period: u32,
+}
 
-    MovingSecondTen = -10,
-    MovingSecondThirty = -30,
-    MovingMinuteOne = -60,
-    MovingMinuteTwo = -120,
-    MovingMinuteThree = -180,
-    MovingMinuteFour = -240,
-    MovingMinuteFive = -300,
-    MovingMinuteTen = -600,
-    MovingMinuteTwenty = -1200,
-    MovingMinuteThirty = -1800,
-    MovingHourOne = -3600,
+impl Display for TimeUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl TimeUnit {
     pub fn values() -> Vec<TimeUnit> {
         vec![
-            TimeUnit::SecondTen,
-            TimeUnit::SecondThirty,
-            TimeUnit::MinuteOne,
-            TimeUnit::MinuteTwo,
-            TimeUnit::MinuteThree,
-            TimeUnit::MinuteFour,
-            TimeUnit::MinuteFive,
-            TimeUnit::MinuteTen,
-            TimeUnit::MinuteTwenty,
-            TimeUnit::MinuteThirty,
-            TimeUnit::HourOne,
-            TimeUnit::MovingSecondTen,
-            TimeUnit::MovingSecondThirty,
-            TimeUnit::MovingMinuteOne,
-            TimeUnit::MovingMinuteTwo,
-            TimeUnit::MovingMinuteThree,
-            TimeUnit::MovingMinuteFour,
-            TimeUnit::MovingMinuteFive,
-            // TimeUnit::MovingMinuteTen,
-            // TimeUnit::MovingMinuteTwenty,
-            // TimeUnit::MovingMinuteThirty,
-            // TimeUnit::MovingHourOne,
+            TimeUnit {
+                name: String::from("SecondTen"),
+                duration: 10,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("SecondThirty"),
+                duration: 30,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteOne"),
+                duration: 60,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteTwo"),
+                duration: 120,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteThree"),
+                duration: 180,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteFour"),
+                duration: 240,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteFive"),
+                duration: 300,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteTen"),
+                duration: 600,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteTwenty"),
+                duration: 1200,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MinuteThirty"),
+                duration: 1800,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("HourOne"),
+                duration: 3600,
+                period: 0,
+            },
+            TimeUnit {
+                name: String::from("MovingSecondTen"),
+                duration: 10,
+                period: 60,
+            },
+            TimeUnit {
+                name: String::from("MovingSecondTwenty"),
+                duration: 20,
+                period: 30,
+            },
+            TimeUnit {
+                name: String::from("MovingSecondThirty"),
+                duration: 30,
+                period: 20,
+            },
+            TimeUnit {
+                name: String::from("MovingMinuteOne"),
+                duration: 60,
+                period: 10,
+            },
+            TimeUnit {
+                name: String::from("MovingMinuteTwo"),
+                duration: 120,
+                period: 5,
+            },
+            TimeUnit {
+                name: String::from("MovingMinuteThree"),
+                duration: 180,
+                period: 4,
+            },
+            TimeUnit {
+                name: String::from("MovingMinuteFour"),
+                duration: 240,
+                period: 3,
+            },
+            TimeUnit {
+                name: String::from("MovingMinuteFive"),
+                duration: 300,
+                period: 2,
+            },
         ]
+    }
+
+    pub fn find(name: &str) -> Option<TimeUnit> {
+        TimeUnit::values().into_iter().find(|u| u.name == name)
     }
 }
 

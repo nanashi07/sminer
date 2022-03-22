@@ -69,19 +69,20 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     });
 
     let root = Arc::clone(&context);
-    for time_unit in TimeUnit::values() {
+    for unit in TimeUnit::values() {
         for symbol in root.config.symbols() {
             debug!(
                 "Initialize event calculate {} for {:?} handler",
-                symbol, time_unit
+                symbol, unit
             );
             let calculator = Arc::clone(&context.calculator);
 
             let mut rx = calculator.get(&symbol).unwrap().subscribe();
             let root = Arc::clone(&context);
+            let unit = unit.clone();
             tokio::spawn(async move {
                 loop {
-                    match handle_message_for_calculator(&mut rx, &root, &symbol, &time_unit).await {
+                    match handle_message_for_calculator(&mut rx, &root, &symbol, &unit).await {
                         Ok(_) => {}
                         Err(err) => {
                             error!("Handle ticker for calculator error: {:?}", err);
@@ -150,7 +151,7 @@ async fn handle_message_for_calculator(
     unit: &TimeUnit,
 ) -> Result<()> {
     // Receive signal only
-    let _: i64 = rx.recv().await?.into();  // TODO : use as update id?
+    let _: i64 = rx.recv().await?.into(); // TODO : use as update id?
     trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
     context.route(symbol, unit)?;
     Ok(())
@@ -161,7 +162,7 @@ impl AppContext {
         debug!("Route calculation for {:?} of {}", unit, symbol);
         let protfolios = Arc::clone(&self.protfolios);
         if let Some(uniter) = protfolios.get(symbol) {
-            if let Some(lock) = uniter.get(unit) {
+            if let Some(lock) = uniter.get(&unit.name) {
                 debug!("handle calc for {} of {:?}", symbol, unit);
                 // Get ticker source
                 let tickers = self.tickers.get(symbol).unwrap();
@@ -247,30 +248,33 @@ fn output_protfolios(context: &AppContext, file: &str) {
     let config = context.config();
     let protfolios = Arc::clone(&context.protfolios);
     protfolios.iter().for_each(|(ticker_id, groups)| {
-        groups.iter().for_each(|(unit, lock)| {
-            let list_reader = lock.read().unwrap();
-            if !list_reader.is_empty() {
-                let output_name = format!(
-                    "{}/analysis/{}/{}-{:?}.json",
-                    &config.analysis.output.base_folder, file, ticker_id, unit
-                );
-                let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                std::fs::create_dir_all(&path).unwrap();
-                let output = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&output_name)
-                    .unwrap();
-                let mut writer = BufWriter::new(output);
-                debug!("Dump analysis: {}", &output_name);
+        groups
+            .iter()
+            .filter(|(unit, _)| TimeUnit::find(unit).unwrap().period > 0)
+            .for_each(|(unit, lock)| {
+                let list_reader = lock.read().unwrap();
+                if !list_reader.is_empty() {
+                    let output_name = format!(
+                        "{}/analysis/{}/{}-{:?}.json",
+                        &config.analysis.output.base_folder, file, ticker_id, unit
+                    );
+                    let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
+                    std::fs::create_dir_all(&path).unwrap();
+                    let output = OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&output_name)
+                        .unwrap();
+                    let mut writer = BufWriter::new(output);
+                    debug!("Dump analysis: {}", &output_name);
 
-                list_reader.iter().rev().for_each(|item| {
-                    let json = serde_json::to_string(&item).unwrap();
-                    write!(&mut writer, "{}\n", &json).unwrap();
-                });
-                info!("Finish analysis: {} file", &output_name);
-            }
-        });
+                    list_reader.iter().rev().for_each(|item| {
+                        let json = serde_json::to_string(&item).unwrap();
+                        write!(&mut writer, "{}\n", &json).unwrap();
+                    });
+                    info!("Finish analysis: {} file", &output_name);
+                }
+            });
     });
 }

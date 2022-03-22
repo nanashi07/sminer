@@ -49,6 +49,7 @@ mod mongo {
             "tickers20220316",
             "tickers20220317",
             "tickers20220318",
+            "tickers20220321",
         ];
 
         for file in files {

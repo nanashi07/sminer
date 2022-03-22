@@ -82,8 +82,8 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         price: price_avg,
         time: first.unit_time,
         unit_time: first.unit_time,
-        unit: first.unit,
-        period_type: first.unit as i32,
+        unit: first.unit.clone(),
+        period_type: first.unit.duration,
         quote_type: first.quote_type,
         market_hours: first.market_hours,
         volume: volume,
@@ -126,7 +126,7 @@ fn aggregate_fixed_unit(
     protfolios: &mut LinkedList<Protfolio>,
 ) -> Result<()> {
     // Take source data in 3x time range
-    let scope = *unit as i64 * 1000 * 3;
+    let scope = unit.duration as i64 * 1000 * 3;
     // Use latest ticker time to restrict time
     let min_time = tickers.front().unwrap().time - scope;
     // calculate
@@ -192,9 +192,9 @@ impl Protfolio {
             price: t.price,
             time: t.time,
             // fixed time range, accroding time unit
-            unit_time: t.time - t.time % (*unit as i64 * 1000),
+            unit_time: t.time - t.time % (unit.duration as i64 * 1000),
             unit: unit.clone(),
-            period_type: *unit as i32,
+            period_type: unit.duration,
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             volume: t.day_volume,
@@ -215,9 +215,9 @@ impl Protfolio {
             price: t.price,
             time: t.time,
             // moving time range, according base_time
-            unit_time: base_time + (base_time - t.time) % (*unit as i64 * -1000),
+            unit_time: base_time + (base_time - t.time) % (unit.duration as i64 * -1000),
             unit: unit.clone(),
-            period_type: *unit as i32,
+            period_type: unit.duration,
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             volume: t.day_volume,
@@ -253,9 +253,7 @@ impl TimeUnit {
         protfolios: &mut LinkedList<Protfolio>,
     ) -> Result<()> {
         debug!("Rebalance count: {}", &tickers.len());
-        // Duration in second
-        let sec = *self as i64;
-        if sec > 0 {
+        if self.period == 0 {
             aggregate_fixed_unit(self, tickers, protfolios)?;
         } else {
             aggregate_moving_unit(self, tickers, protfolios)?;

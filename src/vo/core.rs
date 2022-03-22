@@ -24,7 +24,7 @@ pub struct AppContext {
     pub config: Arc<AppConfig>,
     pub persistence: Arc<PersistenceContext>,
     pub tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
-    pub protfolios: Arc<HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Protfolio>>>>>,
+    pub protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
     // Sender for persist data
     pub house_keeper: Sender<TickerEvent>,
     // Sender for cache source data
@@ -75,15 +75,15 @@ impl AppContext {
 
     fn init_protfolios(
         config: Arc<AppConfig>,
-    ) -> Arc<HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Protfolio>>>>> {
+    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
         let symbols = config.symbols();
         let units = TimeUnit::values();
-        let mut map: HashMap<String, HashMap<TimeUnit, RwLock<LinkedList<Protfolio>>>> =
+        let mut map: HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>> =
             HashMap::new();
         for symbol in symbols {
-            let mut uniter: HashMap<TimeUnit, RwLock<LinkedList<Protfolio>>> = HashMap::new();
+            let mut uniter: HashMap<String, RwLock<LinkedList<Protfolio>>> = HashMap::new();
             for unit in &units {
-                uniter.insert(*unit, RwLock::new(LinkedList::new()));
+                uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
             }
             map.insert(symbol, uniter);
         }

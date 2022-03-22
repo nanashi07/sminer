@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::error;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
@@ -26,7 +26,7 @@ fn test_replay() -> Result<()> {
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
-            "tickers20220309.LABU",
+            "tickers20220309",
             // "tickers20220310",
             // "tickers20220311",
             // "tickers20220314",
@@ -110,7 +110,7 @@ fn test_sort() {
             volume: 0,
             change: 0.0,
             change_rate: 0.0,
-            unit: TimeUnit::MovingMinuteOne,
+            unit: TimeUnit::find("MovingMinuteOne").unwrap(),
             unit_time: 10,
             period_type: 0,
             max_price: 0.0,
@@ -129,7 +129,7 @@ fn test_sort() {
             volume: 0,
             change: 0.0,
             change_rate: 0.0,
-            unit: TimeUnit::MovingMinuteOne,
+            unit: TimeUnit::find("MovingMinuteOne").unwrap(),
             unit_time: 20,
             period_type: 0,
             max_price: 0.0,
