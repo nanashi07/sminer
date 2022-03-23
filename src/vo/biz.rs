@@ -271,6 +271,8 @@ pub struct Protfolio {
     pub price: f32,
     pub time: i64,
 
+    pub kind: char,
+
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
 
@@ -299,6 +301,8 @@ pub struct SlopePoint {
     pub id: String,
     pub price: f64,
     pub time: i64,
+
+    pub kind: char,
 
     // Period type
     pub period_type: i32,

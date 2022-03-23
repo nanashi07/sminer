@@ -10,28 +10,69 @@ use std::f64::NAN;
 // Calculate slop for nearest line
 // Reference to doc/trend.md
 fn slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
-    let count = samples.len() as f64;
-    let x_avg: f64 = samples.iter().map(|(x, _)| *x / count).sum();
-    let y_avg: f64 = samples.iter().map(|(_, y)| *y / count).sum();
+    match samples.len() {
+        0 => (NAN, NAN),
+        1 => {
+            let (_, y) = samples.first().unwrap();
+            (0.0, *y)
+        }
+        2 => {
+            let (x_1, y_1) = samples.first().unwrap();
+            let (x_2, y_2) = samples.last().unwrap();
 
-    let xy: f64 = samples
-        .iter()
-        .map(|(x, y)| (*x - x_avg) * (*y - y_avg))
-        .sum();
+            // same timestamp
+            if x_1 == x_2 {
+                if y_1 == y_2 {
+                    return (0.0, *y_1);
+                } else {
+                    return (0.0, (y_1 + y_2) / 2.0);
+                }
+            }
 
-    let x_x: f64 = samples
-        .iter()
-        .map(|(x, _)| (*x - x_avg) * (*x - x_avg))
-        .sum();
+            // y = Ax + B
+            // -> y_1 = Ax_1 + B, y_2 = Ax_2 + B
+            let a = (y_1 - y_2) / (x_1 - x_2);
+            let b = y_1 - a * x_1;
 
-    let a = xy / x_x;
-    let b = y_avg - a * x_avg;
+            if a.is_nan() || b.is_nan() {
+                log::info!(
+                    "(x,y) =({}, {}), ({}, {}), a = {}, b = {}",
+                    x_1,
+                    y_1,
+                    x_2,
+                    y_2,
+                    a,
+                    b
+                );
+            }
 
-    // A = 2, y = Ax + B
-    // 2 = 2 * 1 + B, (x = 1, y = 2)
-    // 4 = 2 * 2 + B, (x = 2, y = 4)
-    // A = slope = delta-Y / delta-X = (4 - 2) / (2 - 1)
-    (a, b)
+            (a, b)
+        }
+        _ => {
+            let count = samples.len() as f64;
+            let x_avg: f64 = samples.iter().map(|(x, _)| *x / count).sum();
+            let y_avg: f64 = samples.iter().map(|(_, y)| *y / count).sum();
+
+            let xy: f64 = samples
+                .iter()
+                .map(|(x, y)| (*x - x_avg) * (*y - y_avg))
+                .sum();
+
+            let x_x: f64 = samples
+                .iter()
+                .map(|(x, _)| (*x - x_avg) * (*x - x_avg))
+                .sum();
+
+            let a = xy / x_x;
+            let b = y_avg - a * x_avg;
+
+            // A = 2, y = Ax + B
+            // 2 = 2 * 1 + B, (x = 1, y = 2)
+            // 4 = 2 * 2 + B, (x = 2, y = 4)
+            // A = slope = delta-Y / delta-X = (4 - 2) / (2 - 1)
+            (a, b)
+        }
+    }
 }
 
 fn group_by(mut map: HashMap<i64, Vec<Protfolio>>, p: Protfolio) -> HashMap<i64, Vec<Protfolio>> {
@@ -82,6 +123,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         id: first.id.clone(),
         price: price_avg,
         time: first.unit_time,
+        kind: 'p',
         unit_time: first.unit_time,
         unit: first.unit.clone(),
         period_type: first.unit.duration,
@@ -95,16 +137,8 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
         open_price: price_open,
         close_price: price_close,
         sample_size: samples,
-        slope: if slope == NAN {
-            if values.len() < 2 {
-                Some(0.0) // no data in this period
-            } else {
-                Some(slope)
-            }
-        } else {
-            None
-        },
-        b_num: if b_num == NAN { None } else { Some(b_num) },
+        slope: if slope.is_nan() { None } else { Some(slope) },
+        b_num: if b_num.is_nan() { None } else { Some(b_num) },
     }
 }
 
@@ -114,7 +148,7 @@ fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<
         .find(|p| p.unit_time == target.unit_time);
     if let Some(result) = find_result {
         result.update_by(target);
-        debug!("Updated with {:?}", target);
+        debug!("Updated with {:?}", result);
     } else {
         protfolios.push_front((*target).clone());
         debug!("Added with {:?}", target);
@@ -208,6 +242,7 @@ pub fn draw_slop_lines(protfolios: &Vec<Protfolio>) -> Vec<SlopePoint> {
             id: protfolio.id.clone(),
             price: get_y(protfolio.slope, protfolio.b_num, protfolio.time + 1),
             time: protfolio.time + 1,
+            kind: 's',
             period_type: protfolio.period_type,
         });
         // end point
@@ -219,6 +254,7 @@ pub fn draw_slop_lines(protfolios: &Vec<Protfolio>) -> Vec<SlopePoint> {
                 protfolio.time + unit.duration as i64 - 1,
             ),
             time: protfolio.time + unit.duration as i64 - 1,
+            kind: 's',
             period_type: protfolio.period_type,
         });
     }
@@ -243,6 +279,7 @@ impl Protfolio {
             id: t.id.clone(),
             price: t.price,
             time: t.time,
+            kind: 'p',
             // fixed time range, accroding time unit
             unit_time: t.time - t.time % (unit.duration as i64 * 1000),
             unit: unit.clone(),
@@ -267,6 +304,7 @@ impl Protfolio {
             id: t.id.clone(),
             price: t.price,
             time: t.time,
+            kind: 'p',
             // moving time range, according base_time
             unit_time: base_time + (base_time - t.time) % (unit.duration as i64 * -1000),
             unit: unit.clone(),
@@ -297,6 +335,7 @@ impl Protfolio {
         self.close_price = source.close_price;
         self.sample_size = source.sample_size;
         self.slope = source.slope;
+        self.b_num = source.b_num;
     }
 }
 

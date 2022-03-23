@@ -16,7 +16,7 @@
     "gnetId": null,
     "graphTooltip": 0,
     "id": 2,
-    "iteration": 1647863892564,
+    "iteration": 1648004505892,
     "links": [],
     "panels": [
         {
@@ -47,6 +47,8 @@
                 "alignAsTable": true,
                 "avg": false,
                 "current": true,
+                "hideEmpty": true,
+                "hideZero": true,
                 "max": true,
                 "min": true,
                 "rightSide": false,
@@ -64,7 +66,12 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "/Slope line .+/",
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -190,7 +197,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: ${symbol} AND period_type: ${period}",
+                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
                     "refId": "D",
                     "timeField": "time"
                 },
@@ -221,7 +228,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: ${symbol} AND period_type: ${period}",
+                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
                     "refId": "E",
                     "timeField": "time"
                 },
@@ -252,7 +259,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: ${symbol} AND period_type: ${period}",
+                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
                     "refId": "F",
                     "timeField": "time"
                 },
@@ -283,7 +290,7 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: ${symbol} AND period_type: ${period}",
+                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
                     "refId": "G",
                     "timeField": "time"
                 },
@@ -314,8 +321,39 @@
                             "type": "extended_stats"
                         }
                     ],
-                    "query": "id: ${symbol} AND period_type: ${period}",
+                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
                     "refId": "H",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Slope line - ${period}s - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${symbol} AND kind: s AND period_type: ${period}",
+                    "refId": "I",
                     "timeField": "time"
                 }
             ],
@@ -361,7 +399,7 @@
             }
         }
     ],
-    "refresh": "5s",
+    "refresh": false,
     "schemaVersion": 25,
     "style": "dark",
     "tags": [],
@@ -370,7 +408,7 @@
             {
                 "allValue": null,
                 "current": {
-                    "selected": true,
+                    "selected": false,
                     "text": "TQQQ",
                     "value": "TQQQ"
                 },
@@ -381,7 +419,7 @@
                 "name": "symbol",
                 "options": [
                     {
-                        "selected": false,
+                        "selected": true,
                         "text": "TQQQ",
                         "value": "TQQQ"
                     },
@@ -391,7 +429,7 @@
                         "value": "SQQQ"
                     },
                     {
-                        "selected": true,
+                        "selected": false,
                         "text": "SOXL",
                         "value": "SOXL"
                     },
@@ -460,8 +498,8 @@
                 "allValue": null,
                 "current": {
                     "selected": true,
-                    "text": "120",
-                    "value": "120"
+                    "text": "30",
+                    "value": "30"
                 },
                 "hide": 0,
                 "includeAll": false,
@@ -475,12 +513,12 @@
                         "value": "10"
                     },
                     {
-                        "selected": false,
+                        "selected": true,
                         "text": "30",
                         "value": "30"
                     },
                     {
-                        "selected": true,
+                        "selected": false,
                         "text": "60",
                         "value": "60"
                     },
@@ -533,8 +571,8 @@
         ]
     },
     "time": {
-        "from": "now-1h",
-        "to": "now"
+        "from": "2022-03-09T16:59:21.504Z",
+        "to": "2022-03-09T18:00:52.224Z"
     },
     "timepicker": {
         "refresh_intervals": [
@@ -552,5 +590,5 @@
     "timezone": "",
     "title": "Daily Analysis",
     "uid": "8XT92WEnz11",
-    "version": 10
+    "version": 15
 }
