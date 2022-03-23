@@ -1,4 +1,4 @@
-use super::biz::{Protfolio, Ticker, TimeUnit};
+use super::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
 use crate::{
     analysis::init_dispatcher,
     persist::{es::ElasticTicker, PersistenceContext},
@@ -24,6 +24,7 @@ pub struct AppContext {
     pub config: Arc<AppConfig>,
     pub persistence: Arc<PersistenceContext>,
     pub tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
+    pub slopes: Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>>,
     pub protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
     // Sender for persist data
     pub house_keeper: Sender<TickerEvent>,
@@ -42,12 +43,14 @@ impl AppContext {
         let calculator = AppContext::init_sender(Arc::clone(&config_ref));
         let persistence = PersistenceContext::new(Arc::clone(&config_ref));
         let tickers = AppContext::init_tickers(Arc::clone(&config_ref));
+        let slopes = AppContext::init_slopes(Arc::clone(&config_ref));
         let protfolios = AppContext::init_protfolios(Arc::clone(&config_ref));
 
         AppContext {
             config: config_ref,
             persistence: Arc::new(persistence),
             tickers,
+            slopes,
             protfolios,
             house_keeper,
             preparatory,
@@ -63,6 +66,15 @@ impl AppContext {
         Arc::clone(&self.persistence)
     }
 
+    fn init_slopes(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
+        let symbols = config.symbols();
+        let mut map: HashMap<String, RwLock<LinkedList<SlopePoint>>> = HashMap::new();
+        for symbol in symbols {
+            map.insert(symbol, RwLock::new(LinkedList::new()));
+        }
+        Arc::new(map)
+    }
+
     fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
         let symbols = config.symbols();
         let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
@@ -71,7 +83,6 @@ impl AppContext {
         }
         Arc::new(map)
     }
-    // Init container
 
     fn init_protfolios(
         config: Arc<AppConfig>,
@@ -142,7 +153,7 @@ impl AppContext {
         Ok(())
     }
 
-    pub async fn dispatch_direct(&self, ticker: &Ticker) -> Result<()> {
+    pub async fn dispatch_direct(&self, ticker: &Ticker, message_id: &i64) -> Result<()> {
         // save data
         if self.config.mongo_enabled() {
             ticker.save_to_mongo(self.persistence()).await?;
@@ -161,10 +172,19 @@ impl AppContext {
             error!("No tickers container {} initialized", &ticker.id);
         }
 
+        // Add ticker decision data first (id/time... with empty analysis data)
+        let slopes = Arc::clone(&self.slopes);
+        if let Some(lock) = slopes.get(&ticker.id) {
+            let mut slope_list = lock.write().unwrap();
+            slope_list.push_front(SlopePoint::from(ticker, message_id));
+        } else {
+            error!("No slope container {} initialized", &ticker.id);
+        }
+
         // calculate protfolios
         TimeUnit::values().par_iter_mut().for_each(|unit| {
             debug!("route calculation: {:?} of {}", unit, &ticker.id);
-            self.route(&ticker.id, &unit).unwrap();
+            self.route(message_id, &ticker.id, &unit).unwrap();
         });
         Ok(())
     }

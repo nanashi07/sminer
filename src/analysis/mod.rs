@@ -2,7 +2,7 @@ mod computor;
 
 use crate::{
     persist::{
-        es::{index_protfolios, index_slope_points, ElasticTicker},
+        es::{index_protfolios, ElasticTicker},
         PersistenceContext,
     },
     proto::biz::TickerEvent,
@@ -23,8 +23,6 @@ use std::{
     time::Duration,
 };
 use tokio::sync::broadcast::Receiver;
-
-use self::computor::draw_slop_lines;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let house_keeper = &context.house_keeper;
@@ -142,11 +140,13 @@ async fn handle_message_for_preparatory(
     }
 
     // TODO: Add ticker decision data first (id/time... with empty analysis data)
+    let message_id = Utc::now().timestamp_millis(); // TODO: make sure uniq
 
     // Send signal for symbol analysis
     let calculator = Arc::clone(&context.calculator);
     let sender = calculator.get(&ticker.id).unwrap();
-    sender.send(Utc::now().timestamp_millis())?;
+
+    sender.send(message_id)?;
 
     Ok(())
 }
@@ -157,27 +157,42 @@ async fn handle_message_for_calculator(
     symbol: &str,
     unit: &TimeUnit,
 ) -> Result<()> {
-    // Receive signal only
-    let _: i64 = rx.recv().await?.into(); // TODO : use as update id?
+    // Receive message ID only
+    let message_id: i64 = rx.recv().await?.into();
     trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
-    context.route(symbol, unit)?;
+    context.route(&message_id, symbol, unit)?;
     Ok(())
 }
 
 impl AppContext {
-    pub fn route(&self, symbol: &str, unit: &TimeUnit) -> Result<()> {
+    pub fn route(&self, message_id: &i64, symbol: &str, unit: &TimeUnit) -> Result<()> {
         debug!("Route calculation for {:?} of {}", unit, symbol);
-        let protfolios = Arc::clone(&self.protfolios);
-        if let Some(uniter) = protfolios.get(symbol) {
-            if let Some(lock) = uniter.get(&unit.name) {
+        let protfolios_map = Arc::clone(&self.protfolios);
+        let points_map = Arc::clone(&self.slopes);
+
+        if let Some(unit_map) = protfolios_map.get(symbol) {
+            if let Some(protfolios_lock) = unit_map.get(&unit.name) {
                 debug!("handle calc for {} of {:?}", symbol, unit);
                 // Get ticker source
                 let tickers = self.tickers.get(symbol).unwrap();
                 let symbol_tickers = tickers.read().unwrap();
+
                 // Get target protfolios
-                let mut list = lock.write().unwrap();
-                // Start calculation
-                unit.rebalance(&symbol_tickers, &mut list)?;
+                let mut protfolios = protfolios_lock.write().unwrap();
+
+                // Get target slope point
+                if let Some(slopes_lock) = points_map.get(symbol) {
+                    let mut slopes = slopes_lock.write().unwrap();
+                    let mut slope = slopes
+                        .iter_mut()
+                        .find(|s| s.message_id == *message_id)
+                        .unwrap();
+
+                    // Start calculation
+                    unit.rebalance(&symbol_tickers, &mut protfolios, &mut slope)?;
+
+                    // TODO: check all values finalized and push
+                }
             } else {
                 error!(
                     "Not protfolios container {:?} of {} initialized",
@@ -217,9 +232,12 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
     info!("Loaded tickers: {} for {}", total, file);
 
+    let mut message_id: i64 = 0;
+
     for ticker in tickers {
         if mode == ReplayMode::Sync {
-            context.dispatch_direct(&ticker).await?;
+            message_id += 1;
+            context.dispatch_direct(&ticker, &message_id).await?;
         } else {
             context.dispatch(&ticker).await?;
         }
@@ -246,9 +264,6 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         // output analysis file
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
         output_protfolios(&context, filename).await?;
-
-        // TODO: output ticker decision
-        output_slope_points(&context, filename).await?;
     }
 
     info!("Clean up cached data for next run");
@@ -297,58 +312,6 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
                     index_protfolios(&context, &protfolios).await?;
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
-    let config = context.config();
-    let protfolios = Arc::clone(&context.protfolios);
-
-    for (ticker_id, groups) in protfolios.as_ref() {
-        for (unit, lock) in groups {
-            // ignore moving protfolios
-            if TimeUnit::find(unit).unwrap().period > 0 {
-                continue;
-            }
-
-            let list_reader = lock.read().unwrap();
-            if !list_reader.is_empty() {
-                if config.analysis.output.file.enabled {
-                    let output_name = format!(
-                        "{}/slope/{}/{}-{:?}.json",
-                        &config.analysis.output.base_folder, file, ticker_id, unit
-                    );
-                    let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                    std::fs::create_dir_all(&path).unwrap();
-                    let output = OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(&output_name)
-                        .unwrap();
-                    let mut writer = BufWriter::new(output);
-
-                    let protfolios: Vec<Protfolio> =
-                        list_reader.iter().map(|p| p.clone()).collect();
-                    let points = draw_slop_lines(&protfolios);
-
-                    debug!("Dump slope: {}", &output_name);
-                    points.iter().for_each(|item| {
-                        let json = serde_json::to_string(&item).unwrap();
-                        write!(&mut writer, "{}\n", &json).unwrap();
-                    });
-                    debug!("Finish slope: {} file", &output_name);
-                }
-                if config.analysis.output.elasticsearch.enabled {
-                    let protfolios: Vec<Protfolio> =
-                        list_reader.iter().map(|p| p.clone()).collect();
-                    let points = draw_slop_lines(&protfolios);
-                    index_slope_points(&context, &points).await?;
                 }
             }
         }

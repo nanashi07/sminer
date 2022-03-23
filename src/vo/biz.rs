@@ -1,8 +1,7 @@
-use std::fmt::Display;
-
 use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SubscribeCommand {
@@ -277,8 +276,6 @@ pub struct Protfolio {
     pub market_hours: MarketHoursType,
 
     pub volume: i64,
-    pub change: f32,
-    pub change_rate: f32,
 
     // Calculation unit
     pub unit: TimeUnit,
@@ -299,11 +296,38 @@ pub struct Protfolio {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SlopePoint {
     pub id: String,
-    pub price: f64,
     pub time: i64,
+
+    pub message_id: i64,
 
     pub kind: char,
 
-    // Period type
-    pub period_type: i32,
+    pub quote_type: QuoteType,
+    pub market_hours: MarketHoursType,
+
+    pub unit_size: usize,
+    pub states: HashMap<String, f64>,
+}
+
+impl SlopePoint {
+    pub fn from(ticker: &Ticker, message_id: &i64) -> Self {
+        SlopePoint {
+            id: ticker.id.clone(),
+            time: ticker.time,
+            message_id: *message_id,
+            kind: 's',
+            quote_type: ticker.quote_type,
+            market_hours: ticker.market_hours,
+            unit_size: TimeUnit::values().len(),
+            states: HashMap::new(),
+        }
+    }
+
+    pub fn update_state(&mut self, unit: &str, slope: &f64) {
+        self.states.insert(unit.to_string(), *slope);
+    }
+
+    pub fn finalized(&self) -> bool {
+        self.unit_size == self.states.len()
+    }
 }
