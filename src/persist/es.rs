@@ -117,7 +117,7 @@ impl From<Ticker> for ElasticTicker {
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             day_volume: t.day_volume,
-            day_volume_diff: 0,
+            day_volume_diff: t.volume.unwrap_or(0),
             change: t.change,
             period_type: 0,
         }
@@ -134,7 +134,7 @@ impl From<TickerEvent> for ElasticTicker {
             quote_type: t.quote_type.try_into().unwrap(),
             market_hours: t.market_hours.try_into().unwrap(),
             day_volume: t.day_volume,
-            day_volume_diff: 0,
+            day_volume_diff: t.volume,
             change: t.change,
             period_type: 0,
         }

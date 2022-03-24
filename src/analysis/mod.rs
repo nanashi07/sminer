@@ -166,13 +166,19 @@ async fn handle_message_for_calculator(
 
 impl AppContext {
     pub fn route(&self, message_id: &i64, symbol: &str, unit: &TimeUnit) -> Result<()> {
-        debug!("Route calculation for {:?} of {}", unit, symbol);
+        debug!(
+            "========== Route calculation for {} of {}, message_id: {} ==========",
+            symbol, unit.duration, message_id
+        );
         let protfolios_map = Arc::clone(&self.protfolios);
         let points_map = Arc::clone(&self.slopes);
 
         if let Some(unit_map) = protfolios_map.get(symbol) {
             if let Some(protfolios_lock) = unit_map.get(&unit.name) {
-                debug!("handle calc for {} of {:?}", symbol, unit);
+                debug!(
+                    "Handle calculation for {} of {}, message_id: {}",
+                    symbol, unit.duration, message_id
+                );
                 // Get ticker source
                 let tickers = self.tickers.get(symbol).unwrap();
                 let symbol_tickers = tickers.read().unwrap();
@@ -180,19 +186,35 @@ impl AppContext {
                 // Get target protfolios
                 let mut protfolios = protfolios_lock.write().unwrap();
 
-                // Get target slope point
-                if let Some(slopes_lock) = points_map.get(symbol) {
-                    let mut slopes = slopes_lock.write().unwrap();
-                    let mut slope = slopes
-                        .iter_mut()
-                        .find(|s| s.message_id == *message_id)
-                        .unwrap();
+                // Start calculation
+                unit.rebalance(
+                    symbol,
+                    message_id,
+                    &symbol_tickers,
+                    &mut protfolios, /*  &mut slope */
+                )?;
 
-                    // Start calculation
-                    unit.rebalance(&symbol_tickers, &mut protfolios, &mut slope)?;
+                // // Get target slope point
+                // if let Some(slopes_lock) = points_map.get(symbol) {
+                //     // let jj = slopes_lock.write().unwrap();
 
-                    // TODO: check all values finalized and push
-                }
+                //     match slopes_lock.write() {
+                //         Ok(mut slopes) => {
+                //             let mut slope = slopes
+                //                 .iter_mut()
+                //                 .find(|s| s.message_id == *message_id)
+                //                 .unwrap();
+
+                //             // Start calculation
+                //             unit.rebalance(&symbol_tickers, &mut protfolios, &mut slope)?;
+
+                //             // TODO: check all values finalized and push
+                //         }
+                //         Err(err) => {
+                //             error!("error : {:?}", err);
+                //         }
+                //     }
+                // }
             } else {
                 error!(
                     "Not protfolios container {:?} of {} initialized",
@@ -219,7 +241,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
     let f = File::open(file)?;
     let reader = BufReader::new(f);
-    let tickers: Vec<Ticker> = reader
+    let mut tickers: Vec<Ticker> = reader
         .lines()
         .into_iter()
         .map(|w| w.unwrap())
@@ -234,12 +256,13 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
     let mut message_id: i64 = 0;
 
-    for ticker in tickers {
+    for ticker in tickers.iter_mut() {
         if mode == ReplayMode::Sync {
+            debug!("************************************************************************************************************");
             message_id += 1;
-            context.dispatch_direct(&ticker, &message_id).await?;
+            context.dispatch_direct(ticker, &message_id).await?;
         } else {
-            context.dispatch(&ticker).await?;
+            context.dispatch(ticker).await?;
         }
         handl_count = handl_count + 1;
 

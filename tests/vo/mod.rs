@@ -1,6 +1,15 @@
+use chrono::{TimeZone, Utc};
 use config::Config;
 use log::info;
-use sminer::{init_log, vo::core::AppConfig, Result};
+use sminer::{
+    init_log,
+    vo::{biz::Ticker, core::AppConfig},
+    Result,
+};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
 #[tokio::test]
 async fn test_load_config() -> Result<()> {
@@ -16,6 +25,33 @@ async fn test_load_config() -> Result<()> {
 
     let config: AppConfig = settings.try_deserialize::<AppConfig>()?;
     info!("config = {:?}", &config);
+
+    Ok(())
+}
+
+#[test]
+fn print_data() -> Result<()> {
+    let file = "tmp/TQQQ.tickers20220323";
+
+    let f = File::open(file)?;
+    let reader = BufReader::new(f);
+    let tickers: Vec<Ticker> = reader
+        .lines()
+        .into_iter()
+        .map(|w| w.unwrap())
+        .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
+        .collect();
+
+    for ticker in tickers {
+        println!(
+            "id: {}, time: {}, market: {:?}, price: {}, volume: {}",
+            ticker.id,
+            Utc.timestamp_millis(ticker.time),
+            ticker.market_hours,
+            ticker.price,
+            ticker.day_volume
+        )
+    }
 
     Ok(())
 }

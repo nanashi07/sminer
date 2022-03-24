@@ -10,6 +10,7 @@ use log::{debug, error};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::max,
     collections::{HashMap, LinkedList},
     sync::{Arc, RwLock},
 };
@@ -119,7 +120,7 @@ impl AppContext {
         Ok(Arc::clone(&me))
     }
 
-    fn last_volume(&self, symbol: &str) -> i64 {
+    pub fn last_volume(&self, symbol: &str) -> i64 {
         let lock = &self.tickers.get(symbol).unwrap();
         let list = lock.read().unwrap();
         if let Some(ticker) = list.front() {
@@ -131,12 +132,7 @@ impl AppContext {
 
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
         // calculate volume diff
-        let last_volume = self.last_volume(&ticker.id);
-        let volume_diff = if ticker.day_volume > last_volume {
-            last_volume - ticker.day_volume
-        } else {
-            0
-        };
+        let volume_diff = max(0, self.last_volume(&ticker.id) - ticker.day_volume);
 
         // send to persist
         if self.config.mongo_enabled() || self.config.elasticsearch_enabled() {
@@ -153,7 +149,11 @@ impl AppContext {
         Ok(())
     }
 
-    pub async fn dispatch_direct(&self, ticker: &Ticker, message_id: &i64) -> Result<()> {
+    // for test only
+    pub async fn dispatch_direct(&self, ticker: &mut Ticker, message_id: &i64) -> Result<()> {
+        // calculate volume diff
+        ticker.volume = Some(max(0, self.last_volume(&ticker.id) - ticker.day_volume));
+
         // save data
         if self.config.mongo_enabled() {
             ticker.save_to_mongo(self.persistence()).await?;
@@ -168,6 +168,12 @@ impl AppContext {
         if let Some(lock) = tickers.get(&ticker.id) {
             let mut list = lock.write().unwrap();
             list.push_front(ticker.clone());
+            debug!(
+                "{} ticker size: {}, message_id: {}",
+                ticker.id,
+                list.len(),
+                message_id
+            );
         } else {
             error!("No tickers container {} initialized", &ticker.id);
         }
@@ -181,11 +187,11 @@ impl AppContext {
             error!("No slope container {} initialized", &ticker.id);
         }
 
-        // calculate protfolios
+        // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
         TimeUnit::values().par_iter_mut().for_each(|unit| {
-            debug!("route calculation: {:?} of {}", unit, &ticker.id);
             self.route(message_id, &ticker.id, &unit).unwrap();
         });
+
         Ok(())
     }
 

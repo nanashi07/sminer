@@ -1,10 +1,10 @@
 use crate::vo::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
 use crate::Result;
-use chrono::{Duration, Utc};
-use log::debug;
+use chrono::{Duration, TimeZone, Utc};
 use log::trace;
+use log::{debug, log_enabled};
 use rayon::prelude::*;
-use std::collections::{HashMap, LinkedList};
+use std::collections::{BTreeMap, HashMap, LinkedList};
 use std::f64::NAN;
 
 // Calculate slop for nearest line
@@ -63,7 +63,7 @@ fn slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
     }
 }
 
-fn group_by(mut map: HashMap<i64, Vec<Protfolio>>, p: Protfolio) -> HashMap<i64, Vec<Protfolio>> {
+fn group_by(mut map: BTreeMap<i64, Vec<Protfolio>>, p: Protfolio) -> BTreeMap<i64, Vec<Protfolio>> {
     if let Some(list) = map.get_mut(&p.unit_time) {
         list.push(p);
     } else {
@@ -76,7 +76,6 @@ fn group_by(mut map: HashMap<i64, Vec<Protfolio>>, p: Protfolio) -> HashMap<i64,
 }
 
 fn calculate(values: &Vec<Protfolio>) -> Protfolio {
-    debug!("Calculate protfolio");
     let first = values.first().unwrap();
     let last = values.last().unwrap();
 
@@ -143,79 +142,104 @@ fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<
 }
 
 fn aggregate_fixed_unit(
+    symbol: &str,
     unit: &TimeUnit,
+    message_id: &i64,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    slope: &mut SlopePoint,
+    // slope: &mut SlopePoint,
 ) -> Result<()> {
     // Take source data in 3x time range
     let scope = unit.duration as i64 * 1000 * 3;
     // Use latest ticker time to restrict time
     let min_time = tickers.front().unwrap().time - scope;
+
+    if log_enabled!(log::Level::Debug) {
+        let count = tickers.iter().take_while(|t| t.time >= min_time).count();
+        debug!(
+            "Aggreate fixed protfolio for {} of {}, data size: {}",
+            symbol, unit.duration, count
+        );
+    }
+
     // calculate
-    let mut results = tickers
+    let results = tickers
         .iter()
         .take_while(|t| t.time >= min_time)
         .map(|t| Protfolio::fixed(t, unit))
-        .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
+        .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
             group_by(map, p)
         })
         .values()
         .map(|values| calculate(values))
         .collect::<Vec<Protfolio>>();
 
-    // sort by unit time (desc)
-    results.sort_by(|x, y| y.unit_time.partial_cmp(&x.unit_time).unwrap());
-    trace!("Result = {:?}", results);
-
     // update protfolio, only handle the latest 2 records
-    for (index, target) in results.iter().enumerate() {
-        if index > 0 {
-            update(target, protfolios)?;
+    let result_size = results.len();
+    for (index, target) in results.iter().rev().take(2).enumerate() {
+        if log_enabled!(log::Level::Debug) {
+            debug!(
+                "Updating fixed protfolio, {} of {}, index: {}/{}, {:?}",
+                symbol, unit.duration, index, result_size, target
+            );
         }
+        update(target, protfolios)?;
     }
 
     // update ticker decision
-    let value = results.first().unwrap().slope.unwrap_or(0.0);
-    slope.update_state(&unit.name, &value);
+    // let value = results.first().unwrap().slope.unwrap_or(0.0);
+    // slope.update_state(&unit.name, &value);
 
     Ok(())
 }
 
 fn aggregate_moving_unit(
+    symbol: &str,
     unit: &TimeUnit,
+    message_id: &i64,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    slope: &mut SlopePoint,
+    // slope: &mut SlopePoint,
 ) -> Result<()> {
     let last_timestamp = tickers.front().unwrap().time;
-    let scope = (Utc::now() - Duration::seconds(unit.duration as i64 * unit.period as i64))
-        .timestamp_millis();
+    let scope = last_timestamp - (unit.duration as i64 * unit.period as i64) * 1000;
+
+    if log_enabled!(log::Level::Debug) {
+        let count = tickers.iter().take_while(|t| t.time > scope).count();
+        debug!(
+            "Aggreate moving protoflio for {} of {}, period: {}, data size: {}, last_timestamp: {}, scope: {}",
+            symbol, unit.duration,unit.period, count, Utc.timestamp_millis(last_timestamp).to_rfc3339(), Utc.timestamp_millis(scope).to_rfc3339()
+        );
+    }
+
     // calculate
-    let mut results = tickers
+    let results = tickers
         .iter()
         .take_while(|t| t.time > scope) // only take items in 10 min
         .map(|t| Protfolio::moving(t, unit, last_timestamp))
-        .fold(HashMap::new(), |map: HashMap<i64, Vec<Protfolio>>, p| {
+        .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
             group_by(map, p)
         })
         .values()
         .map(|values| calculate(values))
         .collect::<Vec<Protfolio>>();
 
-    // sort by unit time (asc)
-    results.sort_by(|x, y| x.unit_time.partial_cmp(&y.unit_time).unwrap());
-    trace!("Result = {:?}", results);
-
     // update protfolio, renew all records
+    let result_size = results.len();
     protfolios.clear();
-    for (_, item) in results.iter().enumerate() {
-        protfolios.push_front((*item).clone());
+    for (index, target) in results.iter().rev().enumerate() {
+        if log_enabled!(log::Level::Debug) {
+            debug!(
+                "Updating moving protfolio, {} of {}, index: {}/{}, {:?}",
+                symbol, unit.duration, index, result_size, target
+            );
+        }
+        protfolios.push_front((*target).clone());
     }
 
     // update ticker decision
-    let value = results.first().unwrap().slope.unwrap_or(0.0);
-    slope.update_state(&unit.name, &value);
+    // let value = results.first().unwrap().clone().slope.unwrap_or(0.0);
+    // slope.update_state(&unit.name, &value);
 
     Ok(())
 }
@@ -251,7 +275,9 @@ impl Protfolio {
             time: t.time,
             kind: 'p',
             // moving time range, according base_time
-            unit_time: base_time + (base_time - t.time) % (unit.duration as i64 * -1000),
+            unit_time: base_time
+                + ((base_time - t.time) / (unit.duration as i64 * 1000))
+                    * (unit.duration as i64 * 1000),
             unit: unit.clone(),
             period_type: unit.duration,
             quote_type: t.quote_type,
@@ -283,15 +309,27 @@ impl Protfolio {
 impl TimeUnit {
     pub fn rebalance(
         &self,
+        symbol: &str,
+        message_id: &i64,
         tickers: &LinkedList<Ticker>,
         protfolios: &mut LinkedList<Protfolio>,
-        slope: &mut SlopePoint,
+        // slope: &mut SlopePoint,
     ) -> Result<()> {
-        debug!("Rebalance count: {}", &tickers.len());
+        debug!(
+            "Rebalance {} of {}, message_id: {}, ticker count: {}",
+            symbol,
+            self.duration,
+            message_id,
+            &tickers.len()
+        );
         if self.period == 0 {
-            aggregate_fixed_unit(self, tickers, protfolios, slope)?;
+            aggregate_fixed_unit(
+                symbol, self, message_id, tickers, protfolios, /*slope */
+            )?;
         } else {
-            aggregate_moving_unit(self, tickers, protfolios, slope)?;
+            aggregate_moving_unit(
+                symbol, self, message_id, tickers, protfolios, /*slope */
+            )?;
         }
         Ok(())
     }
