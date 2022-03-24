@@ -170,13 +170,15 @@ fn aggregate_fixed_unit(
         .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
             group_by(map, p)
         })
-        .values()
-        .map(|values| calculate(values))
+        .iter()
+        .rev()
+        .take(2)
+        .map(|(_, values)| calculate(values))
         .collect::<Vec<Protfolio>>();
 
     // update protfolio, only handle the latest 2 records
     let result_size = results.len();
-    for (index, target) in results.iter().rev().take(2).enumerate() {
+    for (index, target) in results.iter().enumerate() {
         if log_enabled!(log::Level::Debug) {
             debug!(
                 "Updating fixed protfolio, {} of {}, index: {}/{}, {:?}",
