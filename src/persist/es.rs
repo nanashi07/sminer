@@ -22,6 +22,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
+    cmp::max,
     fs::File,
     io::{BufRead, BufReader},
     sync::Arc,
@@ -100,7 +101,7 @@ pub struct ElasticTicker {
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
     pub day_volume: i64,
-    pub day_volume_diff: i64,
+    pub volume: i64,
     pub change: f32,
 
     // Period type
@@ -117,7 +118,7 @@ impl From<Ticker> for ElasticTicker {
             quote_type: t.quote_type,
             market_hours: t.market_hours,
             day_volume: t.day_volume,
-            day_volume_diff: t.volume.unwrap_or(0),
+            volume: t.volume.unwrap_or(0),
             change: t.change,
             period_type: 0,
         }
@@ -134,7 +135,7 @@ impl From<TickerEvent> for ElasticTicker {
             quote_type: t.quote_type.try_into().unwrap(),
             market_hours: t.market_hours.try_into().unwrap(),
             day_volume: t.day_volume,
-            day_volume_diff: t.volume,
+            volume: t.volume,
             change: t.change,
             period_type: 0,
         }
@@ -184,13 +185,20 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 
-    let tickers: Vec<ElasticTicker> = reader
+    let mut tickers: Vec<ElasticTicker> = reader
         .lines()
         .into_iter()
         .map(|w| w.unwrap())
         .map(|line| serde_json::from_str::<Ticker>(&line).unwrap())
         .map(|t| ElasticTicker::from(t))
         .collect();
+
+    // FIXME: calculate volume
+    let mut last_volume = 0;
+    tickers.iter_mut().for_each(|ticker| {
+        ticker.volume = max(0, ticker.day_volume - last_volume);
+        last_volume = ticker.day_volume;
+    });
 
     info!("ticker size: {} for {}", &tickers.len(), &path);
 

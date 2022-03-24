@@ -63,7 +63,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -161,6 +169,38 @@
                     "query": "id: TQQQ AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TQQQ AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -191,7 +231,7 @@
                     "show": true
                 },
                 {
-                    "format": "currencyUSD",
+                    "format": "short",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -248,7 +288,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -346,6 +394,38 @@
                     "query": "id: SQQQ AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SQQQ AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -434,7 +514,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -532,6 +620,38 @@
                     "query": "id: SOXL AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXL AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -620,7 +740,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -718,6 +846,38 @@
                     "query": "id: SOXS AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SOXS AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -806,7 +966,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -904,6 +1072,38 @@
                     "query": "id: SPXL AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXL AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -992,7 +1192,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -1090,6 +1298,38 @@
                     "query": "id: SPXS AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SPXS AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -1178,7 +1418,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -1276,6 +1524,38 @@
                     "query": "id: LABU AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABU AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -1364,7 +1644,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -1462,6 +1750,38 @@
                     "query": "id: LABD AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: LABD AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -1550,7 +1870,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -1648,6 +1976,38 @@
                     "query": "id: TNA AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TNA AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -1736,7 +2096,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -1834,6 +2202,38 @@
                     "query": "id: TZA AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: TZA AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -1922,7 +2322,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -2020,6 +2428,38 @@
                     "query": "id: YINN AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YINN AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -2108,7 +2548,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -2206,6 +2654,38 @@
                     "query": "id: YANG AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: YANG AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -2294,7 +2774,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -2392,6 +2880,38 @@
                     "query": "id: UDOW AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
                     "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: UDOW AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
                 }
             ],
             "thresholds": [],
@@ -2480,7 +3000,15 @@
             "pointradius": 2,
             "points": false,
             "renderer": "flot",
-            "seriesOverrides": [],
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "fillBelowTo": "Regular Market Price - Average",
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
             "spaceLength": 10,
             "stack": false,
             "steppedLine": false,
@@ -2577,6 +3105,38 @@
                     ],
                     "query": "id: SDOW AND market_hours: PostMarket AND period_type: 0",
                     "refId": "C",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": true,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: SDOW AND period_type: 0",
+                    "refId": "D",
                     "timeField": "time"
                 }
             ],

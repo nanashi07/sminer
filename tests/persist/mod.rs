@@ -159,7 +159,7 @@ mod elastic {
         vo::{biz::Ticker, core::AppConfig},
         Result,
     };
-    use std::sync::Arc;
+    use std::{cmp::max, sync::Arc};
 
     #[tokio::test]
     #[ignore = "used for test imported data"]
@@ -203,16 +203,26 @@ mod elastic {
             "tickers20220316",
             "tickers20220317",
             "tickers20220318",
+            "tickers20220321",
+            "tickers20220322",
+            "tickers20220323",
         ];
 
         let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
 
         for file in files {
-            let tickers: Vec<ElasticTicker> = read_from_file(file)?
+            let mut tickers: Vec<ElasticTicker> = read_from_file(file)?
                 .iter()
                 .map(|line| serde_json::from_str::<Ticker>(line).unwrap())
                 .map(|t| ElasticTicker::from(t))
                 .collect();
+
+            // FIXME: calculate volume
+            let mut last_volume = 0;
+            tickers.iter_mut().for_each(|ticker| {
+                ticker.volume = max(0, ticker.day_volume - last_volume);
+                last_volume = ticker.day_volume;
+            });
 
             info!("ticker size: {} for {}", &tickers.len(), &file);
 
