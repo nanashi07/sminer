@@ -1,4 +1,4 @@
-use crate::vo::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
+use crate::vo::biz::{Protfolio, SlopeLine, SlopePoint, Ticker, TimeUnit};
 use crate::Result;
 use chrono::{Duration, TimeZone, Utc};
 use log::trace;
@@ -244,6 +244,51 @@ fn aggregate_moving_unit(
     // slope.update_state(&unit.name, &value);
 
     Ok(())
+}
+
+pub fn draw_slop_lines(protfolios: &Vec<Protfolio>) -> Vec<SlopeLine> {
+    let unit = &protfolios.first().unwrap().unit;
+
+    let mut points: Vec<SlopeLine> = Vec::new();
+
+    for protfolio in protfolios {
+        // y = ax + b
+        // price = slope * time + b_num
+
+        // start point
+        points.push(SlopeLine {
+            id: protfolio.id.clone(),
+            price: get_y(protfolio.slope, protfolio.b_num, protfolio.time + 1),
+            time: protfolio.time + 1,
+            kind: 's',
+            period_type: protfolio.period_type,
+        });
+        // end point
+        points.push(SlopeLine {
+            id: protfolio.id.clone(),
+            price: get_y(
+                protfolio.slope,
+                protfolio.b_num,
+                protfolio.time + unit.duration as i64 - 1,
+            ),
+            time: protfolio.time + unit.duration as i64 - 1,
+            kind: 's',
+            period_type: protfolio.period_type,
+        });
+    }
+
+    points
+}
+
+fn get_y(slope: Option<f64>, b_num: Option<f64>, time: i64) -> f64 {
+    if slope == None || b_num == None {
+        0.0
+    } else {
+        let a = slope.unwrap();
+        let x = time as f64;
+        let b = b_num.unwrap();
+        a * x + b
+    }
 }
 
 impl Protfolio {

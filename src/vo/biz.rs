@@ -331,3 +331,15 @@ impl SlopePoint {
         self.unit_size == self.states.len()
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SlopeLine {
+    pub id: String,
+    pub price: f64,
+    pub time: i64,
+
+    pub kind: char,
+
+    // Period type
+    pub period_type: i32,
+}
