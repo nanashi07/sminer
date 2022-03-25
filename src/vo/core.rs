@@ -17,7 +17,7 @@ use std::{
 use tokio::sync::broadcast::{channel, Sender};
 
 pub const KEY_EXTRA_PRCOESS_IN_REPLAY: &str = "process_in_replay";
-pub const KEY_EXTRA_DISABLE_TRUNCAT: &str = "disable_clean_data_before_operation";
+pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 
 #[derive(Debug)]
 pub struct AppContext {
@@ -269,7 +269,7 @@ impl AppConfig {
     }
 
     pub fn truncat_enabled(&self) -> bool {
-        !self.extra_present(KEY_EXTRA_DISABLE_TRUNCAT)
+        self.extra_present(KEY_EXTRA_ENABLE_DATA_TRUNCAT)
     }
 }
 

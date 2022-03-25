@@ -55,3 +55,22 @@ fn print_data() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn parse_bool() -> Result<()> {
+    let true_string = "true";
+    let false_string = "false";
+
+    println!(
+        "parse {}: {}",
+        true_string,
+        true_string.parse::<bool>().unwrap()
+    );
+    println!(
+        "parse {}: {}",
+        false_string,
+        false_string.parse::<bool>().unwrap()
+    );
+
+    Ok(())
+}

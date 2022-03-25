@@ -16,7 +16,7 @@ use crate::{
 use chrono::Utc;
 use log::{debug, error, info, trace};
 use std::{
-    fs::{File, OpenOptions},
+    fs::{create_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
     sync::Arc,
@@ -259,7 +259,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     let mut handl_count = 0;
     let mut seconds = Utc::now().timestamp() / 60;
 
-    info!("Loaded tickers: {} for {}", total, file);
+    info!("Loaded tickers: {} in {}", total, file);
 
     let mut message_id: i64 = 0;
 
@@ -278,7 +278,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
             seconds = seconds + 1;
         }
 
-        // delay for backpress
+        // delay for backpress in async mode
         if let ReplayMode::Async { delay } = mode {
             if delay > 0 {
                 sleep(Duration::from_millis(delay));
@@ -323,7 +323,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                    std::fs::create_dir_all(&path).unwrap();
+                    create_dir_all(&path).unwrap();
                     let output = OpenOptions::new()
                         .write(true)
                         .create(true)
@@ -370,7 +370,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                    std::fs::create_dir_all(&path).unwrap();
+                    create_dir_all(&path).unwrap();
                     let output = OpenOptions::new()
                         .write(true)
                         .create(true)

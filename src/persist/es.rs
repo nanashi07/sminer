@@ -7,7 +7,7 @@ use crate::{
     },
     Result,
 };
-use chrono::{DateTime, FixedOffset, TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use elasticsearch::{
     http::{
         request::JsonBody,
@@ -23,14 +23,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     cmp::max,
+    fmt::Debug,
     fs::File,
     io::{BufRead, BufReader},
     sync::Arc,
 };
 
-pub const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
-pub const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
-pub const INDEX_PREFIX_SOLOPE: &str = "sminer-slope";
+const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
+const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
+const INDEX_PREFIX_SLOPE: &str = "sminer-slope";
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -64,14 +65,7 @@ impl DataSource<Elasticsearch> for PersistenceContext {
 }
 
 impl PersistenceContext {
-    pub async fn drop_index(&self, name: &str) -> Result<()> {
-        if !self.config.truncat_enabled() {
-            debug!("Ignore drop index");
-            return Ok(());
-        }
-
-        let time = Utc.datetime_from_str(&format!("{} 00:00:00", name), "%Y%m%d %H:%M:%S")?;
-        let index_name = &format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
+    pub async fn delete_index(&self, index_name: &str) -> Result<()> {
         let client: Elasticsearch = self.get_connection()?;
         info!("Delete Elasticsearch index: {}", index_name);
         let response = client
@@ -144,24 +138,17 @@ impl From<TickerEvent> for ElasticTicker {
 
 impl ElasticTicker {
     // Get ticker info time
-    fn timestamp(&self) -> DateTime<FixedOffset> {
-        DateTime::parse_from_rfc3339(&self.time).unwrap()
-    }
-
-    // Resolve index name by ticker info time
-    fn index_name(&self) -> String {
-        format!(
-            "{}-{}",
-            INDEX_PREFIX_TICKER,
-            self.timestamp().format("%Y-%m-%d")
-        )
+    fn timestamp(&self) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(&self.time)
+            .unwrap()
+            .with_timezone(&Utc)
     }
 
     pub async fn save_to_elasticsearch(&self, datasource: Arc<PersistenceContext>) -> Result<()> {
         let client: Elasticsearch = datasource.get_connection()?;
-
+        let index_name = ticker_index_name(&self.timestamp());
         let response = client
-            .index(IndexParts::Index(&self.index_name()))
+            .index(IndexParts::Index(&index_name))
             .body(json!(self))
             .send()
             .await?;
@@ -175,8 +162,26 @@ impl ElasticTicker {
     }
 }
 
-pub fn take_digitals(str: &str) -> String {
+fn take_digitals(str: &str) -> String {
     str.chars().filter(|c| c.is_numeric()).collect::<String>()
+}
+
+pub fn take_index_time(name: &str) -> DateTime<Utc> {
+    let digital = take_digitals(name);
+    Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")
+        .unwrap()
+}
+
+pub fn slope_index_name(time: &DateTime<Utc>) -> String {
+    format!("{}-{}", INDEX_PREFIX_SLOPE, time.format("%Y-%m-%d"))
+}
+
+pub fn ticker_index_name(time: &DateTime<Utc>) -> String {
+    format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"))
+}
+
+pub fn protfolio_index_name(time: &DateTime<Utc>) -> String {
+    format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"))
 }
 
 pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result<()> {
@@ -214,10 +219,10 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
     // generate index name
     let digital = take_digitals(&path);
     let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
-    let index_name = format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
+    let index_name = ticker_index_name(&time);
 
     // drop index first
-    persistence.drop_index(&digital).await?;
+    // persistence.drop_index(&digital).await?;
 
     info!("Bulk import messages into index: {}", &index_name);
     let response = client
@@ -267,7 +272,7 @@ pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>)
 
     // generate index name
     let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
-    let index_name = format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"));
+    let index_name = protfolio_index_name(&time);
 
     // drop index first
     // FIXME: persistence.drop_index(&index_name).await?;
@@ -300,7 +305,7 @@ pub async fn index_slope_points(context: &AppContext, slope_points: &Vec<SlopeLi
 
     // generate index name
     let time = Utc.timestamp_millis(slope_points.first().unwrap().time);
-    let index_name = format!("{}-{}", INDEX_PREFIX_SOLOPE, time.format("%Y-%m-%d"));
+    let index_name = slope_index_name(&time);
 
     // drop index first
     // FIXME: persistence.drop_index(&index_name).await?;

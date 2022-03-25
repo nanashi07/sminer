@@ -55,11 +55,6 @@ impl DataSource<Client> for PersistenceContext {
 
 impl PersistenceContext {
     pub async fn drop_collection(&self, name: &str) -> Result<()> {
-        if !self.config.truncat_enabled() {
-            debug!("Ignore drop index");
-            return Ok(());
-        }
-
         let config = self.config();
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = self.get_connection()?;
@@ -140,7 +135,7 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
         let collection = db.collection::<Document>(&collection_name);
         collection.drop(None).await?;
     } else {
-        debug!("Ignore drop index");
+        debug!("Ignore drop collection: {}.{}", &db_name, &collection_name);
     }
 
     info!("Importing data into {}.{}", &db_name, &collection_name);

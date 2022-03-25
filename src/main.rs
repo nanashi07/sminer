@@ -4,16 +4,19 @@ use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
     persist::{
-        es::{index_protfolios_from_file, index_tickers_from_file, take_digitals},
+        es::{
+            index_protfolios_from_file, index_tickers_from_file, take_index_time, ticker_index_name,
+        },
         mongo::{export, import},
     },
     provider::yahoo::consume,
     vo::{
         biz::TimeUnit,
-        core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_TRUNCAT, KEY_EXTRA_PRCOESS_IN_REPLAY},
+        core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_REPLAY},
     },
     Result,
 };
+use std::collections::HashSet;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -34,9 +37,10 @@ async fn main() -> Result<()> {
             match name {
                 "consume" => {
                     let context = AppContext::new(config).init().await?;
+                    let config = context.config();
 
-                    let symbols = context.config.symbols();
-                    let uri = &context.config.platform.yahoo.uri;
+                    let symbols = config.symbols();
+                    let uri = config.platform.yahoo.uri.as_str();
 
                     info!("Loaded symbols: {:?}", &symbols);
                     consume(&context, &uri, &symbols, Option::None).await?;
@@ -55,21 +59,35 @@ async fn main() -> Result<()> {
                     );
 
                     let context = AppContext::new(config).init().await?;
+                    let config = context.config();
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
 
                     for file in files {
-                        if context.config.sync_mongo_enabled() {
+                        // delete mongo tickers
+                        if config.sync_mongo_enabled() {
                             context.persistence.drop_collection(file).await?;
                         }
-                        if context.config.sync_elasticsearch_enabled() {
-                            context.persistence.drop_index(&take_digitals(file)).await?;
+                        // delete elasticsearch tickers
+                        if config.sync_elasticsearch_enabled() {
+                            let index_time = take_index_time(file);
+                            let index_name = ticker_index_name(&index_time);
+                            context.persistence.delete_index(&index_name).await?;
                         }
                         replay(&context, &file, ReplayMode::Sync).await?
                     }
                 }
                 "import" => {
+                    let truncat_data = sub_matches.is_present("truncat")
+                        && sub_matches
+                            .value_of("truncat")
+                            .unwrap()
+                            .to_lowercase()
+                            .parse::<bool>()?;
+                    if truncat_data {
+                        config.extra_put(KEY_EXTRA_ENABLE_DATA_TRUNCAT, "truncat");
+                    }
                     let context = AppContext::new(config).init().await?;
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
@@ -88,25 +106,51 @@ async fn main() -> Result<()> {
                     }
                 }
                 "index" => {
-                    let keep_exists_data = sub_matches.is_present("keep-data");
-                    if keep_exists_data {
-                        config.extra_put(KEY_EXTRA_DISABLE_TRUNCAT, "disabled");
+                    let truncat_data = sub_matches.is_present("truncat")
+                        && sub_matches
+                            .value_of("truncat")
+                            .unwrap()
+                            .to_lowercase()
+                            .parse::<bool>()?;
+                    if truncat_data {
+                        config.extra_put(KEY_EXTRA_ENABLE_DATA_TRUNCAT, "truncat");
                     }
+
                     let context = AppContext::new(config).init().await?;
+                    let config = context.config();
+                    let persistence = context.persistence();
 
                     let r#type = sub_matches.value_of("type").unwrap().to_lowercase();
                     debug!("Input type: {}", &r#type);
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
 
+                    let mut drop_history: HashSet<String> = HashSet::new();
+
                     match r#type.as_str() {
                         "tickers" => {
                             for file in files {
+                                // drop index when fit name at first time
+                                let index_time = take_index_time(file);
+                                let index_name = ticker_index_name(&index_time);
+                                if config.truncat_enabled() && drop_history.contains(&index_name) {
+                                    persistence.delete_index(&index_name).await?;
+                                    drop_history.insert(index_name);
+                                }
+
                                 index_tickers_from_file(&context, file).await?;
                             }
                         }
                         "protfolio" => {
                             for file in files {
+                                // drop index when fit name at first time
+                                let index_time = take_index_time(file);
+                                let index_name = ticker_index_name(&index_time);
+                                if config.truncat_enabled() && drop_history.contains(&index_name) {
+                                    persistence.delete_index(&index_name).await?;
+                                    drop_history.insert(index_name);
+                                }
+
                                 index_protfolios_from_file(&context, file).await?;
                             }
                         }
@@ -165,6 +209,13 @@ fn command_args<'help>() -> Command<'help> {
                 .args(&[
                     level.clone(),
                     config_file.clone(),
+                    Arg::new("truncat")
+                        .short('k')
+                        .long("truncat")
+                        .possible_values(["true", "false"])
+                        .default_value("true")
+                        .ignore_case(true)
+                        .help("Truncat existing data"),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)
@@ -187,16 +238,18 @@ fn command_args<'help>() -> Command<'help> {
                 .args(&[
                     level.clone(),
                     config_file.clone(),
+                    Arg::new("truncat")
+                        .short('k')
+                        .long("truncat")
+                        .possible_values(["true", "false"])
+                        .default_value("false")
+                        .ignore_case(true)
+                        .help("Truncat existing data"),
                     Arg::new("type")
                         .short('t')
                         .long("type")
                         .possible_values(["tickers", "protfolio"])
                         .default_value("protfolio")
-                        .ignore_case(true),
-                    Arg::new("keep-data")
-                        .short('k')
-                        .long("keep-data")
-                        .takes_value(false)
                         .ignore_case(true),
                     Arg::new("files")
                         .takes_value(true)

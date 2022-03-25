@@ -2,7 +2,7 @@ use log::error;
 use sminer::{
     analysis::{replay, ReplayMode},
     init_log,
-    persist::es::take_digitals,
+    persist::es::{take_index_time, ticker_index_name},
     vo::{
         biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit},
         core::{AppConfig, AppContext, KEY_EXTRA_PRCOESS_IN_REPLAY},
@@ -35,7 +35,9 @@ fn test_replay() -> Result<()> {
                 context.persistence.drop_collection(file).await?;
             }
             if context.config.sync_elasticsearch_enabled() {
-                context.persistence.drop_index(&take_digitals(file)).await?;
+                let index_time = take_index_time(file);
+                let index_name = ticker_index_name(&index_time);
+                context.persistence.delete_index(&index_name).await?;
             }
             replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
         }
@@ -75,7 +77,9 @@ fn test_replay_async() -> Result<()> {
                 context.persistence.drop_collection(file).await?;
             }
             if context.config.sync_elasticsearch_enabled() {
-                context.persistence.drop_index(&take_digitals(file)).await?;
+                let index_time = take_index_time(file);
+                let index_name = ticker_index_name(&index_time);
+                context.persistence.delete_index(&index_name).await?;
             }
             replay(
                 &context,

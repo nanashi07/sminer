@@ -67,7 +67,7 @@ mod mongo {
                 let collection = db.collection::<Document>(&file);
                 collection.drop(None).await?;
             } else {
-                debug!("Ignore drop index");
+                debug!("Ignore drop collection: {}.{}", &db_name, &file);
             }
 
             let typed_collection = db.collection::<Ticker>(&file);
@@ -144,7 +144,6 @@ mod mongo {
 
 mod elastic {
     use crate::persist::read_from_file;
-    use chrono::{TimeZone, Utc};
     use elasticsearch::{
         http::request::JsonBody, indices::IndicesDeleteParts, BulkParts, Elasticsearch,
     };
@@ -153,7 +152,7 @@ mod elastic {
     use sminer::{
         init_log,
         persist::{
-            es::{take_digitals, ElasticTicker, INDEX_PREFIX_TICKER},
+            es::{take_index_time, ticker_index_name, ElasticTicker},
             DataSource, PersistenceContext,
         },
         vo::{biz::Ticker, core::AppConfig},
@@ -235,14 +234,10 @@ mod elastic {
                 body.push(json!(ticker).into());
             }
 
-            // generate index name
-            let digital = take_digitals(&file);
-            let time =
-                Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
-            let index_name = format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"));
-
             // drop index first
-            context.drop_index(&take_digitals(&file)).await?;
+            let index_time = take_index_time(file);
+            let index_name = ticker_index_name(&index_time);
+            context.delete_index(&index_name).await?;
 
             let response = client
                 .bulk(BulkParts::Index(&index_name))
