@@ -198,6 +198,13 @@ fn command_args<'help>() -> Command<'help> {
                 .args(&[
                     level.clone(),
                     config_file.clone(),
+                    Arg::new("truncat")
+                        .short('k')
+                        .long("truncat")
+                        .possible_values(["true", "false"])
+                        .default_value("true")
+                        .ignore_case(true)
+                        .help("Truncat existing data"),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)

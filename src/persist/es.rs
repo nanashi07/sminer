@@ -274,9 +274,6 @@ pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>)
     let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
     let index_name = protfolio_index_name(&time);
 
-    // drop index first
-    // FIXME: persistence.drop_index(&index_name).await?;
-
     debug!("Bulk import messages into index: {}", &index_name);
     let response = client
         .bulk(BulkParts::Index(&index_name))
@@ -306,9 +303,6 @@ pub async fn index_slope_points(context: &AppContext, slope_points: &Vec<SlopeLi
     // generate index name
     let time = Utc.timestamp_millis(slope_points.first().unwrap().time);
     let index_name = slope_index_name(&time);
-
-    // drop index first
-    // FIXME: persistence.drop_index(&index_name).await?;
 
     debug!("Bulk import messages into index: {}", &index_name);
     let response = client

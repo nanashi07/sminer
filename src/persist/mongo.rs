@@ -30,7 +30,7 @@ impl DataSource<Client> for PersistenceContext {
         let mutex = Arc::clone(&self.mongo_connections);
         let mut pool = mutex.lock().unwrap();
         if pool.is_empty() {
-            // TODO: send command
+            // TODO: send command for creating connection
             for _ in 10..0 {
                 if pool.is_empty() {
                     info!("sleep for 1s");

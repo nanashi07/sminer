@@ -3,7 +3,10 @@ mod computor;
 use crate::{
     analysis::computor::draw_slop_lines,
     persist::{
-        es::{index_protfolios, index_slope_points, ElasticTicker},
+        es::{
+            index_protfolios, index_slope_points, protfolio_index_name, take_index_time,
+            ElasticTicker, slope_index_name,
+        },
         PersistenceContext,
     },
     proto::biz::TickerEvent,
@@ -16,7 +19,7 @@ use crate::{
 use chrono::Utc;
 use log::{debug, error, info, trace};
 use std::{
-    fs::{create_dir_all, File, OpenOptions},
+    fs::{create_dir_all, remove_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
     sync::Arc,
@@ -290,7 +293,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     if context.config.analysis.output.file.enabled
         || context.config.analysis.output.elasticsearch.enabled
     {
-        info!("Exporting profpolios for {}", &file);
+        info!("Exporting protfolios for {}", &file);
         // output analysis file
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
         output_protfolios(&context, filename).await?;
@@ -306,7 +309,20 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
 async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
+    let persistence = context.persistence();
     let protfolios = Arc::clone(&context.protfolios);
+
+    // delete file
+    if config.analysis.output.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/analysis/{}", &config.analysis.output.base_folder, file);
+        remove_dir_all(&base_path)?;
+    }
+    // delete index
+    if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
+        let index_time = take_index_time(&file);
+        let index_name = protfolio_index_name(&index_time);
+        persistence.delete_index(&index_name).await?;
+    }
 
     for (ticker_id, groups) in protfolios.as_ref() {
         for (unit, lock) in groups {
@@ -323,13 +339,12 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                    create_dir_all(&path).unwrap();
+                    create_dir_all(&path)?;
                     let output = OpenOptions::new()
                         .write(true)
                         .create(true)
                         .truncate(true)
-                        .open(&output_name)
-                        .unwrap();
+                        .open(&output_name)?;
                     let mut writer = BufWriter::new(output);
 
                     debug!("Dump analysis: {}", &output_name);
@@ -353,7 +368,20 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
 
 async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
+    let persistence = context.persistence();
     let protfolios = Arc::clone(&context.protfolios);
+
+    // delete file
+    if config.analysis.output.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/slope/{}", &config.analysis.output.base_folder, file);
+        remove_dir_all(&base_path)?;
+    }
+    // delete index
+    if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
+        let index_time = take_index_time(&file);
+        let index_name = slope_index_name(&index_time);
+        persistence.delete_index(&index_name).await?;
+    }
 
     for (ticker_id, groups) in protfolios.as_ref() {
         for (unit, lock) in groups {
@@ -370,13 +398,12 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
-                    create_dir_all(&path).unwrap();
+                    create_dir_all(&path)?;
                     let output = OpenOptions::new()
                         .write(true)
                         .create(true)
                         .truncate(true)
-                        .open(&output_name)
-                        .unwrap();
+                        .open(&output_name)?;
                     let mut writer = BufWriter::new(output);
 
                     let protfolios: Vec<Protfolio> =
