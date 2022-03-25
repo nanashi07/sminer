@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     cmp::max,
+    collections::HashMap,
     fmt::Debug,
     fs::File,
     io::{BufRead, BufReader},
@@ -198,12 +199,15 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
         .map(|t| ElasticTicker::from(t))
         .collect();
 
-    // FIXME: calculate volume
-    let mut last_volume = 0;
-    tickers.iter_mut().for_each(|ticker| {
-        ticker.volume = max(0, ticker.day_volume - last_volume);
-        last_volume = ticker.day_volume;
-    });
+    let mut previous_volume: HashMap<String, i64> = HashMap::new();
+    // calculate volume
+    for ticker in tickers.iter_mut() {
+        let prev = *previous_volume.get(&ticker.id).unwrap_or(&0);
+        if prev < ticker.day_volume {
+            ticker.volume = ticker.day_volume - prev;
+            previous_volume.insert(ticker.id.to_string(), ticker.day_volume);
+        }
+    }
 
     info!("ticker size: {} for {}", &tickers.len(), &path);
 

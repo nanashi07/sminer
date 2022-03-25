@@ -113,12 +113,12 @@ async fn main() -> Result<()> {
                     let mut drop_history: HashSet<String> = HashSet::new();
 
                     match r#type.as_str() {
-                        "tickers" => {
+                        "ticker" => {
                             for file in files {
                                 // drop index when fit name at first time
                                 let index_time = take_index_time(file);
                                 let index_name = ticker_index_name(&index_time);
-                                if config.truncat_enabled() && drop_history.contains(&index_name) {
+                                if config.truncat_enabled() && !drop_history.contains(&index_name) {
                                     persistence.delete_index(&index_name).await?;
                                     drop_history.insert(index_name);
                                 }
@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
                                 // drop index when fit name at first time
                                 let index_time = take_index_time(file);
                                 let index_name = ticker_index_name(&index_time);
-                                if config.truncat_enabled() && drop_history.contains(&index_name) {
+                                if config.truncat_enabled() && !drop_history.contains(&index_name) {
                                     persistence.delete_index(&index_name).await?;
                                     drop_history.insert(index_name);
                                 }
@@ -254,7 +254,7 @@ fn command_args<'help>() -> Command<'help> {
                     Arg::new("type")
                         .short('t')
                         .long("type")
-                        .possible_values(["tickers", "protfolio"])
+                        .possible_values(["ticker", "protfolio"])
                         .default_value("protfolio")
                         .ignore_case(true),
                     Arg::new("files")

@@ -131,7 +131,7 @@ impl AppContext {
 
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
         // calculate volume diff
-        let volume_diff = max(0, self.last_volume(&ticker.id) - ticker.day_volume);
+        let volume_diff = max(0, ticker.day_volume - self.last_volume(&ticker.id));
 
         // send to persist
         if self.config.sync_mongo_enabled() || self.config.sync_elasticsearch_enabled() {
@@ -152,7 +152,7 @@ impl AppContext {
     // for test only
     pub async fn dispatch_direct(&self, ticker: &mut Ticker, message_id: &i64) -> Result<()> {
         // calculate volume diff
-        ticker.volume = Some(max(0, self.last_volume(&ticker.id) - ticker.day_volume));
+        ticker.volume = Some(max(0, ticker.day_volume - self.last_volume(&ticker.id)));
 
         // save data
         if self.config.sync_mongo_enabled() {

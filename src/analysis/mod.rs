@@ -318,8 +318,10 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
         let base_path = format!("{}/analysis/{}", &config.analysis.output.base_folder, file);
-        info!("Remove files under {}", &base_path);
-        remove_dir_all(&base_path)?;
+        if Path::new(&base_path).exists() {
+            info!("Remove files under {}", &base_path);
+            remove_dir_all(&base_path)?;
+        }
     }
     // delete index
     if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
@@ -378,8 +380,10 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
         let base_path = format!("{}/slope/{}", &config.analysis.output.base_folder, file);
-        info!("Remove files under {}", &base_path);
-        remove_dir_all(&base_path)?;
+        if Path::new(&base_path).exists() {
+            info!("Remove files under {}", &base_path);
+            remove_dir_all(&base_path)?;
+        }
     }
     // delete index
     if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
