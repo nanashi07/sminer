@@ -231,7 +231,7 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
         .send()
         .await?;
 
-    info!(
+    debug!(
         "response {} for index {}",
         response.status_code(),
         &index_name
@@ -281,7 +281,7 @@ pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>)
         .send()
         .await?;
 
-    info!(
+    debug!(
         "response {} for index {}",
         response.status_code(),
         &index_name
@@ -311,7 +311,7 @@ pub async fn index_slope_points(context: &AppContext, slope_points: &Vec<SlopeLi
         .send()
         .await?;
 
-    info!(
+    debug!(
         "response {} for index {}",
         response.status_code(),
         &index_name

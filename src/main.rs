@@ -1,4 +1,4 @@
-use clap::{Arg, Command};
+use clap::{Arg, ArgMatches, Command};
 use log::{debug, info};
 use sminer::{
     analysis::{replay, ReplayMode},
@@ -48,8 +48,8 @@ async fn main() -> Result<()> {
                 "replay" => {
                     // add additional config
                     config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
+                    config_truncat(&mut config, sub_matches)?;
 
-                    info!("Available tickers: {:?}", &config.symbols());
                     info!(
                         "Available time unit: {:?}",
                         TimeUnit::values()
@@ -79,15 +79,8 @@ async fn main() -> Result<()> {
                     }
                 }
                 "import" => {
-                    let truncat_data = sub_matches.is_present("truncat")
-                        && sub_matches
-                            .value_of("truncat")
-                            .unwrap()
-                            .to_lowercase()
-                            .parse::<bool>()?;
-                    if truncat_data {
-                        config.extra_put(KEY_EXTRA_ENABLE_DATA_TRUNCAT, "truncat");
-                    }
+                    config_truncat(&mut config, sub_matches)?;
+
                     let context = AppContext::new(config).init().await?;
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
@@ -106,15 +99,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 "index" => {
-                    let truncat_data = sub_matches.is_present("truncat")
-                        && sub_matches
-                            .value_of("truncat")
-                            .unwrap()
-                            .to_lowercase()
-                            .parse::<bool>()?;
-                    if truncat_data {
-                        config.extra_put(KEY_EXTRA_ENABLE_DATA_TRUNCAT, "truncat");
-                    }
+                    config_truncat(&mut config, sub_matches)?;
 
                     let context = AppContext::new(config).init().await?;
                     let config = context.config();
@@ -164,6 +149,20 @@ async fn main() -> Result<()> {
             // cmd.clone().print_help()?;
             println!();
         }
+    }
+
+    Ok(())
+}
+
+fn config_truncat(config: &mut AppConfig, sub_matches: &ArgMatches) -> Result<()> {
+    let truncat_data = sub_matches.is_present("truncat")
+        && sub_matches
+            .value_of("truncat")
+            .unwrap()
+            .to_lowercase()
+            .parse::<bool>()?;
+    if truncat_data {
+        config.extra_put(KEY_EXTRA_ENABLE_DATA_TRUNCAT, "truncat");
     }
 
     Ok(())

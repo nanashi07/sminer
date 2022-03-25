@@ -4,8 +4,8 @@ use crate::{
     analysis::computor::draw_slop_lines,
     persist::{
         es::{
-            index_protfolios, index_slope_points, protfolio_index_name, take_index_time,
-            ElasticTicker, slope_index_name,
+            index_protfolios, index_slope_points, protfolio_index_name, slope_index_name,
+            take_index_time, ElasticTicker,
         },
         PersistenceContext,
     },
@@ -293,10 +293,13 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     if context.config.analysis.output.file.enabled
         || context.config.analysis.output.elasticsearch.enabled
     {
-        info!("Exporting protfolios for {}", &file);
-        // output analysis file
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
+
+        info!("Exporting protfolios for {}", &filename);
+        // output analysis file
         output_protfolios(&context, filename).await?;
+
+        info!("Exporting slope for {}", &filename);
         output_slope_points(&context, filename).await?;
     }
 
@@ -315,6 +318,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
         let base_path = format!("{}/analysis/{}", &config.analysis.output.base_folder, file);
+        info!("Remove files under {}", &base_path);
         remove_dir_all(&base_path)?;
     }
     // delete index
@@ -335,7 +339,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
             if !list_reader.is_empty() {
                 if config.analysis.output.file.enabled {
                     let output_name = format!(
-                        "{}/analysis/{}/{}-{:?}.json",
+                        "{}/analysis/{}/{}-{}.json",
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
@@ -374,6 +378,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
         let base_path = format!("{}/slope/{}", &config.analysis.output.base_folder, file);
+        info!("Remove files under {}", &base_path);
         remove_dir_all(&base_path)?;
     }
     // delete index
@@ -394,7 +399,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
             if !list_reader.is_empty() {
                 if config.analysis.output.file.enabled {
                     let output_name = format!(
-                        "{}/slope/{}/{}-{:?}.json",
+                        "{}/slope/{}/{}-{}.json",
                         &config.analysis.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
