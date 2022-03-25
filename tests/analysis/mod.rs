@@ -5,7 +5,7 @@ use sminer::{
     persist::es::take_digitals,
     vo::{
         biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit},
-        core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO},
+        core::{AppConfig, AppContext, KEY_EXTRA_PRCOESS_IN_REPLAY},
     },
     Result,
 };
@@ -19,10 +19,7 @@ fn test_replay() -> Result<()> {
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
         let mut config = AppConfig::load("config.yaml")?;
-        // disable mongodb persistence
-        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
-        // disable elasticsearch persistence
-        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
+        config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
@@ -34,10 +31,10 @@ fn test_replay() -> Result<()> {
             // "tickers20220316",
         ];
         for file in files {
-            if context.config.mongo_enabled() {
+            if context.config.sync_mongo_enabled() {
                 context.persistence.drop_collection(file).await?;
             }
-            if context.config.elasticsearch_enabled() {
+            if context.config.sync_elasticsearch_enabled() {
                 context.persistence.drop_index(&take_digitals(file)).await?;
             }
             replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
@@ -57,10 +54,7 @@ fn test_replay_async() -> Result<()> {
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
         let mut config = AppConfig::load("config.yaml")?;
-        // disable mongodb persistence
-        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
-        // disable elasticsearch persistence
-        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
+        config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
         let context = AppContext::new(config).init().await?;
 
         let files = vec![
@@ -77,10 +71,10 @@ fn test_replay_async() -> Result<()> {
         let _delay_for_es: u64 = 10;
 
         for file in files {
-            if context.config.mongo_enabled() {
+            if context.config.sync_mongo_enabled() {
                 context.persistence.drop_collection(file).await?;
             }
-            if context.config.elasticsearch_enabled() {
+            if context.config.sync_elasticsearch_enabled() {
                 context.persistence.drop_index(&take_digitals(file)).await?;
             }
             replay(

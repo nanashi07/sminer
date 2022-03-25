@@ -90,7 +90,8 @@ pub async fn consume(
             }
         } else {
             // delay connect for few millis
-            sleep(Duration::from_millis(200)).await;
+            let reconnect_delay = 200;
+            sleep(Duration::from_millis(reconnect_delay)).await;
             // reconnect
             info!("Reconnecting websocket: {}", addr);
             client = create_websocket_client(addr).await?;

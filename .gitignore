@@ -2,5 +2,6 @@
 .vscode/
 /data/
 /tmp/
+/bak/
 
 *.log

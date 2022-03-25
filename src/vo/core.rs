@@ -16,8 +16,7 @@ use std::{
 };
 use tokio::sync::broadcast::{channel, Sender};
 
-pub const KEY_EXTRA_DISABLE_MONGO: &str = "disable_transfer_mongo";
-pub const KEY_EXTRA_DISABLE_ELASTICSEARCH: &str = "disable_transfer_elasticsearch";
+pub const KEY_EXTRA_PRCOESS_IN_REPLAY: &str = "process_in_replay";
 pub const KEY_EXTRA_DISABLE_TRUNCAT: &str = "disable_clean_data_before_operation";
 
 #[derive(Debug)]
@@ -135,8 +134,9 @@ impl AppContext {
         let volume_diff = max(0, self.last_volume(&ticker.id) - ticker.day_volume);
 
         // send to persist
-        if self.config.mongo_enabled() || self.config.elasticsearch_enabled() {
+        if self.config.sync_mongo_enabled() || self.config.sync_elasticsearch_enabled() {
             let mut event: TickerEvent = ticker.into();
+            // calculate volume
             event.volume = volume_diff;
             self.house_keeper.send(event)?;
         }
@@ -155,10 +155,10 @@ impl AppContext {
         ticker.volume = Some(max(0, self.last_volume(&ticker.id) - ticker.day_volume));
 
         // save data
-        if self.config.mongo_enabled() {
+        if self.config.sync_mongo_enabled() {
             ticker.save_to_mongo(self.persistence()).await?;
         }
-        if self.config.elasticsearch_enabled() {
+        if self.config.sync_elasticsearch_enabled() {
             let es_ticker: ElasticTicker = (*ticker).clone().into();
             es_ticker.save_to_elasticsearch(self.persistence()).await?;
         }
@@ -260,13 +260,12 @@ impl AppConfig {
             .collect::<Vec<String>>()
     }
 
-    pub fn mongo_enabled(&self) -> bool {
-        self.data_source.mongodb.enabled && !self.extra_present(KEY_EXTRA_DISABLE_MONGO)
+    pub fn sync_mongo_enabled(&self) -> bool {
+        self.data_source.mongodb.enabled && !self.extra_present(KEY_EXTRA_PRCOESS_IN_REPLAY)
     }
 
-    pub fn elasticsearch_enabled(&self) -> bool {
-        self.data_source.elasticsearch.enabled
-            && !self.extra_present(KEY_EXTRA_DISABLE_ELASTICSEARCH)
+    pub fn sync_elasticsearch_enabled(&self) -> bool {
+        self.data_source.elasticsearch.enabled && !self.extra_present(KEY_EXTRA_PRCOESS_IN_REPLAY)
     }
 
     pub fn truncat_enabled(&self) -> bool {

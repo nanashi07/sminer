@@ -16,7 +16,7 @@
     "gnetId": null,
     "graphTooltip": 0,
     "id": 2,
-    "iteration": 1648004505892,
+    "iteration": 1648142922715,
     "links": [],
     "panels": [
         {
@@ -69,6 +69,8 @@
             "seriesOverrides": [
                 {
                     "alias": "/Slope line .+/",
+                    "fill": 0,
+                    "linewidth": 3,
                     "yaxis": 2
                 }
             ],
@@ -264,68 +266,6 @@
                     "timeField": "time"
                 },
                 {
-                    "alias": "${period}s {{field}} - {{metric}}",
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": false,
-                    "metrics": [
-                        {
-                            "field": "open_price",
-                            "id": "1",
-                            "meta": {
-                                "avg": true
-                            },
-                            "pipelineAgg": "select metric",
-                            "settings": {},
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
-                    "refId": "G",
-                    "timeField": "time"
-                },
-                {
-                    "alias": "${period}s {{field}} - {{metric}}",
-                    "bucketAggs": [
-                        {
-                            "field": "time",
-                            "id": "2",
-                            "settings": {
-                                "interval": "auto",
-                                "min_doc_count": 0,
-                                "trimEdges": 0
-                            },
-                            "type": "date_histogram"
-                        }
-                    ],
-                    "hide": false,
-                    "metrics": [
-                        {
-                            "field": "close_price",
-                            "id": "1",
-                            "meta": {
-                                "avg": true
-                            },
-                            "pipelineAgg": "select metric",
-                            "settings": {},
-                            "type": "extended_stats"
-                        }
-                    ],
-                    "query": "id: ${symbol} AND kind: p AND period_type: ${period}",
-                    "refId": "H",
-                    "timeField": "time"
-                },
-                {
                     "alias": "Slope line - ${period}s - {{metric}}",
                     "bucketAggs": [
                         {
@@ -353,7 +293,7 @@
                         }
                     ],
                     "query": "id: ${symbol} AND kind: s AND period_type: ${period}",
-                    "refId": "I",
+                    "refId": "G",
                     "timeField": "time"
                 }
             ],
@@ -385,7 +325,7 @@
                     "show": true
                 },
                 {
-                    "format": "currencyUSD",
+                    "format": "short",
                     "label": null,
                     "logBase": 1,
                     "max": null,
@@ -408,7 +348,7 @@
             {
                 "allValue": null,
                 "current": {
-                    "selected": false,
+                    "selected": true,
                     "text": "TQQQ",
                     "value": "TQQQ"
                 },
@@ -498,8 +438,8 @@
                 "allValue": null,
                 "current": {
                     "selected": true,
-                    "text": "30",
-                    "value": "30"
+                    "text": "180",
+                    "value": "180"
                 },
                 "hide": 0,
                 "includeAll": false,
@@ -513,7 +453,7 @@
                         "value": "10"
                     },
                     {
-                        "selected": true,
+                        "selected": false,
                         "text": "30",
                         "value": "30"
                     },
@@ -528,7 +468,7 @@
                         "value": "120"
                     },
                     {
-                        "selected": false,
+                        "selected": true,
                         "text": "180",
                         "value": "180"
                     },
@@ -571,8 +511,8 @@
         ]
     },
     "time": {
-        "from": "2022-03-09T16:59:21.504Z",
-        "to": "2022-03-09T18:00:52.224Z"
+        "from": "2022-03-10T16:02:54.879Z",
+        "to": "2022-03-10T16:37:41.991Z"
     },
     "timepicker": {
         "refresh_intervals": [
@@ -590,5 +530,5 @@
     "timezone": "",
     "title": "Daily Analysis",
     "uid": "8XT92WEnz11",
-    "version": 15
+    "version": 20
 }

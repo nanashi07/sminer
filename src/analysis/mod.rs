@@ -26,39 +26,44 @@ use std::{
 use tokio::sync::broadcast::Receiver;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
+    let config = context.config();
     let house_keeper = &context.house_keeper;
     let preparatory = &context.preparatory;
     let persistence = context.persistence();
 
-    debug!("Initialize mongo event handler");
-    let mut rx = house_keeper.subscribe();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        loop {
-            match handle_message_for_mongo(&mut rx, &ctx).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for mongo error: {:?}", err);
+    if config.sync_mongo_enabled() {
+        info!("Initialize mongo event persist handler");
+        let mut rx = house_keeper.subscribe();
+        let ctx = Arc::clone(&persistence);
+        tokio::spawn(async move {
+            loop {
+                match handle_message_for_persist_mongo(&mut rx, &ctx).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Handle ticker for mongo error: {:?}", err);
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
-    debug!("Initialize elasticsearch event handler");
-    let mut rx = house_keeper.subscribe();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        loop {
-            match handle_message_for_elasticsearch(&mut rx, &ctx).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for elasticsearch error: {:?}", err);
+    if config.sync_elasticsearch_enabled() {
+        info!("Initialize elasticsearch event persist handler");
+        let mut rx = house_keeper.subscribe();
+        let ctx = Arc::clone(&persistence);
+        tokio::spawn(async move {
+            loop {
+                match handle_message_for_persist_elasticsearch(&mut rx, &ctx).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Handle ticker for elasticsearch error: {:?}", err);
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
-    debug!("Initialize event preparatory handler");
+    info!("Initialize event preparatory handler");
     let mut rx = preparatory.subscribe();
     let root = Arc::clone(&context);
     tokio::spawn(async move {
@@ -72,6 +77,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     });
 
+    info!("Initialize event calculator handler");
     let root = Arc::clone(&context);
     for unit in TimeUnit::values() {
         for symbol in root.config.symbols() {
@@ -100,25 +106,25 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     Ok(())
 }
 
-async fn handle_message_for_mongo(
+async fn handle_message_for_persist_mongo(
     rx: &mut Receiver<TickerEvent>,
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
     let config = context.config();
-    if config.mongo_enabled() {
+    if config.sync_mongo_enabled() {
         ticker.save_to_mongo(Arc::clone(context)).await?;
     }
     Ok(())
 }
 
-async fn handle_message_for_elasticsearch(
+async fn handle_message_for_persist_elasticsearch(
     rx: &mut Receiver<TickerEvent>,
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
     let config = context.config();
-    if config.elasticsearch_enabled() {
+    if config.sync_elasticsearch_enabled() {
         ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
     }
     Ok(())

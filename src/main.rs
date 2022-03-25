@@ -10,10 +10,7 @@ use sminer::{
     provider::yahoo::consume,
     vo::{
         biz::TimeUnit,
-        core::{
-            AppConfig, AppContext, KEY_EXTRA_DISABLE_ELASTICSEARCH, KEY_EXTRA_DISABLE_MONGO,
-            KEY_EXTRA_DISABLE_TRUNCAT,
-        },
+        core::{AppConfig, AppContext, KEY_EXTRA_DISABLE_TRUNCAT, KEY_EXTRA_PRCOESS_IN_REPLAY},
     },
     Result,
 };
@@ -45,22 +42,8 @@ async fn main() -> Result<()> {
                     consume(&context, &uri, &symbols, Option::None).await?;
                 }
                 "replay" => {
-                    // override first init
-                    let disable_transfer_to_mongo = sub_matches.is_present("no-mongo");
-                    let disable_transfer_to_elasticsearch =
-                        sub_matches.is_present("no-elasticsearch");
-                    info!(
-                        "Transfer MongoDB: {}, transfer Elasticsearch: {}",
-                        disable_transfer_to_mongo, disable_transfer_to_elasticsearch
-                    );
-
-                    if disable_transfer_to_mongo {
-                        config.extra_put(KEY_EXTRA_DISABLE_MONGO, "disabled");
-                    }
-                    if disable_transfer_to_elasticsearch {
-                        config.extra_put(KEY_EXTRA_DISABLE_ELASTICSEARCH, "disabled");
-                    }
-                    // config.extra_put("truncat", "true")
+                    // add additional config
+                    config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
 
                     info!("Available tickers: {:?}", &config.symbols());
                     info!(
@@ -77,10 +60,10 @@ async fn main() -> Result<()> {
                     debug!("Input files: {:?}", files);
 
                     for file in files {
-                        if context.config.mongo_enabled() {
+                        if context.config.sync_mongo_enabled() {
                             context.persistence.drop_collection(file).await?;
                         }
-                        if context.config.elasticsearch_enabled() {
+                        if context.config.sync_elasticsearch_enabled() {
                             context.persistence.drop_index(&take_digitals(file)).await?;
                         }
                         replay(&context, &file, ReplayMode::Sync).await?
@@ -176,16 +159,6 @@ fn command_args<'help>() -> Command<'help> {
                         .multiple_values(true)
                         .required(true)
                         .help("Source files to be replay"),
-                    Arg::new("no-mongo")
-                        .short('m')
-                        .long("no-mongo")
-                        .takes_value(false)
-                        .help("Disable transfer to MongoDB"),
-                    Arg::new("no-elasticsearch")
-                        .short('e')
-                        .long("no-elasticsearch")
-                        .takes_value(false)
-                        .help("Disable transfer to Elasticsearch"),
                 ]),
             Command::new("import")
                 .about("Import message into MongoDB collection")
