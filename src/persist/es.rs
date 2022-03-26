@@ -22,7 +22,6 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
-    cmp::max,
     collections::HashMap,
     fmt::Debug,
     fs::File,

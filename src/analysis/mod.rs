@@ -180,57 +180,39 @@ impl AppContext {
             symbol, unit.duration, message_id
         );
 
-        if let Some(unit_map) = self.asset().symbol_protfolios(symbol) {
-            if let Some(protfolios_lock) = unit_map.get(&unit.name) {
-                debug!(
-                    "Handle calculation for {} of {}, message_id: {}",
-                    symbol, unit.duration, message_id
-                );
-                // Get ticker source
-                let asset = self.asset();
-                let tickers = asset.symbol_tickers(symbol).unwrap();
-                let symbol_tickers = tickers.read().unwrap();
+        let asset = self.asset();
 
-                // Get target protfolios
-                let mut protfolios = protfolios_lock.write().unwrap();
+        if let Some(lock) = asset.get_protfolios(symbol, &unit.name) {
+            debug!(
+                "Handle calculation for {} of {}, message_id: {}",
+                symbol, unit.duration, message_id
+            );
 
-                // Start calculation
-                unit.rebalance(
-                    symbol,
-                    message_id,
-                    &symbol_tickers,
-                    &mut protfolios, /*  &mut slope */
-                )?;
+            // Get ticker source
+            let tickers = asset.symbol_tickers(symbol).unwrap();
+            let symbol_tickers = tickers.read().unwrap();
 
-                // // Get target slope point
-                // if let Some(slopes_lock) = points_map.get(symbol) {
-                //     // let jj = slopes_lock.write().unwrap();
+            // Get target protfolios
+            let mut protfolios = lock.write().unwrap();
 
-                //     match slopes_lock.write() {
-                //         Ok(mut slopes) => {
-                //             let mut slope = slopes
-                //                 .iter_mut()
-                //                 .find(|s| s.message_id == *message_id)
-                //                 .unwrap();
+            // Get target slope point
+            let slope_lock = asset.find_slope(symbol, *message_id).unwrap();
 
-                //             // Start calculation
-                //             unit.rebalance(&symbol_tickers, &mut protfolios, &mut slope)?;
+            // Start calculation
+            unit.rebalance(
+                symbol,
+                message_id,
+                &symbol_tickers,
+                &mut protfolios,
+                slope_lock,
+            )?;
 
-                //             // TODO: check all values finalized and push
-                //         }
-                //         Err(err) => {
-                //             error!("error : {:?}", err);
-                //         }
-                //     }
-                // }
-            } else {
-                error!(
-                    "Not protfolios container {:?} of {} initialized",
-                    unit, symbol
-                );
-            }
+            // TODO: check all values finalized and push
         } else {
-            error!("Not protfolios container {} initialized", symbol);
+            error!(
+                "Not protfolios container {} of {} initialized",
+                unit.name, symbol
+            );
         }
         Ok(())
     }

@@ -1,4 +1,5 @@
 use crate::vo::biz::{Protfolio, SlopeLine, SlopePoint, Ticker, TimeUnit};
+use crate::vo::core::RefSlopePoint;
 use crate::Result;
 use chrono::{Duration, TimeZone, Utc};
 use log::trace;
@@ -6,6 +7,7 @@ use log::{debug, log_enabled};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, HashMap, LinkedList};
 use std::f64::NAN;
+use std::sync::Mutex;
 
 // Calculate slop for nearest line
 // Reference to doc/trend.md
@@ -144,10 +146,9 @@ fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<
 fn aggregate_fixed_unit(
     symbol: &str,
     unit: &TimeUnit,
-    message_id: &i64,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    // slope: &mut SlopePoint,
+    slope: RefSlopePoint,
 ) -> Result<()> {
     // Take source data in 3x time range
     let scope = unit.duration as i64 * 1000 * 3;
@@ -189,8 +190,10 @@ fn aggregate_fixed_unit(
     }
 
     // update ticker decision
-    // let value = results.first().unwrap().slope.unwrap_or(0.0);
-    // slope.update_state(&unit.name, &value);
+    let value = results.first().unwrap().slope.unwrap_or(0.0);
+    let mut guard = slope.write().unwrap();
+    guard.update_state(&unit.name, &value);
+    debug!("Update slope point: {:?}", guard);
 
     Ok(())
 }
@@ -198,10 +201,9 @@ fn aggregate_fixed_unit(
 fn aggregate_moving_unit(
     symbol: &str,
     unit: &TimeUnit,
-    message_id: &i64,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    // slope: &mut SlopePoint,
+    slope: RefSlopePoint,
 ) -> Result<()> {
     let last_timestamp = tickers.front().unwrap().time;
     let scope = last_timestamp - (unit.duration as i64 * unit.period as i64) * 1000;
@@ -240,8 +242,10 @@ fn aggregate_moving_unit(
     }
 
     // update ticker decision
-    // let value = results.first().unwrap().clone().slope.unwrap_or(0.0);
-    // slope.update_state(&unit.name, &value);
+    let value = results.first().unwrap().slope.unwrap_or(0.0);
+    let mut guard = slope.write().unwrap();
+    guard.update_state(&unit.name, &value);
+    debug!("Update slope point: {:?}", guard);
 
     Ok(())
 }
@@ -360,7 +364,7 @@ impl TimeUnit {
         message_id: &i64,
         tickers: &LinkedList<Ticker>,
         protfolios: &mut LinkedList<Protfolio>,
-        // slope: &mut SlopePoint,
+        slope: RefSlopePoint,
     ) -> Result<()> {
         debug!(
             "Rebalance {} of {}, message_id: {}, ticker count: {}",
@@ -370,13 +374,9 @@ impl TimeUnit {
             &tickers.len()
         );
         if self.period == 0 {
-            aggregate_fixed_unit(
-                symbol, self, message_id, tickers, protfolios, /*slope */
-            )?;
+            aggregate_fixed_unit(symbol, self, tickers, protfolios, slope)?;
         } else {
-            aggregate_moving_unit(
-                symbol, self, message_id, tickers, protfolios, /*slope */
-            )?;
+            aggregate_moving_unit(symbol, self, tickers, protfolios, slope)?;
         }
         Ok(())
     }

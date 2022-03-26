@@ -19,6 +19,9 @@ use tokio::sync::broadcast::{channel, Sender};
 pub const KEY_EXTRA_PRCOESS_IN_REPLAY: &str = "process_in_replay";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 
+pub type RefSlopePoint = Arc<RwLock<SlopePoint>>;
+pub type LockListMap<T> = HashMap<String, RwLock<LinkedList<T>>>;
+
 #[derive(Debug)]
 pub struct AppContext {
     config: Arc<AppConfig>,
@@ -140,12 +143,9 @@ impl AppContext {
         }
 
         // Add ticker decision data first (id/time... with empty analysis data)
-        if let Some(lock) = self.asset.symbol_slopes(&ticker.id) {
-            let mut slope_list = lock.write().unwrap();
-            slope_list.push_front(SlopePoint::from(ticker, message_id));
-        } else {
-            error!("No slope container {} initialized", &ticker.id);
-        }
+        let asset = self.asset();
+        let slope = SlopePoint::from(ticker, message_id);
+        asset.add_slope(&ticker.id, slope);
 
         // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
         TimeUnit::values().par_iter_mut().for_each(|unit| {
@@ -160,7 +160,7 @@ impl AppContext {
 pub struct AssetContext {
     tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
     protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
-    slopes: Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>>,
+    slopes: Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>>,
 }
 
 impl AssetContext {
@@ -203,9 +203,11 @@ impl AssetContext {
         Arc::new(map)
     }
 
-    fn init_slopes(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
+    fn init_slopes(
+        config: Arc<AppConfig>,
+    ) -> Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>> {
         let symbols = config.symbols();
-        let mut map: HashMap<String, RwLock<LinkedList<SlopePoint>>> = HashMap::new();
+        let mut map: HashMap<String, RwLock<LinkedList<RefSlopePoint>>> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
@@ -222,7 +224,7 @@ impl AssetContext {
         Arc::clone(&self.protfolios)
     }
 
-    pub fn slopes(&self) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
+    pub fn slopes(&self) -> Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>> {
         Arc::clone(&self.slopes)
     }
 
@@ -237,8 +239,36 @@ impl AssetContext {
         self.protfolios.get(symbol)
     }
 
-    pub fn symbol_slopes(&self, symbol: &str) -> Option<&RwLock<LinkedList<SlopePoint>>> {
+    pub fn get_protfolios(
+        &self,
+        symbol: &str,
+        unit: &str,
+    ) -> Option<&RwLock<LinkedList<Protfolio>>> {
+        if let Some(map) = self.protfolios.get(symbol) {
+            map.get(unit)
+        } else {
+            None
+        }
+    }
+
+    pub fn add_slope(&self, symbol: &str, slope: SlopePoint) {
+        let lock = self.symbol_slopes(symbol).unwrap();
+        let mut slope_list = lock.write().unwrap();
+        slope_list.push_front(Arc::new(RwLock::new(slope)));
+    }
+
+    pub fn symbol_slopes(&self, symbol: &str) -> Option<&RwLock<LinkedList<RefSlopePoint>>> {
         self.slopes.get(symbol)
+    }
+
+    pub fn find_slope(&self, symbol: &str, message_id: i64) -> Option<RefSlopePoint> {
+        let slopes_lock = self.symbol_slopes(symbol).unwrap();
+        let slopes = slopes_lock.read().unwrap();
+        let slope = slopes
+            .iter()
+            .find(|s| s.read().unwrap().message_id == message_id)
+            .unwrap();
+        Some(Arc::clone(slope))
     }
 
     pub fn clean(&self) -> Result<()> {
