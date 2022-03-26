@@ -2,7 +2,7 @@ use super::{DataSource, PersistenceContext};
 use crate::{
     proto::biz::TickerEvent,
     vo::{
-        biz::{MarketHoursType, Protfolio, QuoteType, SlopeLine, Ticker},
+        biz::{MarketHoursType, Protfolio, QuoteType, SlopeLine, Ticker, TradeInfo},
         core::AppContext,
     },
     Result,
@@ -29,9 +29,11 @@ use std::{
     sync::Arc,
 };
 
+const DATE_FORMAT: &str = "%Y-%m-%d";
 const INDEX_PREFIX_TICKER: &str = "sminer-ticker";
 const INDEX_PREFIX_PROTFOLIO: &str = "sminer-protfolio";
 const INDEX_PREFIX_SLOPE: &str = "sminer-slope";
+const INDEX_PREFIX_TRADE: &str = "sminer-trade";
 
 async fn get_elasticsearch_client(uri: &str) -> Result<Elasticsearch> {
     let url = Url::parse(uri)?;
@@ -173,15 +175,19 @@ pub fn take_index_time(name: &str) -> DateTime<Utc> {
 }
 
 pub fn slope_index_name(time: &DateTime<Utc>) -> String {
-    format!("{}-{}", INDEX_PREFIX_SLOPE, time.format("%Y-%m-%d"))
+    format!("{}-{}", INDEX_PREFIX_SLOPE, time.format(DATE_FORMAT))
 }
 
 pub fn ticker_index_name(time: &DateTime<Utc>) -> String {
-    format!("{}-{}", INDEX_PREFIX_TICKER, time.format("%Y-%m-%d"))
+    format!("{}-{}", INDEX_PREFIX_TICKER, time.format(DATE_FORMAT))
 }
 
 pub fn protfolio_index_name(time: &DateTime<Utc>) -> String {
-    format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format("%Y-%m-%d"))
+    format!("{}-{}", INDEX_PREFIX_PROTFOLIO, time.format(DATE_FORMAT))
+}
+
+pub fn trade_index_name(time: &DateTime<Utc>) -> String {
+    format!("{}-{}", INDEX_PREFIX_TRADE, time.format(DATE_FORMAT))
 }
 
 pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result<()> {
@@ -273,6 +279,36 @@ pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>)
     // generate index name
     let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
     let index_name = protfolio_index_name(&time);
+
+    debug!("Bulk import messages into index: {}", &index_name);
+    let response = client
+        .bulk(BulkParts::Index(&index_name))
+        .body(body)
+        .send()
+        .await?;
+
+    debug!(
+        "response {} for index {}",
+        response.status_code(),
+        &index_name
+    );
+
+    Ok(())
+}
+
+pub async fn index_trades(context: &AppContext, trades: &Vec<TradeInfo>) -> Result<()> {
+    let persistence = context.persistence();
+    let client: Elasticsearch = persistence.get_connection()?;
+
+    let mut body: Vec<JsonBody<_>> = Vec::new();
+    for trade in trades {
+        body.push(json!({"index": {}}).into());
+        body.push(json!(trade).into());
+    }
+
+    // generate index name
+    let time = Utc.timestamp_millis(trades.first().unwrap().time);
+    let index_name = trade_index_name(&time);
 
     debug!("Bulk import messages into index: {}", &index_name);
     let response = client

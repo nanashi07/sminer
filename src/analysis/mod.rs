@@ -6,14 +6,14 @@ use crate::{
     analysis::computor::draw_slop_lines,
     persist::{
         es::{
-            index_protfolios, index_slope_points, protfolio_index_name, slope_index_name,
-            take_index_time, ElasticTicker,
+            index_protfolios, index_slope_points, index_trades, protfolio_index_name,
+            slope_index_name, take_index_time, trade_index_name, ElasticTicker,
         },
         PersistenceContext,
     },
     proto::biz::TickerEvent,
     vo::{
-        biz::{Protfolio, Ticker, TimeUnit},
+        biz::{Protfolio, Ticker, TimeUnit, TradeInfo},
         core::AppContext,
     },
     Result,
@@ -289,15 +289,15 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     if config.replay.output.file.enabled || config.replay.output.elasticsearch.enabled {
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
 
-        info!("Exporting protfolios for {}", &filename);
+        info!("Exporting protfolios for {}", filename);
         // output analysis file
         output_protfolios(&context, filename).await?;
 
-        info!("Exporting slope for {}", &filename);
+        info!("Exporting slope for {}", filename);
         output_slope_points(&context, filename).await?;
 
-        info!("Exporting trade info for {}", &filename);
-        // TODO: export
+        info!("Exporting trade info for {}", filename);
+        output_trades(&context, filename).await?;
     }
 
     info!("Clean up cached data for next run");
@@ -374,7 +374,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
 
     // delete file
     if config.replay.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/slope/{}", &config.replay.output.base_folder, file);
+        let base_path = format!("{}/slopes/{}", &config.replay.output.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
@@ -428,6 +428,62 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                     index_slope_points(&context, &points).await?;
                 }
             }
+        }
+    }
+
+    Ok(())
+}
+
+async fn output_trades(context: &AppContext, file: &str) -> Result<()> {
+    let config = context.config();
+    let persistence = context.persistence();
+    let asset = context.asset();
+
+    // delete file
+    if config.replay.output.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/trades/{}", &config.replay.output.base_folder, file);
+        if Path::new(&base_path).exists() {
+            info!("Remove files under {}", &base_path);
+            remove_dir_all(&base_path)?;
+        }
+    }
+    // delete index
+    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
+        let index_time = take_index_time(&file);
+        let index_name = trade_index_name(&index_time);
+        persistence.delete_index(&index_name).await?;
+    }
+
+    for (symbol, list_lock) in asset.trades().as_ref() {
+        let list_reader = list_lock.read().unwrap();
+        if config.replay.output.file.enabled {
+            let output_name = format!(
+                "{}/trades/{}/trade-{}.json",
+                &config.replay.output.base_folder, file, symbol
+            );
+            let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
+            create_dir_all(&path)?;
+            let output = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&output_name)?;
+            let mut writer = BufWriter::new(output);
+
+            debug!("Dump trades: {}", &output_name);
+            list_reader.iter().rev().for_each(|item_lock| {
+                let item = item_lock.read().unwrap().clone();
+                let json = serde_json::to_string(&item).unwrap();
+                write!(&mut writer, "{}\n", &json).unwrap();
+            });
+            debug!("Finish trades: {} file", &output_name);
+        }
+        if config.replay.output.elasticsearch.enabled {
+            let trades: Vec<TradeInfo> = list_reader
+                .iter()
+                .map(|item_lock| item_lock.read().unwrap().clone())
+                .collect();
+            index_trades(&context, &trades).await?;
         }
     }
 
