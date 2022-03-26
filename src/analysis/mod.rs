@@ -1,5 +1,7 @@
 mod computor;
+pub mod trade;
 
+use self::trade::prepare_trade;
 use crate::{
     analysis::computor::draw_slop_lines,
     persist::{
@@ -71,6 +73,20 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     tokio::spawn(async move {
         loop {
             match handle_message_for_preparatory(&mut rx, &root).await {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Handle ticker for preparatory error: {:?}", err);
+                }
+            }
+        }
+    });
+
+    info!("Initialize event trade handler");
+    let mut rx = post_man.subscribe_trade();
+    let root = Arc::clone(&context);
+    tokio::spawn(async move {
+        loop {
+            match handle_message_for_trade(&mut rx, &root).await {
                 Ok(_) => {}
                 Err(err) => {
                     error!("Handle ticker for preparatory error: {:?}", err);
@@ -164,10 +180,16 @@ async fn handle_message_for_calculator(
     trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
     context.route(message_id, symbol, unit)?;
 
-    // TODO: check all values finalized and push
+    // check all values finalized then push to prepare trade
     if context.asset().is_slope_closed(symbol, message_id) {
-        //
+        context.post_man().watch_trade(message_id)?;
     }
+    Ok(())
+}
+
+async fn handle_message_for_trade(rx: &mut Receiver<i64>, context: &Arc<AppContext>) -> Result<()> {
+    let message_id: i64 = rx.recv().await?.into();
+    prepare_trade(context.asset(), context.config(), message_id)?;
     Ok(())
 }
 

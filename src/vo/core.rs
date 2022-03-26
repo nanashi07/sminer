@@ -1,6 +1,6 @@
 use super::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
 use crate::{
-    analysis::init_dispatcher,
+    analysis::{init_dispatcher, trade::prepare_trade},
     persist::{es::ElasticTicker, PersistenceContext},
     proto::biz::TickerEvent,
     Result,
@@ -134,9 +134,9 @@ impl AppContext {
         TimeUnit::values().par_iter_mut().for_each(|unit| {
             self.route(message_id, &ticker.id, &unit).unwrap();
 
-            // TODO: check all values finalized and push
+            // check all values finalized and push
             if asset.is_slope_closed(&ticker.id, message_id) {
-                //
+                prepare_trade(self.asset(), self.config(), message_id).unwrap();
             }
         });
 
@@ -239,6 +239,22 @@ impl AssetContext {
         self.slopes.get(symbol)
     }
 
+    pub fn search_slope(&self, message_id: i64) -> Option<RefSlopePoint> {
+        let slopes = Arc::clone(&self.slopes);
+        for (_symbol, lock) in slopes.as_ref() {
+            let reader = lock.read().unwrap();
+            let result = reader
+                .iter()
+                .take(5) // only take 5 to check, expect to be the first one
+                .find(|s| s.read().unwrap().message_id == message_id);
+
+            if let Some(value) = result {
+                return Some(Arc::clone(value));
+            }
+        }
+        None
+    }
+
     pub fn find_slope(&self, symbol: &str, message_id: i64) -> Option<RefSlopePoint> {
         let slopes_lock = self.symbol_slopes(symbol).unwrap();
         let slopes = slopes_lock.read().unwrap();
@@ -289,18 +305,22 @@ pub struct PostMan {
     preparatory: Sender<TickerEvent>,
     // Sender for calculation
     calculator: Arc<HashMap<String, Sender<i64>>>,
+    // Sender for trading
+    trader: Sender<i64>,
 }
 
 impl PostMan {
     pub fn new(config: Arc<AppConfig>) -> Arc<PostMan> {
         let (house_keeper, _) = channel::<TickerEvent>(2048);
         let (preparatory, _) = channel::<TickerEvent>(2048);
-
         let calculator = PostMan::init_sender(Arc::clone(&config));
+        let (trader, _) = channel::<i64>(1024);
+
         let post_man = PostMan {
             house_keeper,
             preparatory,
             calculator,
+            trader,
         };
 
         Arc::new(post_man)
@@ -328,6 +348,10 @@ impl PostMan {
         self.calculator.get(symbol).unwrap().subscribe()
     }
 
+    pub fn subscribe_trade(&self) -> Receiver<i64> {
+        self.trader.subscribe()
+    }
+
     pub fn store(&self, event: TickerEvent) -> Result<usize> {
         let result = self.house_keeper.send(event)?;
         Ok(result)
@@ -340,7 +364,12 @@ impl PostMan {
 
     pub fn calculate(&self, symbol: &str, message_id: i64) -> Result<usize> {
         let sender = self.calculator.get(symbol).unwrap();
-        let result = sender.send(message_id).unwrap();
+        let result = sender.send(message_id)?;
+        Ok(result)
+    }
+
+    pub fn watch_trade(&self, message_id: i64) -> Result<usize> {
+        let result = self.trader.send(message_id)?;
         Ok(result)
     }
 }
