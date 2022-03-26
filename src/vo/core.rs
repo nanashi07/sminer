@@ -115,7 +115,7 @@ impl AppContext {
     }
 
     // for test only
-    pub async fn dispatch_direct(&self, ticker: &mut Ticker, message_id: &i64) -> Result<()> {
+    pub async fn dispatch_direct(&self, ticker: &mut Ticker, message_id: i64) -> Result<()> {
         // calculate volume diff
         ticker.volume = Some(max(0, ticker.day_volume - self.last_volume(&ticker.id)));
 
@@ -136,7 +136,7 @@ impl AppContext {
                 "{} ticker size: {}, message_id: {}",
                 ticker.id,
                 list.len(),
-                message_id
+                &message_id
             );
         } else {
             error!("No tickers container {} initialized", &ticker.id);
@@ -150,6 +150,11 @@ impl AppContext {
         // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
         TimeUnit::values().par_iter_mut().for_each(|unit| {
             self.route(message_id, &ticker.id, &unit).unwrap();
+
+            // TODO: check all values finalized and push
+            if asset.is_slope_closed(&ticker.id, message_id) {
+                //
+            }
         });
 
         Ok(())
@@ -158,9 +163,9 @@ impl AppContext {
 
 #[derive(Debug, Clone)]
 pub struct AssetContext {
-    tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
-    protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
-    slopes: Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>>,
+    tickers: Arc<LockListMap<Ticker>>,
+    protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
+    slopes: Arc<LockListMap<RefSlopePoint>>,
 }
 
 impl AssetContext {
@@ -177,24 +182,21 @@ impl AssetContext {
         Arc::new(asset)
     }
 
-    fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
+    fn init_tickers(config: Arc<AppConfig>) -> Arc<LockListMap<Ticker>> {
         let symbols = config.symbols();
-        let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
+        let mut map: LockListMap<Ticker> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
         Arc::new(map)
     }
 
-    fn init_protfolios(
-        config: Arc<AppConfig>,
-    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
+    fn init_protfolios(config: Arc<AppConfig>) -> Arc<HashMap<String, LockListMap<Protfolio>>> {
         let symbols = config.symbols();
         let units = TimeUnit::values();
-        let mut map: HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>> =
-            HashMap::new();
+        let mut map: HashMap<String, LockListMap<Protfolio>> = HashMap::new();
         for symbol in symbols {
-            let mut uniter: HashMap<String, RwLock<LinkedList<Protfolio>>> = HashMap::new();
+            let mut uniter: LockListMap<Protfolio> = HashMap::new();
             for unit in &units {
                 uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
             }
@@ -203,28 +205,24 @@ impl AssetContext {
         Arc::new(map)
     }
 
-    fn init_slopes(
-        config: Arc<AppConfig>,
-    ) -> Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>> {
+    fn init_slopes(config: Arc<AppConfig>) -> Arc<LockListMap<RefSlopePoint>> {
         let symbols = config.symbols();
-        let mut map: HashMap<String, RwLock<LinkedList<RefSlopePoint>>> = HashMap::new();
+        let mut map: LockListMap<RefSlopePoint> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
         Arc::new(map)
     }
 
-    pub fn tickers(&self) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
+    pub fn tickers(&self) -> Arc<LockListMap<Ticker>> {
         Arc::clone(&self.tickers)
     }
 
-    pub fn protfolios(
-        &self,
-    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
+    pub fn protfolios(&self) -> Arc<HashMap<String, LockListMap<Protfolio>>> {
         Arc::clone(&self.protfolios)
     }
 
-    pub fn slopes(&self) -> Arc<HashMap<String, RwLock<LinkedList<RefSlopePoint>>>> {
+    pub fn slopes(&self) -> Arc<LockListMap<RefSlopePoint>> {
         Arc::clone(&self.slopes)
     }
 
@@ -232,10 +230,7 @@ impl AssetContext {
         self.tickers.get(symbol)
     }
 
-    pub fn symbol_protfolios(
-        &self,
-        symbol: &str,
-    ) -> Option<&HashMap<String, RwLock<LinkedList<Protfolio>>>> {
+    pub fn symbol_protfolios(&self, symbol: &str) -> Option<&LockListMap<Protfolio>> {
         self.protfolios.get(symbol)
     }
 
@@ -271,6 +266,16 @@ impl AssetContext {
         Some(Arc::clone(slope))
     }
 
+    // check if all slope added into ticker point
+    pub fn is_slope_closed(&self, symbol: &str, message_id: i64) -> bool {
+        if let Some(lock) = self.find_slope(symbol, message_id) {
+            let slope = lock.read().unwrap();
+            slope.finalized()
+        } else {
+            false
+        }
+    }
+
     pub fn clean(&self) -> Result<()> {
         self.tickers.iter().for_each(|(id, lock)| {
             let mut list_writer = lock.write().unwrap();
@@ -283,6 +288,11 @@ impl AssetContext {
                 list_writer.clear();
                 debug!("Clean up cached data for protfolio: {:?} of {}", unit, id)
             });
+        });
+        self.slopes.iter().for_each(|(id, lock)| {
+            let mut list_writer = lock.write().unwrap();
+            list_writer.clear();
+            debug!("Clean up cached data for slopes: {}", id)
         });
         Ok(())
     }

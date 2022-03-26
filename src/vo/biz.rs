@@ -247,11 +247,11 @@ pub struct SlopePoint {
 }
 
 impl SlopePoint {
-    pub fn from(ticker: &Ticker, message_id: &i64) -> Self {
+    pub fn from(ticker: &Ticker, message_id: i64) -> Self {
         SlopePoint {
             id: ticker.id.clone(),
             time: ticker.time,
-            message_id: *message_id,
+            message_id,
             kind: 's',
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,

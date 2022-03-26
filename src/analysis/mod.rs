@@ -169,15 +169,20 @@ async fn handle_message_for_calculator(
     // Receive message ID only
     let message_id: i64 = rx.recv().await?.into();
     trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
-    context.route(&message_id, symbol, unit)?;
+    context.route(message_id, symbol, unit)?;
+
+    // TODO: check all values finalized and push
+    if context.asset().is_slope_closed(symbol, message_id) {
+        //
+    }
     Ok(())
 }
 
 impl AppContext {
-    pub fn route(&self, message_id: &i64, symbol: &str, unit: &TimeUnit) -> Result<()> {
+    pub fn route(&self, message_id: i64, symbol: &str, unit: &TimeUnit) -> Result<()> {
         debug!(
             "========== Route calculation for {} of {}, message_id: {} ==========",
-            symbol, unit.duration, message_id
+            symbol, unit.duration, &message_id
         );
 
         let asset = self.asset();
@@ -185,7 +190,7 @@ impl AppContext {
         if let Some(lock) = asset.get_protfolios(symbol, &unit.name) {
             debug!(
                 "Handle calculation for {} of {}, message_id: {}",
-                symbol, unit.duration, message_id
+                symbol, unit.duration, &message_id
             );
 
             // Get ticker source
@@ -196,7 +201,7 @@ impl AppContext {
             let mut protfolios = lock.write().unwrap();
 
             // Get target slope point
-            let slope_lock = asset.find_slope(symbol, *message_id).unwrap();
+            let slope_lock = asset.find_slope(symbol, message_id).unwrap();
 
             // Start calculation
             unit.rebalance(
@@ -206,8 +211,6 @@ impl AppContext {
                 &mut protfolios,
                 slope_lock,
             )?;
-
-            // TODO: check all values finalized and push
         } else {
             error!(
                 "Not protfolios container {} of {} initialized",
@@ -252,7 +255,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         if mode == ReplayMode::Sync {
             debug!("************************************************************************************************************");
             message_id += 1;
-            context.dispatch_direct(ticker, &message_id).await?;
+            context.dispatch_direct(ticker, message_id).await?;
         } else {
             context.dispatch(ticker).await?;
         }

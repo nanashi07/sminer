@@ -1,13 +1,11 @@
-use crate::vo::biz::{Protfolio, SlopeLine, SlopePoint, Ticker, TimeUnit};
+use crate::vo::biz::{Protfolio, SlopeLine, Ticker, TimeUnit};
 use crate::vo::core::RefSlopePoint;
 use crate::Result;
-use chrono::{Duration, TimeZone, Utc};
-use log::trace;
+use chrono::{TimeZone, Utc};
 use log::{debug, log_enabled};
 use rayon::prelude::*;
-use std::collections::{BTreeMap, HashMap, LinkedList};
+use std::collections::{BTreeMap, LinkedList};
 use std::f64::NAN;
-use std::sync::Mutex;
 
 // Calculate slop for nearest line
 // Reference to doc/trend.md
@@ -361,7 +359,7 @@ impl TimeUnit {
     pub fn rebalance(
         &self,
         symbol: &str,
-        message_id: &i64,
+        message_id: i64,
         tickers: &LinkedList<Ticker>,
         protfolios: &mut LinkedList<Protfolio>,
         slope: RefSlopePoint,
@@ -370,7 +368,7 @@ impl TimeUnit {
             "Rebalance {} of {}, message_id: {}, ticker count: {}",
             symbol,
             self.duration,
-            message_id,
+            &message_id,
             &tickers.len()
         );
         if self.period == 0 {

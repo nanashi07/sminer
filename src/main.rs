@@ -1,5 +1,4 @@
 use chrono::{Duration, Utc};
-use chrono::TimeZone;
 use clap::{Arg, ArgMatches, Command};
 use log::{debug, info};
 use sminer::{
