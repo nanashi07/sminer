@@ -205,6 +205,7 @@ pub struct Protfolio {
 pub struct TradeInfo {
     pub id: String,
     pub time: i64,
+    pub price: f32,
 
     pub message_id: i64,
 
@@ -214,7 +215,7 @@ pub struct TradeInfo {
     pub market_hours: MarketHoursType,
 
     pub unit_size: usize,
-    pub states: HashMap<String, f64>,
+    pub states: HashMap<String, Vec<f64>>,
 }
 
 impl TradeInfo {
@@ -222,6 +223,7 @@ impl TradeInfo {
         TradeInfo {
             id: ticker.id.clone(),
             time: ticker.time,
+            price: ticker.price,
             message_id,
             kind: 's',
             quote_type: ticker.quote_type,
@@ -231,8 +233,8 @@ impl TradeInfo {
         }
     }
 
-    pub fn update_state(&mut self, unit: &str, slope: &f64) {
-        self.states.insert(unit.to_string(), *slope);
+    pub fn update_state(&mut self, unit: &str, slope: Vec<f64>) {
+        self.states.insert(unit.to_string(), slope);
     }
 
     pub fn finalized(&self) -> bool {

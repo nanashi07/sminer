@@ -146,7 +146,7 @@ fn aggregate_fixed_unit(
     unit: &TimeUnit,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    trade: LockTradeInfo,
+    _trade: LockTradeInfo,
 ) -> Result<()> {
     // Take source data in 3x time range
     let scope = unit.duration as i64 * 1000 * 3;
@@ -188,10 +188,10 @@ fn aggregate_fixed_unit(
     }
 
     // update ticker decision
-    let value = results.first().unwrap().slope.unwrap_or(0.0);
-    let mut guard = trade.write().unwrap();
-    guard.update_state(&unit.name, &value);
-    debug!("Update trade point: {:?}", guard);
+    // let value = results.first().unwrap().slope.unwrap_or(0.0);
+    // let mut guard = trade.write().unwrap();
+    // guard.update_state(&unit.name, &value);
+    // debug!("Update trade point: {:?}", guard);
 
     Ok(())
 }
@@ -240,9 +240,9 @@ fn aggregate_moving_unit(
     }
 
     // update ticker decision
-    let value = results.first().unwrap().slope.unwrap_or(0.0);
+    let values: Vec<f64> = results.iter().map(|f| f.slope.unwrap_or(0.0)).collect();
     let mut guard = trade.write().unwrap();
-    guard.update_state(&unit.name, &value);
+    guard.update_state(&unit.name, values);
     debug!("Update trade point: {:?}", guard);
 
     Ok(())

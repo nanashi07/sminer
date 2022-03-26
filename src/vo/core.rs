@@ -131,7 +131,8 @@ impl AppContext {
         let asset = self.asset();
         let config = self.config();
         let mut units = config.time_units();
-        let unit_size = units.len(); // FIXME:
+        // only take moving data
+        let unit_size = units.iter().filter(|u| u.period > 0).count();
 
         // Add ticker decision data first (id/time... with empty analysis data)
         let trade = TradeInfo::from(ticker, message_id, unit_size);
@@ -430,12 +431,9 @@ impl AppConfig {
     }
 
     pub fn time_units(&self) -> Vec<TimeUnit> {
-        let async_process = self.async_process();
         self.units
             .iter()
             .map(|u| u.clone())
-            // restrict async proces only calculate moving data
-            .filter(|u| (async_process && u.period > 0) || !async_process)
             .collect::<Vec<TimeUnit>>()
     }
 

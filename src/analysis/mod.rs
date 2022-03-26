@@ -178,6 +178,10 @@ async fn handle_message_for_calculator(
 
     // check all values finalized then push to prepare trade
     if context.asset().is_trade_finalized(symbol, message_id) {
+        debug!(
+            "Prepare handle finalized trade info, symbol: {}, message_id: {}",
+            symbol, &message_id
+        );
         context.post_man().watch_trade(message_id)?;
     }
     Ok(())
@@ -337,7 +341,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
             if !list_reader.is_empty() {
                 if config.replay.output.file.enabled {
                     let output_name = format!(
-                        "{}/analysis/{}/{}-{}.json",
+                        "{}/analysis/{}/protfolio-{}-{}.json",
                         &config.replay.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
@@ -398,7 +402,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
             if !list_reader.is_empty() {
                 if config.replay.output.file.enabled {
                     let output_name = format!(
-                        "{}/slope/{}/{}-{}.json",
+                        "{}/slopes/{}/slope-{}-{}.json",
                         &config.replay.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
