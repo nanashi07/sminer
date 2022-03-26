@@ -11,10 +11,7 @@ use sminer::{
         mongo::{export, import},
     },
     provider::yahoo::consume,
-    vo::{
-        biz::TimeUnit,
-        core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC},
-    },
+    vo::core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC},
     Result,
 };
 use std::collections::HashSet;
@@ -51,16 +48,17 @@ async fn main() -> Result<()> {
                 "replay" => {
                     let start_time = Utc::now().timestamp_millis();
                     config_truncat(&mut config, sub_matches)?;
+                    let context = AppContext::new(config).init().await?;
+                    let config = context.config();
 
                     info!(
                         "Available time unit: {:?}",
-                        TimeUnit::values()
+                        config
+                            .time_units()
                             .iter()
                             .map(|u| u.name.clone())
                             .collect::<Vec<_>>()
                     );
-
-                    let context = AppContext::new(config).init().await?;
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);

@@ -128,13 +128,17 @@ impl AppContext {
             error!("No tickers container {} initialized", &ticker.id);
         }
 
-        // Add ticker decision data first (id/time... with empty analysis data)
         let asset = self.asset();
-        let trade = TradeInfo::from(ticker, message_id);
+        let config = self.config();
+        let mut units = config.time_units();
+        let unit_size = units.len(); // FIXME:
+
+        // Add ticker decision data first (id/time... with empty analysis data)
+        let trade = TradeInfo::from(ticker, message_id, unit_size);
         asset.add_trade(&ticker.id, trade);
 
         // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
-        TimeUnit::values().par_iter_mut().for_each(|unit| {
+        units.par_iter_mut().for_each(|unit| {
             self.route(message_id, &ticker.id, &unit).unwrap();
 
             // check all values finalized and push
@@ -179,11 +183,10 @@ impl AssetContext {
 
     fn init_protfolios(config: Arc<AppConfig>) -> Arc<HashMap<String, LockListMap<Protfolio>>> {
         let symbols = config.symbols();
-        let units = TimeUnit::values();
         let mut map: HashMap<String, LockListMap<Protfolio>> = HashMap::new();
         for symbol in symbols {
             let mut uniter: LockListMap<Protfolio> = HashMap::new();
-            for unit in &units {
+            for unit in config.time_units() {
                 uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
             }
             map.insert(symbol, uniter);
@@ -382,7 +385,8 @@ pub struct AppConfig {
     #[serde(rename = "dataSource")]
     pub data_source: DataSource,
     pub platform: Platform,
-    pub analysis: AnalysisBehavior,
+    pub replay: ReplayBehavior,
+    pub units: Vec<TimeUnit>,
     pub tickers: TickerList,
     #[serde(default = "empty_map")]
     runtime: HashMap<String, String>,
@@ -396,7 +400,7 @@ impl AppConfig {
     pub fn load(file: &str) -> Result<AppConfig> {
         let settings = Config::builder()
             .add_source(config::File::with_name(file))
-            .set_default("analysis.output.baseFolder", "tmp")?
+            .set_default("replay.output.baseFolder", "tmp")?
             .set_default("dataSource.mongodb.target", "yahoo")?
             .build()?;
 
@@ -423,6 +427,17 @@ impl AppConfig {
             .flat_map(|g| [&g.bear.id, &g.bull.id])
             .map(|id| id.to_string())
             .collect::<Vec<String>>()
+    }
+
+    pub fn time_units(&self) -> Vec<TimeUnit> {
+        self.units
+            .iter()
+            .map(|u| u.clone())
+            .collect::<Vec<TimeUnit>>()
+    }
+
+    pub fn find_unit(&self, name: &str) -> Option<TimeUnit> {
+        self.time_units().into_iter().find(|u| u.name == name)
     }
 
     pub fn async_process(&self) -> bool {
@@ -466,7 +481,7 @@ pub struct YahooFinance {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct AnalysisBehavior {
+pub struct ReplayBehavior {
     pub output: Outputs,
 }
 

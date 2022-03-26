@@ -31,6 +31,7 @@ use std::{
 use tokio::sync::broadcast::Receiver;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
+    let config = context.config();
     let post_man = context.post_man();
     let persistence = context.persistence();
 
@@ -92,7 +93,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
 
     info!("Initialize event calculator handler");
     let root = Arc::clone(&context);
-    for unit in TimeUnit::values() {
+    for unit in config.time_units() {
         for symbol in root.config().symbols() {
             debug!(
                 "Initialize event calculate {} for {:?} handler",
@@ -285,7 +286,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     }
     info!("Tickers: {} replay done", &file);
 
-    if config.analysis.output.file.enabled || config.analysis.output.elasticsearch.enabled {
+    if config.replay.output.file.enabled || config.replay.output.elasticsearch.enabled {
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
 
         info!("Exporting protfolios for {}", &filename);
@@ -294,6 +295,9 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
         info!("Exporting slope for {}", &filename);
         output_slope_points(&context, filename).await?;
+
+        info!("Exporting trade info for {}", &filename);
+        // TODO: export
     }
 
     info!("Clean up cached data for next run");
@@ -308,15 +312,15 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let persistence = context.persistence();
 
     // delete file
-    if config.analysis.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/analysis/{}", &config.analysis.output.base_folder, file);
+    if config.replay.output.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/analysis/{}", &config.replay.output.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
         }
     }
     // delete index
-    if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
+    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
         let index_time = take_index_time(&file);
         let index_name = protfolio_index_name(&index_time);
         persistence.delete_index(&index_name).await?;
@@ -325,16 +329,16 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     for (ticker_id, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
-            if TimeUnit::find(unit).unwrap().period > 0 {
+            if TimeUnit::is_moving_unit(unit) {
                 continue;
             }
 
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                if config.analysis.output.file.enabled {
+                if config.replay.output.file.enabled {
                     let output_name = format!(
                         "{}/analysis/{}/{}-{}.json",
-                        &config.analysis.output.base_folder, file, ticker_id, unit
+                        &config.replay.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -352,7 +356,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                     });
                     debug!("Finish analysis: {} file", &output_name);
                 }
-                if config.analysis.output.elasticsearch.enabled {
+                if config.replay.output.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
                     index_protfolios(&context, &protfolios).await?;
@@ -369,15 +373,15 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     let persistence = context.persistence();
 
     // delete file
-    if config.analysis.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/slope/{}", &config.analysis.output.base_folder, file);
+    if config.replay.output.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/slope/{}", &config.replay.output.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
         }
     }
     // delete index
-    if config.analysis.output.elasticsearch.enabled && config.truncat_enabled() {
+    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
         let index_time = take_index_time(&file);
         let index_name = slope_index_name(&index_time);
         persistence.delete_index(&index_name).await?;
@@ -386,16 +390,16 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     for (ticker_id, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
-            if TimeUnit::find(unit).unwrap().period > 0 {
+            if TimeUnit::is_moving_unit(unit) {
                 continue;
             }
 
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                if config.analysis.output.file.enabled {
+                if config.replay.output.file.enabled {
                     let output_name = format!(
                         "{}/slope/{}/{}-{}.json",
-                        &config.analysis.output.base_folder, file, ticker_id, unit
+                        &config.replay.output.base_folder, file, ticker_id, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -417,7 +421,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                     });
                     debug!("Finish slope: {} file", &output_name);
                 }
-                if config.analysis.output.elasticsearch.enabled {
+                if config.replay.output.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
                     let points = draw_slop_lines(&protfolios);

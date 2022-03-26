@@ -159,7 +159,7 @@ impl Display for TimeUnit {
 }
 
 impl TimeUnit {
-    fn new(name: &str, duration: i32, period: u32) -> TimeUnit {
+    pub fn new(name: &str, duration: i32, period: u32) -> TimeUnit {
         TimeUnit {
             name: name.to_string(),
             duration,
@@ -167,37 +167,8 @@ impl TimeUnit {
         }
     }
 
-    pub fn values() -> Vec<TimeUnit> {
-        vec![
-            // TimeUnit::new("SecondTen", 10, 0),
-            // TimeUnit::new("SecondThirty", 30, 0),
-            // TimeUnit::new("MinuteOne", 60, 0),
-            // TimeUnit::new("MinuteTwo", 120, 0),
-            // TimeUnit::new("MinuteThree", 180, 0),
-            // TimeUnit::new("MinuteFour", 240, 0),
-            // TimeUnit::new("MinuteFive", 300, 0),
-            // TimeUnit::new("MinuteTen", 600, 0),
-            // TimeUnit::new("MinuteTwenty", 1200, 0),
-            // TimeUnit::new("MinuteThirty", 1800, 0),
-            // TimeUnit::new("HourOne", 3600, 0),
-            //
-            TimeUnit::new("MovingSecondTen", 10, 100),
-            TimeUnit::new("MovingSecondTwenty", 20, 60),
-            TimeUnit::new("MovingSecondThirty", 30, 50),
-            TimeUnit::new("MovingMinuteOne", 60, 30),
-            TimeUnit::new("MovingMinuteTwo", 120, 15),
-            TimeUnit::new("MovingMinuteThree", 180, 15),
-            TimeUnit::new("MovingMinuteFour", 240, 15),
-            TimeUnit::new("MovingMinuteFive", 300, 12),
-            TimeUnit::new("MovingMinuteTen", 600, 9),
-            TimeUnit::new("MovingMinuteTwenty", 1200, 6),
-            TimeUnit::new("MovingMinuteThirty", 1800, 4),
-            TimeUnit::new("MovingHourOne", 3600, 3),
-        ]
-    }
-
-    pub fn find(name: &str) -> Option<TimeUnit> {
-        TimeUnit::values().into_iter().find(|u| u.name == name)
+    pub fn is_moving_unit(name: &str) -> bool {
+        name.starts_with("m")
     }
 }
 
@@ -247,7 +218,7 @@ pub struct TradeInfo {
 }
 
 impl TradeInfo {
-    pub fn from(ticker: &Ticker, message_id: i64) -> Self {
+    pub fn from(ticker: &Ticker, message_id: i64, unit_size: usize) -> Self {
         TradeInfo {
             id: ticker.id.clone(),
             time: ticker.time,
@@ -255,7 +226,7 @@ impl TradeInfo {
             kind: 's',
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,
-            unit_size: TimeUnit::values().len(),
+            unit_size,
             states: HashMap::new(),
         }
     }

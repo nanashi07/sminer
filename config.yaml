@@ -2,20 +2,87 @@ dataSource:
   mongodb:
     enabled: true
     uri: mongodb://root:password@localhost:27017
-    # target: yahoo22
+    # target: yahoo
   elasticsearch:
     enabled: true
     uri: http://localhost:9200
 platform:
   yahoo:
     uri: "wss://streamer.finance.yahoo.com/"
-analysis:
+replay:
   output:
     # baseFolder: tmp
     file:
       enabled: true
     elasticsearch:
       enabled: true
+units:
+  - name: f10s
+    duration: 10
+    period: 0
+  - name: f30s
+    duration: 30
+    period: 0
+  - name: f1m
+    duration: 60
+    period: 0
+  - name: f2m
+    duration: 120
+    period: 0
+  - name: f3m
+    duration: 180
+    period: 0
+  - name: f4m
+    duration: 240
+    period: 0
+  - name: f5m
+    duration: 300
+    period: 0
+  - name: f10m
+    duration: 600
+    period: 0
+  - name: f20m
+    duration: 1200
+    period: 0
+  - name: f30m
+    duration: 1800
+    period: 0
+  - name: f1h
+    duration: 3600
+    period: 0
+  - name: m10s
+    duration: 10
+    period: 100
+  - name: m30s
+    duration: 30
+    period: 60
+  - name: m1m
+    duration: 60
+    period: 50
+  - name: m2m
+    duration: 120
+    period: 30
+  - name: m3m
+    duration: 180
+    period: 15
+  - name: m4m
+    duration: 240
+    period: 15
+  - name: m5m
+    duration: 300
+    period: 12
+  - name: m10m
+    duration: 600
+    period: 9
+  - name: m20m
+    duration: 1200
+    period: 6
+  - name: m30m
+    duration: 1800
+    period: 4
+  - name: m1h
+    duration: 3600
+    period: 3
 tickers:
   symbols:
     - bull:
