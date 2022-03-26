@@ -159,103 +159,40 @@ impl Display for TimeUnit {
 }
 
 impl TimeUnit {
+    fn new(name: &str, duration: i32, period: u32) -> TimeUnit {
+        TimeUnit {
+            name: name.to_string(),
+            duration,
+            period,
+        }
+    }
+
     pub fn values() -> Vec<TimeUnit> {
         vec![
-            TimeUnit {
-                name: String::from("SecondTen"),
-                duration: 10,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("SecondThirty"),
-                duration: 30,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteOne"),
-                duration: 60,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteTwo"),
-                duration: 120,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteThree"),
-                duration: 180,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteFour"),
-                duration: 240,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteFive"),
-                duration: 300,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteTen"),
-                duration: 600,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteTwenty"),
-                duration: 1200,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MinuteThirty"),
-                duration: 1800,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("HourOne"),
-                duration: 3600,
-                period: 0,
-            },
-            TimeUnit {
-                name: String::from("MovingSecondTen"),
-                duration: 10,
-                period: 60,
-            },
-            TimeUnit {
-                name: String::from("MovingSecondTwenty"),
-                duration: 20,
-                period: 30,
-            },
-            TimeUnit {
-                name: String::from("MovingSecondThirty"),
-                duration: 30,
-                period: 20,
-            },
-            TimeUnit {
-                name: String::from("MovingMinuteOne"),
-                duration: 60,
-                period: 10,
-            },
-            TimeUnit {
-                name: String::from("MovingMinuteTwo"),
-                duration: 120,
-                period: 5,
-            },
-            TimeUnit {
-                name: String::from("MovingMinuteThree"),
-                duration: 180,
-                period: 4,
-            },
-            TimeUnit {
-                name: String::from("MovingMinuteFour"),
-                duration: 240,
-                period: 3,
-            },
-            TimeUnit {
-                name: String::from("MovingMinuteFive"),
-                duration: 300,
-                period: 2,
-            },
+            // TimeUnit::new("SecondTen", 10, 0),
+            // TimeUnit::new("SecondThirty", 30, 0),
+            // TimeUnit::new("MinuteOne", 60, 0),
+            // TimeUnit::new("MinuteTwo", 120, 0),
+            // TimeUnit::new("MinuteThree", 180, 0),
+            // TimeUnit::new("MinuteFour", 240, 0),
+            // TimeUnit::new("MinuteFive", 300, 0),
+            // TimeUnit::new("MinuteTen", 600, 0),
+            // TimeUnit::new("MinuteTwenty", 1200, 0),
+            // TimeUnit::new("MinuteThirty", 1800, 0),
+            // TimeUnit::new("HourOne", 3600, 0),
+            //
+            TimeUnit::new("MovingSecondTen", 10, 100),
+            TimeUnit::new("MovingSecondTwenty", 20, 60),
+            TimeUnit::new("MovingSecondThirty", 30, 50),
+            TimeUnit::new("MovingMinuteOne", 60, 30),
+            TimeUnit::new("MovingMinuteTwo", 120, 15),
+            TimeUnit::new("MovingMinuteThree", 180, 15),
+            TimeUnit::new("MovingMinuteFour", 240, 15),
+            TimeUnit::new("MovingMinuteFive", 300, 12),
+            TimeUnit::new("MovingMinuteTen", 600, 9),
+            TimeUnit::new("MovingMinuteTwenty", 1200, 6),
+            TimeUnit::new("MovingMinuteThirty", 1800, 4),
+            TimeUnit::new("MovingHourOne", 3600, 3),
         ]
     }
 

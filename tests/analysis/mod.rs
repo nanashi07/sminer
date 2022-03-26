@@ -21,6 +21,8 @@ fn test_replay() -> Result<()> {
         let mut config = AppConfig::load("config.yaml")?;
         config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
         let context = AppContext::new(config).init().await?;
+        let config = context.config();
+        let persistence = context.persistence();
 
         let files = vec![
             "TQQQ.tickers20220323",
@@ -31,13 +33,13 @@ fn test_replay() -> Result<()> {
             // "tickers20220316",
         ];
         for file in files {
-            if context.config.sync_mongo_enabled() {
-                context.persistence.drop_collection(file).await?;
+            if config.sync_mongo_enabled() {
+                persistence.drop_collection(file).await?;
             }
-            if context.config.sync_elasticsearch_enabled() {
+            if config.sync_elasticsearch_enabled() {
                 let index_time = take_index_time(file);
                 let index_name = ticker_index_name(&index_time);
-                context.persistence.delete_index(&index_name).await?;
+                persistence.delete_index(&index_name).await?;
             }
             replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
         }
@@ -58,6 +60,8 @@ fn test_replay_async() -> Result<()> {
         let mut config = AppConfig::load("config.yaml")?;
         config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
         let context = AppContext::new(config).init().await?;
+        let config = context.config();
+        let persistence = context.persistence();
 
         let files = vec![
             "tickers20220309",
@@ -73,13 +77,13 @@ fn test_replay_async() -> Result<()> {
         let _delay_for_es: u64 = 10;
 
         for file in files {
-            if context.config.sync_mongo_enabled() {
-                context.persistence.drop_collection(file).await?;
+            if config.sync_mongo_enabled() {
+                persistence.drop_collection(file).await?;
             }
-            if context.config.sync_elasticsearch_enabled() {
+            if config.sync_elasticsearch_enabled() {
                 let index_time = take_index_time(file);
                 let index_name = ticker_index_name(&index_time);
-                context.persistence.delete_index(&index_name).await?;
+                persistence.delete_index(&index_name).await?;
             }
             replay(
                 &context,

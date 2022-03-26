@@ -21,11 +21,9 @@ pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operat
 
 #[derive(Debug)]
 pub struct AppContext {
-    pub config: Arc<AppConfig>,
-    pub persistence: Arc<PersistenceContext>,
-    pub tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
-    pub slopes: Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>>,
-    pub protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
+    config: Arc<AppConfig>,
+    persistence: Arc<PersistenceContext>,
+    asset: Arc<AssetContext>,
     // Sender for persist data
     pub house_keeper: Sender<TickerEvent>,
     // Sender for cache source data
@@ -42,16 +40,11 @@ impl AppContext {
         let config_ref = Arc::new(config);
         let calculator = AppContext::init_sender(Arc::clone(&config_ref));
         let persistence = PersistenceContext::new(Arc::clone(&config_ref));
-        let tickers = AppContext::init_tickers(Arc::clone(&config_ref));
-        let slopes = AppContext::init_slopes(Arc::clone(&config_ref));
-        let protfolios = AppContext::init_protfolios(Arc::clone(&config_ref));
 
         AppContext {
-            config: config_ref,
+            config: Arc::clone(&config_ref),
             persistence: Arc::new(persistence),
-            tickers,
-            slopes,
-            protfolios,
+            asset: AssetContext::new(Arc::clone(&config_ref)),
             house_keeper,
             preparatory,
             calculator,
@@ -66,39 +59,8 @@ impl AppContext {
         Arc::clone(&self.persistence)
     }
 
-    fn init_slopes(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
-        let symbols = config.symbols();
-        let mut map: HashMap<String, RwLock<LinkedList<SlopePoint>>> = HashMap::new();
-        for symbol in symbols {
-            map.insert(symbol, RwLock::new(LinkedList::new()));
-        }
-        Arc::new(map)
-    }
-
-    fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
-        let symbols = config.symbols();
-        let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
-        for symbol in symbols {
-            map.insert(symbol, RwLock::new(LinkedList::new()));
-        }
-        Arc::new(map)
-    }
-
-    fn init_protfolios(
-        config: Arc<AppConfig>,
-    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
-        let symbols = config.symbols();
-        let units = TimeUnit::values();
-        let mut map: HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>> =
-            HashMap::new();
-        for symbol in symbols {
-            let mut uniter: HashMap<String, RwLock<LinkedList<Protfolio>>> = HashMap::new();
-            for unit in &units {
-                uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
-            }
-            map.insert(symbol, uniter);
-        }
-        Arc::new(map)
+    pub fn asset(&self) -> Arc<AssetContext> {
+        Arc::clone(&self.asset)
     }
 
     fn init_sender(config: Arc<AppConfig>) -> Arc<HashMap<String, Sender<i64>>> {
@@ -120,7 +82,7 @@ impl AppContext {
     }
 
     pub fn last_volume(&self, symbol: &str) -> i64 {
-        let lock = &self.tickers.get(symbol).unwrap();
+        let lock = self.asset.symbol_tickers(symbol).unwrap();
         let list = lock.read().unwrap();
         if let Some(ticker) = list.front() {
             ticker.day_volume
@@ -164,8 +126,7 @@ impl AppContext {
         }
 
         // Add into source list
-        let tickers = Arc::clone(&self.tickers);
-        if let Some(lock) = tickers.get(&ticker.id) {
+        if let Some(lock) = self.asset.symbol_tickers(&ticker.id) {
             let mut list = lock.write().unwrap();
             list.push_front(ticker.clone());
             debug!(
@@ -179,8 +140,7 @@ impl AppContext {
         }
 
         // Add ticker decision data first (id/time... with empty analysis data)
-        let slopes = Arc::clone(&self.slopes);
-        if let Some(lock) = slopes.get(&ticker.id) {
+        if let Some(lock) = self.asset.symbol_slopes(&ticker.id) {
             let mut slope_list = lock.write().unwrap();
             slope_list.push_front(SlopePoint::from(ticker, message_id));
         } else {
@@ -193,6 +153,92 @@ impl AppContext {
         });
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AssetContext {
+    tickers: Arc<HashMap<String, RwLock<LinkedList<Ticker>>>>,
+    protfolios: Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>>,
+    slopes: Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>>,
+}
+
+impl AssetContext {
+    pub fn new(config: Arc<AppConfig>) -> Arc<AssetContext> {
+        let tickers = AssetContext::init_tickers(Arc::clone(&config));
+        let slopes = AssetContext::init_slopes(Arc::clone(&config));
+        let protfolios = AssetContext::init_protfolios(Arc::clone(&config));
+
+        let asset = AssetContext {
+            tickers,
+            protfolios,
+            slopes,
+        };
+        Arc::new(asset)
+    }
+
+    fn init_tickers(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
+        let symbols = config.symbols();
+        let mut map: HashMap<String, RwLock<LinkedList<Ticker>>> = HashMap::new();
+        for symbol in symbols {
+            map.insert(symbol, RwLock::new(LinkedList::new()));
+        }
+        Arc::new(map)
+    }
+
+    fn init_protfolios(
+        config: Arc<AppConfig>,
+    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
+        let symbols = config.symbols();
+        let units = TimeUnit::values();
+        let mut map: HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>> =
+            HashMap::new();
+        for symbol in symbols {
+            let mut uniter: HashMap<String, RwLock<LinkedList<Protfolio>>> = HashMap::new();
+            for unit in &units {
+                uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
+            }
+            map.insert(symbol, uniter);
+        }
+        Arc::new(map)
+    }
+
+    fn init_slopes(config: Arc<AppConfig>) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
+        let symbols = config.symbols();
+        let mut map: HashMap<String, RwLock<LinkedList<SlopePoint>>> = HashMap::new();
+        for symbol in symbols {
+            map.insert(symbol, RwLock::new(LinkedList::new()));
+        }
+        Arc::new(map)
+    }
+
+    pub fn tickers(&self) -> Arc<HashMap<String, RwLock<LinkedList<Ticker>>>> {
+        Arc::clone(&self.tickers)
+    }
+
+    pub fn protfolios(
+        &self,
+    ) -> Arc<HashMap<String, HashMap<String, RwLock<LinkedList<Protfolio>>>>> {
+        Arc::clone(&self.protfolios)
+    }
+
+    pub fn slopes(&self) -> Arc<HashMap<String, RwLock<LinkedList<SlopePoint>>>> {
+        Arc::clone(&self.slopes)
+    }
+
+    pub fn symbol_tickers(&self, symbol: &str) -> Option<&RwLock<LinkedList<Ticker>>> {
+        self.tickers.get(symbol)
+    }
+
+    pub fn symbol_protfolios(
+        &self,
+        symbol: &str,
+    ) -> Option<&HashMap<String, RwLock<LinkedList<Protfolio>>>> {
+        self.protfolios.get(symbol)
+    }
+
+    pub fn symbol_slopes(&self, symbol: &str) -> Option<&RwLock<LinkedList<SlopePoint>>> {
+        self.slopes.get(symbol)
     }
 
     pub fn clean(&self) -> Result<()> {

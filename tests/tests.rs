@@ -25,6 +25,7 @@ fn test_consume_yahoo_tickers() -> Result<()> {
         let context = AppContext::new(AppConfig::load("config.yaml")?)
             .init()
             .await?;
+        let config = context.config();
 
         let end_time = Utc::now().add(Duration::minutes(2)).timestamp();
         info!(
@@ -32,8 +33,8 @@ fn test_consume_yahoo_tickers() -> Result<()> {
             Utc.timestamp_millis(end_time),
         );
 
-        let symbols = context.config.symbols();
-        let uri = &context.config.platform.yahoo.uri;
+        let symbols = config.symbols();
+        let uri = &config.platform.yahoo.uri;
 
         info!("Loaded symbols: {:?}", &symbols);
 

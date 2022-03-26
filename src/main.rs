@@ -1,3 +1,5 @@
+use chrono::{Duration, Utc};
+use chrono::TimeZone;
 use clap::{Arg, ArgMatches, Command};
 use log::{debug, info};
 use sminer::{
@@ -46,6 +48,8 @@ async fn main() -> Result<()> {
                     consume(&context, &uri, &symbols, Option::None).await?;
                 }
                 "replay" => {
+                    let start_time = Utc::now().timestamp_millis();
+
                     // add additional config
                     config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
                     config_truncat(&mut config, sub_matches)?;
@@ -60,6 +64,7 @@ async fn main() -> Result<()> {
 
                     let context = AppContext::new(config).init().await?;
                     let config = context.config();
+                    let persistence = context.persistence();
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
@@ -67,16 +72,21 @@ async fn main() -> Result<()> {
                     for file in files {
                         // delete mongo tickers
                         if config.sync_mongo_enabled() {
-                            context.persistence.drop_collection(file).await?;
+                            persistence.drop_collection(file).await?;
                         }
                         // delete elasticsearch tickers
                         if config.sync_elasticsearch_enabled() {
                             let index_time = take_index_time(file);
                             let index_name = ticker_index_name(&index_time);
-                            context.persistence.delete_index(&index_name).await?;
+                            persistence.delete_index(&index_name).await?;
                         }
                         replay(&context, &file, ReplayMode::Sync).await?
                     }
+
+                    info!(
+                        "Replay time cost: {}",
+                        Duration::milliseconds(Utc::now().timestamp_millis() - start_time)
+                    )
                 }
                 "import" => {
                     config_truncat(&mut config, sub_matches)?;

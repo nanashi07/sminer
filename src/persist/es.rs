@@ -225,9 +225,6 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
     let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
     let index_name = ticker_index_name(&time);
 
-    // drop index first
-    // persistence.drop_index(&digital).await?;
-
     info!("Bulk import messages into index: {}", &index_name);
     let response = client
         .bulk(BulkParts::Index(&index_name))

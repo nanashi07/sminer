@@ -83,7 +83,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     info!("Initialize event calculator handler");
     let root = Arc::clone(&context);
     for unit in TimeUnit::values() {
-        for symbol in root.config.symbols() {
+        for symbol in root.config().symbols() {
             debug!(
                 "Initialize event calculate {} for {:?} handler",
                 symbol, unit
@@ -141,8 +141,7 @@ async fn handle_message_for_preparatory(
     let ctx = Arc::clone(context);
 
     // Add into source list
-    let tickers = Arc::clone(&ctx.tickers);
-    if let Some(lock) = tickers.get(&ticker.id) {
+    if let Some(lock) = ctx.asset().symbol_tickers(&ticker.id) {
         let mut list = lock.write().unwrap();
         list.push_front(ticker.clone());
     } else {
@@ -180,17 +179,16 @@ impl AppContext {
             "========== Route calculation for {} of {}, message_id: {} ==========",
             symbol, unit.duration, message_id
         );
-        let protfolios_map = Arc::clone(&self.protfolios);
-        let points_map = Arc::clone(&self.slopes);
 
-        if let Some(unit_map) = protfolios_map.get(symbol) {
+        if let Some(unit_map) = self.asset().symbol_protfolios(symbol) {
             if let Some(protfolios_lock) = unit_map.get(&unit.name) {
                 debug!(
                     "Handle calculation for {} of {}, message_id: {}",
                     symbol, unit.duration, message_id
                 );
                 // Get ticker source
-                let tickers = self.tickers.get(symbol).unwrap();
+                let asset = self.asset();
+                let tickers = asset.symbol_tickers(symbol).unwrap();
                 let symbol_tickers = tickers.read().unwrap();
 
                 // Get target protfolios
@@ -249,6 +247,8 @@ pub enum ReplayMode {
 pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Result<()> {
     info!("Loading tickers: {}", file);
 
+    let config = context.config();
+
     let f = File::open(file)?;
     let reader = BufReader::new(f);
     let mut tickers: Vec<Ticker> = reader
@@ -290,9 +290,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     }
     info!("Tickers: {} replay done", &file);
 
-    if context.config.analysis.output.file.enabled
-        || context.config.analysis.output.elasticsearch.enabled
-    {
+    if config.analysis.output.file.enabled || config.analysis.output.elasticsearch.enabled {
         let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
 
         info!("Exporting protfolios for {}", &filename);
@@ -305,7 +303,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
     info!("Clean up cached data for next run");
     // clean memory
-    context.clean()?;
+    context.asset().clean()?;
 
     Ok(())
 }
@@ -313,7 +311,6 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let persistence = context.persistence();
-    let protfolios = Arc::clone(&context.protfolios);
 
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
@@ -330,7 +327,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
         persistence.delete_index(&index_name).await?;
     }
 
-    for (ticker_id, groups) in protfolios.as_ref() {
+    for (ticker_id, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
             if TimeUnit::find(unit).unwrap().period > 0 {
@@ -375,7 +372,6 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
 async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let persistence = context.persistence();
-    let protfolios = Arc::clone(&context.protfolios);
 
     // delete file
     if config.analysis.output.file.enabled && config.truncat_enabled() {
@@ -392,7 +388,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
         persistence.delete_index(&index_name).await?;
     }
 
-    for (ticker_id, groups) in protfolios.as_ref() {
+    for (ticker_id, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
             if TimeUnit::find(unit).unwrap().period > 0 {
