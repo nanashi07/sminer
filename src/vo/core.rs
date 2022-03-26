@@ -430,9 +430,12 @@ impl AppConfig {
     }
 
     pub fn time_units(&self) -> Vec<TimeUnit> {
+        let async_process = self.async_process();
         self.units
             .iter()
             .map(|u| u.clone())
+            // restrict async proces only calculate moving data
+            .filter(|u| (async_process && u.period > 0) || !async_process)
             .collect::<Vec<TimeUnit>>()
     }
 

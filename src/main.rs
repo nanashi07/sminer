@@ -40,9 +40,14 @@ async fn main() -> Result<()> {
                     let config = context.config();
 
                     let symbols = config.symbols();
+                    let units = config.time_units();
                     let uri = config.platform.yahoo.uri.as_str();
 
                     info!("Loaded symbols: {:?}", &symbols);
+                    info!(
+                        "Loaded time units: {:?}",
+                        &units.iter().map(|u| u.name.clone()).collect::<Vec<_>>()
+                    );
                     consume(&context, &uri, &symbols, Option::None).await?;
                 }
                 "replay" => {
