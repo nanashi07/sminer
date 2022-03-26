@@ -30,13 +30,12 @@ use tokio::sync::broadcast::Receiver;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let config = context.config();
-    let house_keeper = &context.house_keeper;
-    let preparatory = &context.preparatory;
+    let post_man = context.post_man();
     let persistence = context.persistence();
 
     if config.sync_mongo_enabled() {
         info!("Initialize mongo event persist handler");
-        let mut rx = house_keeper.subscribe();
+        let mut rx = post_man.subscribe_store();
         let ctx = Arc::clone(&persistence);
         tokio::spawn(async move {
             loop {
@@ -52,7 +51,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
 
     if config.sync_elasticsearch_enabled() {
         info!("Initialize elasticsearch event persist handler");
-        let mut rx = house_keeper.subscribe();
+        let mut rx = post_man.subscribe_store();
         let ctx = Arc::clone(&persistence);
         tokio::spawn(async move {
             loop {
@@ -67,7 +66,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     }
 
     info!("Initialize event preparatory handler");
-    let mut rx = preparatory.subscribe();
+    let mut rx = post_man.subscribe_prepare();
     let root = Arc::clone(&context);
     tokio::spawn(async move {
         loop {
@@ -86,11 +85,9 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         for symbol in root.config().symbols() {
             debug!(
                 "Initialize event calculate {} for {:?} handler",
-                symbol, unit
+                &symbol, unit
             );
-            let calculator = Arc::clone(&context.calculator);
-
-            let mut rx = calculator.get(&symbol).unwrap().subscribe();
+            let mut rx = post_man.subscribe_calculate(&symbol);
             let root = Arc::clone(&context);
             let unit = unit.clone();
             tokio::spawn(async move {
@@ -138,10 +135,9 @@ async fn handle_message_for_preparatory(
     context: &Arc<AppContext>,
 ) -> Result<()> {
     let ticker: Ticker = rx.recv().await?.into();
-    let ctx = Arc::clone(context);
 
     // Add into source list
-    if let Some(lock) = ctx.asset().symbol_tickers(&ticker.id) {
+    if let Some(lock) = context.asset().symbol_tickers(&ticker.id) {
         let mut list = lock.write().unwrap();
         list.push_front(ticker.clone());
     } else {
@@ -152,10 +148,7 @@ async fn handle_message_for_preparatory(
     let message_id = Utc::now().timestamp_millis(); // TODO: make sure uniq
 
     // Send signal for symbol analysis
-    let calculator = Arc::clone(&context.calculator);
-    let sender = calculator.get(&ticker.id).unwrap();
-
-    sender.send(message_id)?;
+    context.post_man().calculate(&ticker.id, message_id)?;
 
     Ok(())
 }

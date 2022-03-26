@@ -7,9 +7,9 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, LinkedList};
 use std::f64::NAN;
 
-// Calculate slop for nearest line
+// Calculate slope for nearest line
 // Reference to doc/trend.md
-fn slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
+fn calculate_slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
     match samples.len() {
         0 => (NAN, NAN),
         1 => {
@@ -99,7 +99,7 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
 
     let samples = values.len() as u32;
 
-    let (slope, b_num) = slope(
+    let (slope, b_num) = calculate_slope(
         &values
             .iter()
             .map(|p| (p.time as f64, p.price as f64))

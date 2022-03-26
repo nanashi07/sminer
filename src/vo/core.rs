@@ -14,7 +14,7 @@ use std::{
     collections::{HashMap, LinkedList},
     sync::{Arc, RwLock},
 };
-use tokio::sync::broadcast::{channel, Sender};
+use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 pub const KEY_EXTRA_PRCOESS_IN_REPLAY: &str = "process_in_replay";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
@@ -27,30 +27,19 @@ pub struct AppContext {
     config: Arc<AppConfig>,
     persistence: Arc<PersistenceContext>,
     asset: Arc<AssetContext>,
-    // Sender for persist data
-    pub house_keeper: Sender<TickerEvent>,
-    // Sender for cache source data
-    pub preparatory: Sender<TickerEvent>,
-    // Sender for calculation
-    pub calculator: Arc<HashMap<String, Sender<i64>>>,
+    post_man: Arc<PostMan>,
 }
 
 impl AppContext {
     pub fn new(config: AppConfig) -> AppContext {
-        let (house_keeper, _) = channel::<TickerEvent>(2048);
-        let (preparatory, _) = channel::<TickerEvent>(2048);
-
         let config_ref = Arc::new(config);
-        let calculator = AppContext::init_sender(Arc::clone(&config_ref));
         let persistence = PersistenceContext::new(Arc::clone(&config_ref));
 
         AppContext {
             config: Arc::clone(&config_ref),
             persistence: Arc::new(persistence),
             asset: AssetContext::new(Arc::clone(&config_ref)),
-            house_keeper,
-            preparatory,
-            calculator,
+            post_man: PostMan::new(Arc::clone(&config_ref)),
         }
     }
 
@@ -66,14 +55,8 @@ impl AppContext {
         Arc::clone(&self.asset)
     }
 
-    fn init_sender(config: Arc<AppConfig>) -> Arc<HashMap<String, Sender<i64>>> {
-        let symbols = config.symbols();
-        let mut map: HashMap<String, Sender<i64>> = HashMap::new();
-        for symbol in symbols {
-            let (calculator, _) = channel::<i64>(2048);
-            map.insert(symbol, calculator);
-        }
-        Arc::new(map)
+    pub fn post_man(&self) -> Arc<PostMan> {
+        Arc::clone(&self.post_man)
     }
 
     pub async fn init(self) -> Result<Arc<AppContext>> {
@@ -103,13 +86,13 @@ impl AppContext {
             let mut event: TickerEvent = ticker.into();
             // calculate volume
             event.volume = volume_diff;
-            self.house_keeper.send(event)?;
+            self.post_man().store(event)?;
         }
 
         // send to analysis
         let mut event: TickerEvent = ticker.into();
         event.volume = volume_diff;
-        self.preparatory.send(event)?;
+        self.post_man().prepare(event)?;
 
         Ok(())
     }
@@ -295,6 +278,70 @@ impl AssetContext {
             debug!("Clean up cached data for slopes: {}", id)
         });
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PostMan {
+    // Sender for persist data
+    house_keeper: Sender<TickerEvent>,
+    // Sender for cache source data
+    preparatory: Sender<TickerEvent>,
+    // Sender for calculation
+    calculator: Arc<HashMap<String, Sender<i64>>>,
+}
+
+impl PostMan {
+    pub fn new(config: Arc<AppConfig>) -> Arc<PostMan> {
+        let (house_keeper, _) = channel::<TickerEvent>(2048);
+        let (preparatory, _) = channel::<TickerEvent>(2048);
+
+        let calculator = PostMan::init_sender(Arc::clone(&config));
+        let post_man = PostMan {
+            house_keeper,
+            preparatory,
+            calculator,
+        };
+
+        Arc::new(post_man)
+    }
+
+    fn init_sender(config: Arc<AppConfig>) -> Arc<HashMap<String, Sender<i64>>> {
+        let symbols = config.symbols();
+        let mut map: HashMap<String, Sender<i64>> = HashMap::new();
+        for symbol in symbols {
+            let (calculator, _) = channel::<i64>(2048);
+            map.insert(symbol, calculator);
+        }
+        Arc::new(map)
+    }
+
+    pub fn subscribe_store(&self) -> Receiver<TickerEvent> {
+        self.house_keeper.subscribe()
+    }
+
+    pub fn subscribe_prepare(&self) -> Receiver<TickerEvent> {
+        self.preparatory.subscribe()
+    }
+
+    pub fn subscribe_calculate(&self, symbol: &str) -> Receiver<i64> {
+        self.calculator.get(symbol).unwrap().subscribe()
+    }
+
+    pub fn store(&self, event: TickerEvent) -> Result<usize> {
+        let result = self.house_keeper.send(event)?;
+        Ok(result)
+    }
+
+    pub fn prepare(&self, event: TickerEvent) -> Result<usize> {
+        let result = self.preparatory.send(event)?;
+        Ok(result)
+    }
+
+    pub fn calculate(&self, symbol: &str, message_id: i64) -> Result<usize> {
+        let sender = self.calculator.get(symbol).unwrap();
+        let result = sender.send(message_id).unwrap();
+        Ok(result)
     }
 }
 
