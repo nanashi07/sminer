@@ -13,7 +13,7 @@ use sminer::{
     provider::yahoo::consume,
     vo::{
         biz::TimeUnit,
-        core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_REPLAY},
+        core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC},
     },
     Result,
 };
@@ -37,6 +37,8 @@ async fn main() -> Result<()> {
 
             match name {
                 "consume" => {
+                    // add additional config
+                    config.extra_put(KEY_EXTRA_PRCOESS_IN_ASYNC, "async_mode");
                     let context = AppContext::new(config).init().await?;
                     let config = context.config();
 
@@ -48,9 +50,6 @@ async fn main() -> Result<()> {
                 }
                 "replay" => {
                     let start_time = Utc::now().timestamp_millis();
-
-                    // add additional config
-                    config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
                     config_truncat(&mut config, sub_matches)?;
 
                     info!(
@@ -62,23 +61,11 @@ async fn main() -> Result<()> {
                     );
 
                     let context = AppContext::new(config).init().await?;
-                    let config = context.config();
-                    let persistence = context.persistence();
 
                     let files: Vec<&str> = sub_matches.values_of("files").unwrap().collect();
                     debug!("Input files: {:?}", files);
 
                     for file in files {
-                        // delete mongo tickers
-                        if config.sync_mongo_enabled() {
-                            persistence.drop_collection(file).await?;
-                        }
-                        // delete elasticsearch tickers
-                        if config.sync_elasticsearch_enabled() {
-                            let index_time = take_index_time(file);
-                            let index_name = ticker_index_name(&index_time);
-                            persistence.delete_index(&index_name).await?;
-                        }
                         replay(&context, &file, ReplayMode::Sync).await?
                     }
 

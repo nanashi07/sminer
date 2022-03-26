@@ -5,7 +5,7 @@ use sminer::{
     persist::es::{take_index_time, ticker_index_name},
     vo::{
         biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit},
-        core::{AppConfig, AppContext, KEY_EXTRA_PRCOESS_IN_REPLAY},
+        core::{AppConfig, AppContext},
     },
     Result,
 };
@@ -18,8 +18,7 @@ fn test_replay() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
-        let mut config = AppConfig::load("config.yaml")?;
-        config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
+        let config = AppConfig::load("config.yaml")?;
         let context = AppContext::new(config).init().await?;
         let config = context.config();
         let persistence = context.persistence();
@@ -57,8 +56,8 @@ fn test_replay_async() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
-        let mut config = AppConfig::load("config.yaml")?;
-        config.extra_put(KEY_EXTRA_PRCOESS_IN_REPLAY, "replay");
+        let config = AppConfig::load("config.yaml")?;
+        //config.extra_put(KEY_EXTRA_PRCOESS_IN_ASYNC, "async_mode"); // enable for save data
         let context = AppContext::new(config).init().await?;
         let config = context.config();
         let persistence = context.persistence();

@@ -16,7 +16,7 @@ use std::{
 };
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
-pub const KEY_EXTRA_PRCOESS_IN_REPLAY: &str = "process_in_replay";
+pub const KEY_EXTRA_PRCOESS_IN_ASYNC: &str = "process_in_async";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 
 pub type RefSlopePoint = Arc<RwLock<SlopePoint>>;
@@ -61,9 +61,12 @@ impl AppContext {
 
     pub async fn init(self) -> Result<Arc<AppContext>> {
         let me = Arc::new(self);
-        init_dispatcher(&Arc::clone(&me)).await?;
+        if me.config().async_process() {
+            init_dispatcher(&Arc::clone(&me)).await?;
+        }
         // FIXME: init mongo for temp solution
-        Arc::clone(&me).persistence.init_mongo().await?;
+        let persistence = me.persistence();
+        persistence.init_mongo().await?;
         Ok(Arc::clone(&me))
     }
 
@@ -422,12 +425,16 @@ impl AppConfig {
             .collect::<Vec<String>>()
     }
 
+    pub fn async_process(&self) -> bool {
+        self.extra_present(KEY_EXTRA_PRCOESS_IN_ASYNC)
+    }
+
     pub fn sync_mongo_enabled(&self) -> bool {
-        self.data_source.mongodb.enabled && !self.extra_present(KEY_EXTRA_PRCOESS_IN_REPLAY)
+        self.data_source.mongodb.enabled && self.async_process()
     }
 
     pub fn sync_elasticsearch_enabled(&self) -> bool {
-        self.data_source.elasticsearch.enabled && !self.extra_present(KEY_EXTRA_PRCOESS_IN_REPLAY)
+        self.data_source.elasticsearch.enabled && self.async_process()
     }
 
     pub fn truncat_enabled(&self) -> bool {

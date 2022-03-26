@@ -31,41 +31,36 @@ use std::{
 use tokio::sync::broadcast::Receiver;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
-    let config = context.config();
     let post_man = context.post_man();
     let persistence = context.persistence();
 
-    if config.sync_mongo_enabled() {
-        info!("Initialize mongo event persist handler");
-        let mut rx = post_man.subscribe_store();
-        let ctx = Arc::clone(&persistence);
-        tokio::spawn(async move {
-            loop {
-                match handle_message_for_persist_mongo(&mut rx, &ctx).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Handle ticker for mongo error: {:?}", err);
-                    }
+    info!("Initialize mongo event persist handler");
+    let mut rx = post_man.subscribe_store();
+    let ctx = Arc::clone(&persistence);
+    tokio::spawn(async move {
+        loop {
+            match handle_message_for_persist_mongo(&mut rx, &ctx).await {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Handle ticker for mongo error: {:?}", err);
                 }
             }
-        });
-    }
+        }
+    });
 
-    if config.sync_elasticsearch_enabled() {
-        info!("Initialize elasticsearch event persist handler");
-        let mut rx = post_man.subscribe_store();
-        let ctx = Arc::clone(&persistence);
-        tokio::spawn(async move {
-            loop {
-                match handle_message_for_persist_elasticsearch(&mut rx, &ctx).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Handle ticker for elasticsearch error: {:?}", err);
-                    }
+    info!("Initialize elasticsearch event persist handler");
+    let mut rx = post_man.subscribe_store();
+    let ctx = Arc::clone(&persistence);
+    tokio::spawn(async move {
+        loop {
+            match handle_message_for_persist_elasticsearch(&mut rx, &ctx).await {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Handle ticker for elasticsearch error: {:?}", err);
                 }
             }
-        });
-    }
+        }
+    });
 
     info!("Initialize event preparatory handler");
     let mut rx = post_man.subscribe_prepare();
