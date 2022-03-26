@@ -1,5 +1,5 @@
 use crate::vo::biz::{Protfolio, SlopeLine, Ticker, TimeUnit};
-use crate::vo::core::RefSlopePoint;
+use crate::vo::core::LockTradeInfo;
 use crate::Result;
 use chrono::{TimeZone, Utc};
 use log::{debug, log_enabled};
@@ -146,7 +146,7 @@ fn aggregate_fixed_unit(
     unit: &TimeUnit,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    slope: RefSlopePoint,
+    trade: LockTradeInfo,
 ) -> Result<()> {
     // Take source data in 3x time range
     let scope = unit.duration as i64 * 1000 * 3;
@@ -189,9 +189,9 @@ fn aggregate_fixed_unit(
 
     // update ticker decision
     let value = results.first().unwrap().slope.unwrap_or(0.0);
-    let mut guard = slope.write().unwrap();
+    let mut guard = trade.write().unwrap();
     guard.update_state(&unit.name, &value);
-    debug!("Update slope point: {:?}", guard);
+    debug!("Update trade point: {:?}", guard);
 
     Ok(())
 }
@@ -201,7 +201,7 @@ fn aggregate_moving_unit(
     unit: &TimeUnit,
     tickers: &LinkedList<Ticker>,
     protfolios: &mut LinkedList<Protfolio>,
-    slope: RefSlopePoint,
+    trade: LockTradeInfo,
 ) -> Result<()> {
     let last_timestamp = tickers.front().unwrap().time;
     let scope = last_timestamp - (unit.duration as i64 * unit.period as i64) * 1000;
@@ -241,9 +241,9 @@ fn aggregate_moving_unit(
 
     // update ticker decision
     let value = results.first().unwrap().slope.unwrap_or(0.0);
-    let mut guard = slope.write().unwrap();
+    let mut guard = trade.write().unwrap();
     guard.update_state(&unit.name, &value);
-    debug!("Update slope point: {:?}", guard);
+    debug!("Update trade point: {:?}", guard);
 
     Ok(())
 }
@@ -362,7 +362,7 @@ impl TimeUnit {
         message_id: i64,
         tickers: &LinkedList<Ticker>,
         protfolios: &mut LinkedList<Protfolio>,
-        slope: RefSlopePoint,
+        trade: LockTradeInfo,
     ) -> Result<()> {
         debug!(
             "Rebalance {} of {}, message_id: {}, ticker count: {}",
@@ -372,9 +372,9 @@ impl TimeUnit {
             &tickers.len()
         );
         if self.period == 0 {
-            aggregate_fixed_unit(symbol, self, tickers, protfolios, slope)?;
+            aggregate_fixed_unit(symbol, self, tickers, protfolios, trade)?;
         } else {
-            aggregate_moving_unit(symbol, self, tickers, protfolios, slope)?;
+            aggregate_moving_unit(symbol, self, tickers, protfolios, trade)?;
         }
         Ok(())
     }

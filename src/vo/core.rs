@@ -1,4 +1,4 @@
-use super::biz::{Protfolio, SlopePoint, Ticker, TimeUnit};
+use super::biz::{Protfolio, Ticker, TimeUnit, TradeInfo};
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
     persist::{es::ElasticTicker, PersistenceContext},
@@ -19,7 +19,7 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 pub const KEY_EXTRA_PRCOESS_IN_ASYNC: &str = "process_in_async";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 
-pub type RefSlopePoint = Arc<RwLock<SlopePoint>>;
+pub type LockTradeInfo = Arc<RwLock<TradeInfo>>;
 pub type LockListMap<T> = HashMap<String, RwLock<LinkedList<T>>>;
 
 #[derive(Debug)]
@@ -130,15 +130,15 @@ impl AppContext {
 
         // Add ticker decision data first (id/time... with empty analysis data)
         let asset = self.asset();
-        let slope = SlopePoint::from(ticker, message_id);
-        asset.add_slope(&ticker.id, slope);
+        let trade = TradeInfo::from(ticker, message_id);
+        asset.add_trade(&ticker.id, trade);
 
         // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
         TimeUnit::values().par_iter_mut().for_each(|unit| {
             self.route(message_id, &ticker.id, &unit).unwrap();
 
             // check all values finalized and push
-            if asset.is_slope_closed(&ticker.id, message_id) {
+            if asset.is_trade_finalized(&ticker.id, message_id) {
                 prepare_trade(self.asset(), self.config(), message_id).unwrap();
             }
         });
@@ -151,19 +151,19 @@ impl AppContext {
 pub struct AssetContext {
     tickers: Arc<LockListMap<Ticker>>,
     protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
-    slopes: Arc<LockListMap<RefSlopePoint>>,
+    trades: Arc<LockListMap<LockTradeInfo>>,
 }
 
 impl AssetContext {
     pub fn new(config: Arc<AppConfig>) -> Arc<AssetContext> {
         let tickers = AssetContext::init_tickers(Arc::clone(&config));
-        let slopes = AssetContext::init_slopes(Arc::clone(&config));
+        let trades = AssetContext::init_trades(Arc::clone(&config));
         let protfolios = AssetContext::init_protfolios(Arc::clone(&config));
 
         let asset = AssetContext {
             tickers,
             protfolios,
-            slopes,
+            trades,
         };
         Arc::new(asset)
     }
@@ -191,9 +191,9 @@ impl AssetContext {
         Arc::new(map)
     }
 
-    fn init_slopes(config: Arc<AppConfig>) -> Arc<LockListMap<RefSlopePoint>> {
+    fn init_trades(config: Arc<AppConfig>) -> Arc<LockListMap<LockTradeInfo>> {
         let symbols = config.symbols();
-        let mut map: LockListMap<RefSlopePoint> = HashMap::new();
+        let mut map: LockListMap<LockTradeInfo> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
@@ -208,8 +208,8 @@ impl AssetContext {
         Arc::clone(&self.protfolios)
     }
 
-    pub fn slopes(&self) -> Arc<LockListMap<RefSlopePoint>> {
-        Arc::clone(&self.slopes)
+    pub fn trades(&self) -> Arc<LockListMap<LockTradeInfo>> {
+        Arc::clone(&self.trades)
     }
 
     pub fn symbol_tickers(&self, symbol: &str) -> Option<&RwLock<LinkedList<Ticker>>> {
@@ -232,19 +232,19 @@ impl AssetContext {
         }
     }
 
-    pub fn add_slope(&self, symbol: &str, slope: SlopePoint) {
-        let lock = self.symbol_slopes(symbol).unwrap();
-        let mut slope_list = lock.write().unwrap();
-        slope_list.push_front(Arc::new(RwLock::new(slope)));
+    pub fn add_trade(&self, symbol: &str, trade: TradeInfo) {
+        let lock = self.symbol_trades(symbol).unwrap();
+        let mut trades = lock.write().unwrap();
+        trades.push_front(Arc::new(RwLock::new(trade)));
     }
 
-    pub fn symbol_slopes(&self, symbol: &str) -> Option<&RwLock<LinkedList<RefSlopePoint>>> {
-        self.slopes.get(symbol)
+    pub fn symbol_trades(&self, symbol: &str) -> Option<&RwLock<LinkedList<LockTradeInfo>>> {
+        self.trades.get(symbol)
     }
 
-    pub fn search_slope(&self, message_id: i64) -> Option<RefSlopePoint> {
-        let slopes = Arc::clone(&self.slopes);
-        for (_symbol, lock) in slopes.as_ref() {
+    pub fn search_trade(&self, message_id: i64) -> Option<LockTradeInfo> {
+        let trades = Arc::clone(&self.trades);
+        for (_symbol, lock) in trades.as_ref() {
             let reader = lock.read().unwrap();
             let result = reader
                 .iter()
@@ -258,21 +258,21 @@ impl AssetContext {
         None
     }
 
-    pub fn find_slope(&self, symbol: &str, message_id: i64) -> Option<RefSlopePoint> {
-        let slopes_lock = self.symbol_slopes(symbol).unwrap();
-        let slopes = slopes_lock.read().unwrap();
-        let slope = slopes
+    pub fn find_trade(&self, symbol: &str, message_id: i64) -> Option<LockTradeInfo> {
+        let trades_lock = self.symbol_trades(symbol).unwrap();
+        let trades = trades_lock.read().unwrap();
+        let trade = trades
             .iter()
             .find(|s| s.read().unwrap().message_id == message_id)
             .unwrap();
-        Some(Arc::clone(slope))
+        Some(Arc::clone(trade))
     }
 
-    // check if all slope added into ticker point
-    pub fn is_slope_closed(&self, symbol: &str, message_id: i64) -> bool {
-        if let Some(lock) = self.find_slope(symbol, message_id) {
-            let slope = lock.read().unwrap();
-            slope.finalized()
+    // check if all trades added into ticker point
+    pub fn is_trade_finalized(&self, symbol: &str, message_id: i64) -> bool {
+        if let Some(lock) = self.find_trade(symbol, message_id) {
+            let trade = lock.read().unwrap();
+            trade.finalized()
         } else {
             false
         }
@@ -291,10 +291,10 @@ impl AssetContext {
                 debug!("Clean up cached data for protfolio: {:?} of {}", unit, id)
             });
         });
-        self.slopes.iter().for_each(|(id, lock)| {
+        self.trades.iter().for_each(|(id, lock)| {
             let mut list_writer = lock.write().unwrap();
             list_writer.clear();
-            debug!("Clean up cached data for slopes: {}", id)
+            debug!("Clean up cached data for trades: {}", id)
         });
         Ok(())
     }

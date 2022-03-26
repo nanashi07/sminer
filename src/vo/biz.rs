@@ -231,7 +231,7 @@ pub struct Protfolio {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SlopePoint {
+pub struct TradeInfo {
     pub id: String,
     pub time: i64,
 
@@ -246,9 +246,9 @@ pub struct SlopePoint {
     pub states: HashMap<String, f64>,
 }
 
-impl SlopePoint {
+impl TradeInfo {
     pub fn from(ticker: &Ticker, message_id: i64) -> Self {
-        SlopePoint {
+        TradeInfo {
             id: ticker.id.clone(),
             time: ticker.time,
             message_id,

@@ -176,7 +176,7 @@ async fn handle_message_for_calculator(
     context.route(message_id, symbol, unit)?;
 
     // check all values finalized then push to prepare trade
-    if context.asset().is_slope_closed(symbol, message_id) {
+    if context.asset().is_trade_finalized(symbol, message_id) {
         context.post_man().watch_trade(message_id)?;
     }
     Ok(())
@@ -210,8 +210,8 @@ impl AppContext {
             // Get target protfolios
             let mut protfolios = lock.write().unwrap();
 
-            // Get target slope point
-            let slope_lock = asset.find_slope(symbol, message_id).unwrap();
+            // Get target trade info
+            let trade_lock = asset.find_trade(symbol, message_id).unwrap();
 
             // Start calculation
             unit.rebalance(
@@ -219,7 +219,7 @@ impl AppContext {
                 message_id,
                 &symbol_tickers,
                 &mut protfolios,
-                slope_lock,
+                trade_lock,
             )?;
         } else {
             error!(

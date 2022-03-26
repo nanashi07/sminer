@@ -2,7 +2,7 @@ use crate::{
     vo::core::{AppConfig, AssetContext},
     Result,
 };
-use log::{info, warn};
+use log::{debug, warn};
 use std::sync::Arc;
 
 pub fn prepare_trade(
@@ -10,9 +10,9 @@ pub fn prepare_trade(
     _config: Arc<AppConfig>,
     message_id: i64,
 ) -> Result<()> {
-    if let Some(lock) = asset.search_slope(message_id) {
+    if let Some(lock) = asset.search_trade(message_id) {
         let value = lock.read().unwrap();
-        info!("Trade info: {:?}", value);
+        debug!("Trade info: {:?}", value);
         // TODO: check trade
     } else {
         warn!("No trade info for message ID: {} found!", &message_id);
