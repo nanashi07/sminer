@@ -31,15 +31,17 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    pub fn new(config: AppConfig) -> AppContext {
-        let config_ref = Arc::new(config);
-        let persistence = PersistenceContext::new(Arc::clone(&config_ref));
+    pub fn new(app_config: AppConfig) -> AppContext {
+        let config = Arc::new(app_config);
+        let persistence = PersistenceContext::new(Arc::clone(&config));
+        let asset = AssetContext::new(Arc::clone(&config));
+        let post_man = PostMan::new(Arc::clone(&config));
 
         AppContext {
-            config: Arc::clone(&config_ref),
+            config: Arc::clone(&config),
             persistence: Arc::new(persistence),
-            asset: AssetContext::new(Arc::clone(&config_ref)),
-            post_man: PostMan::new(Arc::clone(&config_ref)),
+            asset: Arc::new(asset),
+            post_man: Arc::new(post_man),
         }
     }
 
@@ -160,29 +162,29 @@ pub struct AssetContext {
 }
 
 impl AssetContext {
-    pub fn new(config: Arc<AppConfig>) -> Arc<AssetContext> {
-        let tickers = AssetContext::init_tickers(Arc::clone(&config));
-        let trades = AssetContext::init_trades(Arc::clone(&config));
-        let protfolios = AssetContext::init_protfolios(Arc::clone(&config));
+    pub fn new(config: Arc<AppConfig>) -> AssetContext {
+        let tickers = Self::init_tickers(Arc::clone(&config));
+        let protfolios = Self::init_protfolios(Arc::clone(&config));
+        let trades = Self::init_trades(Arc::clone(&config));
 
         let asset = AssetContext {
-            tickers,
-            protfolios,
-            trades,
+            tickers: Arc::new(tickers),
+            protfolios: Arc::new(protfolios),
+            trades: Arc::new(trades),
         };
-        Arc::new(asset)
+        asset
     }
 
-    fn init_tickers(config: Arc<AppConfig>) -> Arc<LockListMap<Ticker>> {
+    fn init_tickers(config: Arc<AppConfig>) -> LockListMap<Ticker> {
         let symbols = config.symbols();
         let mut map: LockListMap<Ticker> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
-        Arc::new(map)
+        map
     }
 
-    fn init_protfolios(config: Arc<AppConfig>) -> Arc<HashMap<String, LockListMap<Protfolio>>> {
+    fn init_protfolios(config: Arc<AppConfig>) -> HashMap<String, LockListMap<Protfolio>> {
         let symbols = config.symbols();
         let mut map: HashMap<String, LockListMap<Protfolio>> = HashMap::new();
         for symbol in symbols {
@@ -192,16 +194,16 @@ impl AssetContext {
             }
             map.insert(symbol, uniter);
         }
-        Arc::new(map)
+        map
     }
 
-    fn init_trades(config: Arc<AppConfig>) -> Arc<LockListMap<LockTradeInfo>> {
+    fn init_trades(config: Arc<AppConfig>) -> LockListMap<LockTradeInfo> {
         let symbols = config.symbols();
         let mut map: LockListMap<LockTradeInfo> = HashMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
-        Arc::new(map)
+        map
     }
 
     pub fn tickers(&self) -> Arc<LockListMap<Ticker>> {
@@ -317,30 +319,30 @@ pub struct PostMan {
 }
 
 impl PostMan {
-    pub fn new(config: Arc<AppConfig>) -> Arc<PostMan> {
+    pub fn new(config: Arc<AppConfig>) -> PostMan {
         let (house_keeper, _) = channel::<TickerEvent>(2048);
         let (preparatory, _) = channel::<TickerEvent>(2048);
-        let calculator = PostMan::init_sender(Arc::clone(&config));
+        let calculator = Self::init_sender(Arc::clone(&config));
         let (trader, _) = channel::<i64>(1024);
 
         let post_man = PostMan {
             house_keeper,
             preparatory,
-            calculator,
+            calculator: Arc::new(calculator),
             trader,
         };
 
-        Arc::new(post_man)
+        post_man
     }
 
-    fn init_sender(config: Arc<AppConfig>) -> Arc<HashMap<String, Sender<i64>>> {
+    fn init_sender(config: Arc<AppConfig>) -> HashMap<String, Sender<i64>> {
         let symbols = config.symbols();
         let mut map: HashMap<String, Sender<i64>> = HashMap::new();
         for symbol in symbols {
             let (calculator, _) = channel::<i64>(2048);
             map.insert(symbol, calculator);
         }
-        Arc::new(map)
+        map
     }
 
     pub fn subscribe_store(&self) -> Receiver<TickerEvent> {
