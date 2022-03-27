@@ -217,19 +217,20 @@ fn aggregate_moving_unit(
     // calculate
     let results = tickers
         .iter()
-        .take_while(|t| t.time > scope) // only take items in 10 min
+        .take_while(|t| t.time > scope) // only take items in range
         .map(|t| Protfolio::moving(t, unit, last_timestamp))
         .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
             group_by(map, p)
         })
         .values()
         .map(|values| calculate(values))
+        .rev() // sort by time desc
         .collect::<Vec<Protfolio>>();
 
     // update protfolio, renew all records
     let result_size = results.len();
     protfolios.clear();
-    for (index, target) in results.iter().rev().enumerate() {
+    for (index, target) in results.iter().enumerate() {
         if log_enabled!(log::Level::Debug) {
             debug!(
                 "Updating moving protfolio, {} of {}, index: {}/{}, {:?}",
