@@ -69,6 +69,8 @@ async fn main() -> Result<()> {
                     debug!("Input files: {:?}", files);
 
                     for file in files {
+                        // TODO: try renew context for release resource
+                        // compare to original if speed up
                         replay(&context, &file, ReplayMode::Sync).await?
                     }
 

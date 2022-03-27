@@ -7,13 +7,13 @@ use crate::{
     persist::{
         es::{
             bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
-            ElasticTicker,
+            ElasticTicker, ElasticTrade,
         },
         PersistenceContext,
     },
     proto::biz::TickerEvent,
     vo::{
-        biz::{Protfolio, Ticker, TimeUnit, TradeInfo},
+        biz::{Protfolio, Ticker, TimeUnit},
         core::AppContext,
     },
     Result,
@@ -262,7 +262,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     let mut handl_count = 0;
     let mut seconds = Utc::now().timestamp() / 60;
 
-    info!("Loaded tickers: {} in {}", total, file);
+    info!("Loaded tickers: {} from {}", total, file);
 
     let mut message_id: i64 = 0;
 
@@ -291,27 +291,28 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     info!("Tickers: {} replay done", &file);
 
     if config.replay.output.file.enabled || config.replay.output.elasticsearch.enabled {
-        let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
+        let source_file = Path::new(file).file_name().unwrap().to_str().unwrap();
 
-        info!("Exporting protfolios for {}", filename);
-        // output analysis file
-        output_protfolios(&context, filename).await?;
+        // TODO: export ticker
 
-        info!("Exporting slope for {}", filename);
-        output_slope_points(&context, filename).await?;
+        info!("Exporting protfolios for {}", source_file);
+        export_protfolios(&context, source_file).await?;
 
-        info!("Exporting trade info for {}", filename);
-        output_trades(&context, filename).await?;
+        info!("Exporting slopes for {}", source_file);
+        export_slope_points(&context, source_file).await?;
+
+        info!("Exporting trades info for {}", source_file);
+        export_trades(&context, source_file).await?;
     }
 
-    info!("Clean up cached data for next run");
     // clean memory
+    info!("Clean up cached data for next run");
     context.asset().clean()?;
 
     Ok(())
 }
 
-async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
+async fn export_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let persistence = context.persistence();
 
@@ -330,7 +331,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
         persistence.delete_index(&index_name).await?;
     }
 
-    for (ticker_id, groups) in context.asset().protfolios().as_ref() {
+    for (symbol, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
             if TimeUnit::is_moving_unit(unit) {
@@ -342,7 +343,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                 if config.replay.output.file.enabled {
                     let output_name = format!(
                         "{}/analysis/{}/protfolio-{}-{}.json",
-                        &config.replay.output.base_folder, file, ticker_id, unit
+                        &config.replay.output.base_folder, file, symbol, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -377,7 +378,7 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
     Ok(())
 }
 
-async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
+async fn export_slope_points(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let persistence = context.persistence();
 
@@ -396,7 +397,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
         persistence.delete_index(&index_name).await?;
     }
 
-    for (ticker_id, groups) in context.asset().protfolios().as_ref() {
+    for (symbol, groups) in context.asset().protfolios().as_ref() {
         for (unit, lock) in groups {
             // ignore moving protfolios
             if TimeUnit::is_moving_unit(unit) {
@@ -408,7 +409,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                 if config.replay.output.file.enabled {
                     let output_name = format!(
                         "{}/slopes/{}/slope-{}-{}.json",
-                        &config.replay.output.base_folder, file, ticker_id, unit
+                        &config.replay.output.base_folder, file, symbol, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -448,7 +449,7 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
     Ok(())
 }
 
-async fn output_trades(context: &AppContext, file: &str) -> Result<()> {
+async fn export_trades(context: &AppContext, file: &str) -> Result<()> {
     let config = context.config();
     let persistence = context.persistence();
     let asset = context.asset();
@@ -493,16 +494,28 @@ async fn output_trades(context: &AppContext, file: &str) -> Result<()> {
             debug!("Finish trades: {} file", &output_name);
         }
         if config.replay.output.elasticsearch.enabled {
-            let trades: Vec<TradeInfo> = list_reader
+            let trades: Vec<ElasticTrade> = list_reader
                 .iter()
-                .map(|item_lock| item_lock.read().unwrap().clone())
+                .flat_map(|item_lock| ElasticTrade::from(&item_lock.read().unwrap()))
                 .collect();
 
-            // generate index name
-            let time = Utc.timestamp_millis(trades.first().unwrap().time);
-            let index_name = trade_index_name(&time);
+            if !trades.is_empty() {
+                // generate index name
+                let time = Utc.timestamp_millis(trades.first().unwrap().timestamp);
+                let index_name = trade_index_name(&time);
 
-            bulk_index(&context, &index_name, &trades).await?;
+                for chunk in trades.chunks(10000) {
+                    bulk_index(
+                        &context,
+                        &index_name,
+                        &chunk
+                            .iter()
+                            .map(|t| t.clone())
+                            .collect::<Vec<ElasticTrade>>(),
+                    )
+                    .await?;
+                }
+            }
         }
     }
 

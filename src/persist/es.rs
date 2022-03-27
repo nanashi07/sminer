@@ -2,7 +2,7 @@ use super::{DataSource, PersistenceContext};
 use crate::{
     proto::biz::TickerEvent,
     vo::{
-        biz::{MarketHoursType, Protfolio, QuoteType, SlopeLine, Ticker, TradeInfo},
+        biz::{MarketHoursType, Protfolio, QuoteType, Ticker, TradeInfo},
         core::AppContext,
     },
     Result,
@@ -106,7 +106,7 @@ pub struct ElasticTicker {
 
 impl From<Ticker> for ElasticTicker {
     fn from(t: Ticker) -> Self {
-        ElasticTicker {
+        Self {
             id: t.id.clone(),
             unit: 0,
             price: t.price,
@@ -123,7 +123,7 @@ impl From<Ticker> for ElasticTicker {
 
 impl From<TickerEvent> for ElasticTicker {
     fn from(t: TickerEvent) -> Self {
-        ElasticTicker {
+        Self {
             id: t.id.clone(),
             unit: 0,
             price: t.price,
@@ -161,6 +161,36 @@ impl ElasticTicker {
             warn!("result = {:?}, {:?}", response, self);
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ElasticTrade {
+    pub id: String,
+    pub time: String,
+    pub timestamp: i64,
+
+    pub kind: char,
+    pub unit: String,
+    pub slope: f64,
+}
+
+impl ElasticTrade {
+    pub fn from(trade: &TradeInfo) -> Vec<Self> {
+        trade
+            .states
+            .iter()
+            .flat_map(|(unit, slopes)| {
+                slopes.iter().enumerate().map(|(index, slope)| Self {
+                    id: trade.id.clone(),
+                    time: Utc.timestamp_millis(trade.time).to_rfc3339(),
+                    timestamp: trade.time,
+                    kind: 't',
+                    unit: format!("{}{:03}", &unit.clone(), &index),
+                    slope: *slope,
+                })
+            })
+            .collect::<Vec<Self>>()
     }
 }
 
@@ -252,7 +282,7 @@ pub async fn index_protfolios_from_file(context: &AppContext, path: &str) -> Res
 
 pub async fn bulk_index<T>(context: &AppContext, index_name: &str, list: &Vec<T>) -> Result<()>
 where
-    T: Serialize,
+    T: Serialize + Debug,
 {
     let persistence = context.persistence();
     let client: Elasticsearch = persistence.get_connection()?;
@@ -263,7 +293,11 @@ where
         body.push(json!(item).into());
     }
 
-    debug!("Bulk import messages into index: {}", &index_name);
+    info!(
+        "Bulk import messages into index: {}, count: {}",
+        &index_name,
+        list.len()
+    );
     let response = client
         .bulk(BulkParts::Index(&index_name))
         .body(body)

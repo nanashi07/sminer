@@ -77,7 +77,7 @@ impl Ticker {
         let db_name = config.data_source.mongodb.target.as_ref().unwrap();
         let client: Client = context.get_connection()?;
         let db = client.database(db_name);
-        let collection = db.collection::<Ticker>(&collection_name);
+        let collection = db.collection::<Self>(&collection_name);
 
         let _ = collection.insert_one(self, None).await?;
         context.close_connection(client)?;

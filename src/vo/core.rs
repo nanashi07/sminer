@@ -31,13 +31,13 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    pub fn new(app_config: AppConfig) -> AppContext {
+    pub fn new(app_config: AppConfig) -> Self {
         let config = Arc::new(app_config);
         let persistence = PersistenceContext::new(Arc::clone(&config));
         let asset = AssetContext::new(Arc::clone(&config));
         let post_man = PostMan::new(Arc::clone(&config));
 
-        AppContext {
+        Self {
             config: Arc::clone(&config),
             persistence: Arc::new(persistence),
             asset: Arc::new(asset),
@@ -61,7 +61,7 @@ impl AppContext {
         Arc::clone(&self.post_man)
     }
 
-    pub async fn init(self) -> Result<Arc<AppContext>> {
+    pub async fn init(self) -> Result<Arc<Self>> {
         let me = Arc::new(self);
         if me.config().async_process() {
             init_dispatcher(&Arc::clone(&me)).await?;
@@ -162,12 +162,12 @@ pub struct AssetContext {
 }
 
 impl AssetContext {
-    pub fn new(config: Arc<AppConfig>) -> AssetContext {
+    pub fn new(config: Arc<AppConfig>) -> Self {
         let tickers = Self::init_tickers(Arc::clone(&config));
         let protfolios = Self::init_protfolios(Arc::clone(&config));
         let trades = Self::init_trades(Arc::clone(&config));
 
-        let asset = AssetContext {
+        let asset = Self {
             tickers: Arc::new(tickers),
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
@@ -319,13 +319,13 @@ pub struct PostMan {
 }
 
 impl PostMan {
-    pub fn new(config: Arc<AppConfig>) -> PostMan {
+    pub fn new(config: Arc<AppConfig>) -> Self {
         let (house_keeper, _) = channel::<TickerEvent>(2048);
         let (preparatory, _) = channel::<TickerEvent>(2048);
         let calculator = Self::init_sender(Arc::clone(&config));
         let (trader, _) = channel::<i64>(1024);
 
-        let post_man = PostMan {
+        let post_man = Self {
             house_keeper,
             preparatory,
             calculator: Arc::new(calculator),
@@ -400,14 +400,14 @@ fn empty_map() -> HashMap<String, String> {
 }
 
 impl AppConfig {
-    pub fn load(file: &str) -> Result<AppConfig> {
+    pub fn load(file: &str) -> Result<Self> {
         let settings = Config::builder()
             .add_source(config::File::with_name(file))
             .set_default("replay.output.baseFolder", "tmp")?
             .set_default("dataSource.mongodb.target", "yahoo")?
             .build()?;
 
-        let config: AppConfig = settings.try_deserialize::<AppConfig>()?;
+        let config: Self = settings.try_deserialize::<Self>()?;
         Ok(config)
     }
 

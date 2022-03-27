@@ -98,7 +98,7 @@ pub struct Ticker {
 
 impl From<YahooTicker> for Ticker {
     fn from(value: YahooTicker) -> Self {
-        Ticker {
+        Self {
             id: value.id,
             price: value.price,
             time: value.time,
@@ -113,7 +113,7 @@ impl From<YahooTicker> for Ticker {
 
 impl From<&Ticker> for TickerEvent {
     fn from(value: &Ticker) -> Self {
-        TickerEvent {
+        Self {
             id: value.id.to_string(),
             price: value.price,
             time: value.time,
@@ -128,7 +128,7 @@ impl From<&Ticker> for TickerEvent {
 
 impl From<TickerEvent> for Ticker {
     fn from(value: TickerEvent) -> Self {
-        Ticker {
+        Self {
             id: value.id.to_string(),
             price: value.price,
             time: value.time,
@@ -222,7 +222,7 @@ pub struct TradeInfo {
 
 impl TradeInfo {
     pub fn from(ticker: &Ticker, message_id: i64, unit_size: usize) -> Self {
-        TradeInfo {
+        Self {
             id: ticker.id.clone(),
             time: ticker.time,
             price: ticker.price,

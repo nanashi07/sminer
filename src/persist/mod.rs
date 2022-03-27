@@ -18,8 +18,8 @@ pub struct PersistenceContext {
 }
 
 impl PersistenceContext {
-    pub fn new(config: Arc<AppConfig>) -> PersistenceContext {
-        PersistenceContext {
+    pub fn new(config: Arc<AppConfig>) -> Self {
+        Self {
             config,
             elastic_connections: Arc::new(Mutex::new(Vec::new())),
             mongo_connections: Arc::new(Mutex::new(Vec::new())),

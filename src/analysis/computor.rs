@@ -295,7 +295,7 @@ fn get_y(slope: Option<f64>, b_num: Option<f64>, time: i64) -> f64 {
 
 impl Protfolio {
     fn fixed(t: &Ticker, unit: &TimeUnit) -> Self {
-        Protfolio {
+        Self {
             id: t.id.clone(),
             price: t.price,
             time: t.time,
@@ -318,7 +318,7 @@ impl Protfolio {
     }
 
     fn moving(t: &Ticker, unit: &TimeUnit, base_time: i64) -> Self {
-        Protfolio {
+        Self {
             id: t.id.clone(),
             price: t.price,
             time: t.time,
@@ -342,7 +342,7 @@ impl Protfolio {
         }
     }
 
-    fn update_by(&mut self, source: &Protfolio) {
+    fn update_by(&mut self, source: &Self) {
         self.price = source.price;
         self.volume = source.volume;
         self.max_price = source.max_price;
