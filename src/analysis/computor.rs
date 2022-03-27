@@ -237,7 +237,8 @@ fn aggregate_moving_unit(
                 symbol, unit.duration, index, result_size, target
             );
         }
-        protfolios.push_front((*target).clone());
+        // push into list from newest to oldest
+        protfolios.push_back((*target).clone());
     }
 
     // update ticker decision
