@@ -1,13 +1,18 @@
-use log::error;
+use log::{error, info, warn};
 use sminer::{
-    analysis::{replay, ReplayMode},
+    analysis::{replay, trade::rebound_at, ReplayMode},
     init_log,
     persist::es::{take_index_time, ticker_index_name},
     vo::{
-        biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit},
+        biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit, TradeInfo},
         core::{AppConfig, AppContext},
     },
     Result,
+};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
 };
 use tokio::runtime::Runtime;
 
@@ -146,4 +151,61 @@ fn test_sort() {
 
     protfolios.sort_by(|x, y| y.unit_time.partial_cmp(&x.unit_time).unwrap());
     println!("desc: {:?}", &protfolios);
+}
+
+// cargo test --package sminer --test tests -- analysis::test_slope_check --exact --nocapture
+#[test]
+// #[ignore = "manually run only"]
+fn test_slope_check() -> Result<()> {
+    let rt = Runtime::new()?;
+    let result: Result<()> = rt.block_on(async {
+        init_log("INFO").await?;
+        let config = AppConfig::load("config.yaml")?;
+        let context = AppContext::new(config).init().await?;
+        let _config = context.config();
+        let _persistence = context.persistence();
+
+        let files = ["tmp/tmp//trades/tickers20220309/trade-TQQQ.json"];
+
+        for file in files {
+            info!("Load data from {}", file);
+
+            if !Path::new(file).exists() {
+                warn!("File {} not exists", file);
+                continue;
+            }
+
+            let f = File::open(file)?;
+            let reader = BufReader::new(f);
+            let trades: Vec<TradeInfo> = reader
+                .lines()
+                .into_iter()
+                .map(|w| w.unwrap())
+                .map(|line| serde_json::from_str::<TradeInfo>(&line).unwrap())
+                .collect();
+
+            for trade in trades {
+                for (unit, slopes) in trade.states {
+                    let trend = rebound_at(&slopes);
+                    info!(
+                        "trade: {} / {:5} at {}, upwarding: {}, rebount at {} ({}/{}), source: {:?}",
+                        trade.id,
+                        unit,
+                        trade.time,
+                        trend.upwarding,
+                        trend.rebound_at,
+                        trend.up_count,
+                        trend.down_count,
+                        &slopes
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    });
+    if let Err(err) = result {
+        error!("{}", err);
+    }
+    Ok(())
 }

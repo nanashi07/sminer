@@ -493,7 +493,8 @@ async fn export_trades(context: &AppContext, file: &str) -> Result<()> {
             });
             debug!("Finish trades: {} file", &output_name);
         }
-        if config.replay.output.elasticsearch.enabled {
+        // too many data, stop export temporary
+        if config.replay.output.elasticsearch.enabled && false {
             let trades: Vec<ElasticTrade> = list_reader
                 .iter()
                 .flat_map(|item_lock| ElasticTrade::from(&item_lock.read().unwrap()))

@@ -1,7 +1,7 @@
 use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SubscribeCommand {
@@ -217,7 +217,7 @@ pub struct TradeInfo {
 
     #[serde(skip_serializing, skip_deserializing)]
     pub unit_size: usize,
-    pub states: HashMap<String, Vec<f64>>,
+    pub states: BTreeMap<String, Vec<f64>>,
 }
 
 impl TradeInfo {
@@ -231,7 +231,7 @@ impl TradeInfo {
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,
             unit_size,
-            states: HashMap::new(),
+            states: BTreeMap::new(),
         }
     }
 
