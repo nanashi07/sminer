@@ -6,8 +6,8 @@ use crate::{
     analysis::computor::draw_slop_lines,
     persist::{
         es::{
-            index_protfolios, index_slope_points, index_trades, protfolio_index_name,
-            slope_index_name, take_index_time, trade_index_name, ElasticTicker,
+            bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
+            ElasticTicker,
         },
         PersistenceContext,
     },
@@ -18,7 +18,7 @@ use crate::{
     },
     Result,
 };
-use chrono::Utc;
+use chrono::{TimeZone, Utc};
 use log::{debug, error, info, trace};
 use std::{
     fs::{create_dir_all, remove_dir_all, File, OpenOptions},
@@ -363,7 +363,12 @@ async fn output_protfolios(context: &AppContext, file: &str) -> Result<()> {
                 if config.replay.output.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
-                    index_protfolios(&context, &protfolios).await?;
+
+                    // generate index name
+                    let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
+                    let index_name = protfolio_index_name(&time);
+
+                    bulk_index(&context, &index_name, &protfolios).await?;
                 }
             }
         }
@@ -429,7 +434,12 @@ async fn output_slope_points(context: &AppContext, file: &str) -> Result<()> {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
                     let points = draw_slop_lines(&protfolios);
-                    index_slope_points(&context, &points).await?;
+
+                    // generate index name
+                    let time = Utc.timestamp_millis(points.first().unwrap().time);
+                    let index_name = slope_index_name(&time);
+
+                    bulk_index(&context, &index_name, &points).await?;
                 }
             }
         }
@@ -487,7 +497,12 @@ async fn output_trades(context: &AppContext, file: &str) -> Result<()> {
                 .iter()
                 .map(|item_lock| item_lock.read().unwrap().clone())
                 .collect();
-            index_trades(&context, &trades).await?;
+
+            // generate index name
+            let time = Utc.timestamp_millis(trades.first().unwrap().time);
+            let index_name = trade_index_name(&time);
+
+            bulk_index(&context, &index_name, &trades).await?;
         }
     }
 

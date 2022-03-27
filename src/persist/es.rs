@@ -216,32 +216,12 @@ pub async fn index_tickers_from_file(context: &AppContext, path: &str) -> Result
 
     info!("ticker size: {} for {}", &tickers.len(), &path);
 
-    let persistence = context.persistence();
-    let client: Elasticsearch = persistence.get_connection()?;
-
-    let mut body: Vec<JsonBody<_>> = Vec::new();
-    for ticker in tickers {
-        body.push(json!({"index": {}}).into());
-        body.push(json!(ticker).into());
-    }
-
     // generate index name
     let digital = take_digitals(&path);
     let time = Utc.datetime_from_str(&format!("{} 00:00:00", digital), "%Y%m%d %H:%M:%S")?;
     let index_name = ticker_index_name(&time);
 
-    info!("Bulk import messages into index: {}", &index_name);
-    let response = client
-        .bulk(BulkParts::Index(&index_name))
-        .body(body)
-        .send()
-        .await?;
-
-    debug!(
-        "response {} for index {}",
-        response.status_code(),
-        &index_name
-    );
+    bulk_index(&context, &index_name, &tickers).await?;
 
     Ok(())
 }
@@ -261,84 +241,27 @@ pub async fn index_protfolios_from_file(context: &AppContext, path: &str) -> Res
 
     info!("Protfolio size: {} for {}", &protfolios.len(), &path);
 
-    index_protfolios(&context, &protfolios).await?;
-
-    Ok(())
-}
-
-pub async fn index_protfolios(context: &AppContext, protfolios: &Vec<Protfolio>) -> Result<()> {
-    let persistence = context.persistence();
-    let client: Elasticsearch = persistence.get_connection()?;
-
-    let mut body: Vec<JsonBody<_>> = Vec::new();
-    for protfolio in protfolios {
-        body.push(json!({"index": {}}).into());
-        body.push(json!(protfolio).into());
-    }
-
     // generate index name
     let time = Utc.timestamp_millis(protfolios.first().unwrap().time);
     let index_name = protfolio_index_name(&time);
 
-    debug!("Bulk import messages into index: {}", &index_name);
-    let response = client
-        .bulk(BulkParts::Index(&index_name))
-        .body(body)
-        .send()
-        .await?;
-
-    debug!(
-        "response {} for index {}",
-        response.status_code(),
-        &index_name
-    );
+    bulk_index(&context, &index_name, &protfolios).await?;
 
     Ok(())
 }
 
-pub async fn index_trades(context: &AppContext, trades: &Vec<TradeInfo>) -> Result<()> {
+pub async fn bulk_index<T>(context: &AppContext, index_name: &str, list: &Vec<T>) -> Result<()>
+where
+    T: Serialize,
+{
     let persistence = context.persistence();
     let client: Elasticsearch = persistence.get_connection()?;
 
     let mut body: Vec<JsonBody<_>> = Vec::new();
-    for trade in trades {
+    for item in list {
         body.push(json!({"index": {}}).into());
-        body.push(json!(trade).into());
+        body.push(json!(item).into());
     }
-
-    // generate index name
-    let time = Utc.timestamp_millis(trades.first().unwrap().time);
-    let index_name = trade_index_name(&time);
-
-    debug!("Bulk import messages into index: {}", &index_name);
-    let response = client
-        .bulk(BulkParts::Index(&index_name))
-        .body(body)
-        .send()
-        .await?;
-
-    debug!(
-        "response {} for index {}",
-        response.status_code(),
-        &index_name
-    );
-
-    Ok(())
-}
-
-pub async fn index_slope_points(context: &AppContext, slope_points: &Vec<SlopeLine>) -> Result<()> {
-    let persistence = context.persistence();
-    let client: Elasticsearch = persistence.get_connection()?;
-
-    let mut body: Vec<JsonBody<_>> = Vec::new();
-    for point in slope_points {
-        body.push(json!({"index": {}}).into());
-        body.push(json!(point).into());
-    }
-
-    // generate index name
-    let time = Utc.timestamp_millis(slope_points.first().unwrap().time);
-    let index_name = slope_index_name(&time);
 
     debug!("Bulk import messages into index: {}", &index_name);
     let response = client

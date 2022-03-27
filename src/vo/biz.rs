@@ -207,6 +207,7 @@ pub struct TradeInfo {
     pub time: i64,
     pub price: f32,
 
+    #[serde(skip_serializing, skip_deserializing)]
     pub message_id: i64,
 
     pub kind: char,
@@ -214,6 +215,7 @@ pub struct TradeInfo {
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
 
+    #[serde(skip_serializing, skip_deserializing)]
     pub unit_size: usize,
     pub states: HashMap<String, Vec<f64>>,
 }
