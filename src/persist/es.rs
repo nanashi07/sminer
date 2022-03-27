@@ -185,7 +185,7 @@ impl ElasticTrade {
                     id: trade.id.clone(),
                     time: Utc.timestamp_millis(trade.time).to_rfc3339(),
                     timestamp: trade.time,
-                    kind: 't',
+                    kind: trade.kind,
                     unit: format!("{}{:03}", &unit.clone(), &index),
                     slope: *slope,
                 })
@@ -293,7 +293,7 @@ where
         body.push(json!(item).into());
     }
 
-    info!(
+    debug!(
         "Bulk import messages into index: {}, count: {}",
         &index_name,
         list.len()

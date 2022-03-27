@@ -227,7 +227,7 @@ impl TradeInfo {
             time: ticker.time,
             price: ticker.price,
             message_id,
-            kind: 's',
+            kind: 't',
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,
             unit_size,
