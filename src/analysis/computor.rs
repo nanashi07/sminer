@@ -2,7 +2,7 @@ use crate::vo::biz::{Protfolio, SlopeLine, Ticker, TimeUnit};
 use crate::vo::core::LockTradeInfo;
 use crate::Result;
 use chrono::{TimeZone, Utc};
-use log::{debug, log_enabled};
+use log::{debug, log_enabled, trace};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, LinkedList};
 use std::f64::NAN;
@@ -133,10 +133,10 @@ fn update(target: &Protfolio, protfolios: &mut LinkedList<Protfolio>) -> Result<
         .find(|p| p.unit_time == target.unit_time);
     if let Some(result) = find_result {
         result.update_by(target);
-        debug!("Updated with {:?}", result);
+        trace!("Updated with {:?}", result);
     } else {
         protfolios.push_front((*target).clone());
-        debug!("Added with {:?}", target);
+        trace!("Added with {:?}", target);
     }
     Ok(())
 }
@@ -178,20 +178,20 @@ fn aggregate_fixed_unit(
     // update protfolio, only handle the latest 2 records
     let result_size = results.len();
     for (index, target) in results.iter().enumerate() {
-        if log_enabled!(log::Level::Debug) {
-            debug!(
+        if log_enabled!(log::Level::Trace) {
+            trace!(
                 "Updating fixed protfolio, {} of {}, index: {}/{}, {:?}",
-                symbol, unit.duration, index, result_size, target
+                symbol,
+                unit.duration,
+                index,
+                result_size,
+                target
             );
         }
         update(target, protfolios)?;
     }
 
-    // update ticker decision
-    // let value = results.first().unwrap().slope.unwrap_or(0.0);
-    // let mut guard = trade.write().unwrap();
-    // guard.update_state(&unit.name, &value);
-    // debug!("Update trade point: {:?}", guard);
+    // No update for trade info, only moving data is used
 
     Ok(())
 }
@@ -231,21 +231,25 @@ fn aggregate_moving_unit(
     let result_size = results.len();
     protfolios.clear();
     for (index, target) in results.iter().enumerate() {
-        if log_enabled!(log::Level::Debug) {
-            debug!(
+        if log_enabled!(log::Level::Trace) {
+            trace!(
                 "Updating moving protfolio, {} of {}, index: {}/{}, {:?}",
-                symbol, unit.duration, index, result_size, target
+                symbol,
+                unit.duration,
+                index,
+                result_size,
+                target
             );
         }
         // push into list from newest to oldest
         protfolios.push_back((*target).clone());
     }
 
-    // update ticker decision
+    // update trade info
     let values: Vec<f64> = results.iter().map(|f| f.slope.unwrap_or(0.0)).collect();
     let mut guard = trade.write().unwrap();
     guard.update_state(&unit.name, values);
-    debug!("Update trade point: {:?}", guard);
+    debug!("Update trade info: {:?}", guard);
 
     Ok(())
 }
