@@ -13,7 +13,7 @@ use crate::{
     },
     proto::biz::TickerEvent,
     vo::{
-        biz::{Protfolio, Ticker, TimeUnit},
+        biz::{Protfolio, Ticker, TimeUnit, TradeInfo},
         core::AppContext,
     },
     Result,
@@ -156,8 +156,16 @@ async fn handle_message_for_preparatory(
         error!("No tickers container {} initialized", &ticker.id);
     }
 
-    // TODO: Add ticker decision data first (id/time... with empty analysis data)
-    let message_id = Utc::now().timestamp_millis(); // TODO: make sure uniq
+    // Add ticker decision data first (id/time... with empty analysis data)
+    let asset = context.asset();
+    let config = context.config();
+    let units = config.time_units();
+    let message_id = asset.next_message_id();
+    // only take moving data
+    let unit_size = units.iter().filter(|u| u.period > 0).count();
+
+    let trade = TradeInfo::from(&ticker, message_id, unit_size);
+    asset.add_trade(&ticker.id, trade);
 
     // Send signal for symbol analysis
     context.post_man().calculate(&ticker.id, message_id)?;

@@ -14,9 +14,16 @@ pub fn prepare_trade(
     message_id: i64,
 ) -> Result<()> {
     if let Some(lock) = asset.search_trade(message_id) {
-        let value = lock.read().unwrap();
-        debug!("Trade info: {:?}", value);
-        // TODO: check trade
+        let trade = lock.read().unwrap();
+
+        debug!("Trade info: {:?}", &trade);
+        // audit trade
+        if audit_trade(&trade) {
+            debug!("");
+            // check profit to previous order
+            // forecast next possible profit, after 5m place order
+            // forecast possible lost
+        }
     } else {
         warn!("No trade info for message ID: {} found!", &message_id);
     }
@@ -24,24 +31,39 @@ pub fn prepare_trade(
 }
 
 pub fn audit_trade(trade: &TradeInfo) -> bool {
+    // use m1m as initial step
     let m1m = trade.states.get("m1m").unwrap();
-    if m1m.len() > 3 && m1m[0] >= 0.0 && m1m[1] >= 0.0 && m1m[2] < 0.0 && m1m[3] < 0.0 {
-        return true;
+    let rebount_1m = rebound_at(m1m);
+
+    if matches!(rebount_1m.trend, Trend::Upward) && rebount_1m.up_count == 1 {
+        // TODO: check others
+        // check other trends
+        // check max/min price in past sec/min/hour
     }
 
     false
 }
 
+fn isiw() -> bool {
+    false
+}
+
+#[derive(Debug, Clone)]
+pub enum Trend {
+    Upward,
+    Downward,
+}
+
 #[derive(Debug, Clone)]
 pub struct SlopeTrend {
-    pub upwarding: bool,
+    pub trend: Trend,
     pub rebound_at: i32,
     pub up_count: i32,
     pub down_count: i32,
 }
 
 pub fn rebound_at(slopes: &Vec<f64>) -> SlopeTrend {
-    let mut upwarding = true;
+    let mut trend = Trend::Upward;
     let mut rebound_at = -1;
     let mut up_count = 0;
     let mut down_count = 0;
@@ -53,7 +75,7 @@ pub fn rebound_at(slopes: &Vec<f64>) -> SlopeTrend {
         match index {
             0 => {
                 if slope < 0.0 {
-                    upwarding = false;
+                    trend = Trend::Downward;
                     break;
                 }
                 up_count += 1;
@@ -80,7 +102,7 @@ pub fn rebound_at(slopes: &Vec<f64>) -> SlopeTrend {
     }
 
     SlopeTrend {
-        upwarding,
+        trend,
         rebound_at,
         up_count,
         down_count,

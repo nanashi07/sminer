@@ -155,7 +155,7 @@ fn test_sort() {
 
 // cargo test --package sminer --test tests -- analysis::test_slope_check --exact --nocapture
 #[test]
-// #[ignore = "manually run only"]
+#[ignore = "manually run only"]
 fn test_slope_check() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
@@ -182,20 +182,21 @@ fn test_slope_check() -> Result<()> {
                 .into_iter()
                 .map(|w| w.unwrap())
                 .map(|line| serde_json::from_str::<TradeInfo>(&line).unwrap())
+                .filter(|trade| matches!(trade.market_hours, MarketHoursType::RegularMarket))
                 .collect();
 
             for trade in trades {
                 for (unit, slopes) in trade.states {
-                    let trend = rebound_at(&slopes);
+                    let rebound = rebound_at(&slopes);
                     info!(
-                        "trade: {} / {:5} at {}, upwarding: {}, rebount at {} ({}/{}), source: {:?}",
+                        "trade: {} / {:5} at {}, trend: {:?}, rebount at {} ({}/{}), source: {:?}",
                         trade.id,
                         unit,
                         trade.time,
-                        trend.upwarding,
-                        trend.rebound_at,
-                        trend.up_count,
-                        trend.down_count,
+                        rebound.trend,
+                        rebound.rebound_at,
+                        rebound.up_count,
+                        rebound.down_count,
                         &slopes
                     );
                 }

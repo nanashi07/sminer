@@ -6,13 +6,13 @@ use crate::{
     Result,
 };
 use config::Config;
-use log::{debug, error};
+use log::{debug, error, log_enabled};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::max,
     collections::{HashMap, LinkedList},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
@@ -159,6 +159,7 @@ pub struct AssetContext {
     tickers: Arc<LockListMap<Ticker>>,
     protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
     trades: Arc<LockListMap<LockTradeInfo>>,
+    sequence: Arc<Mutex<i64>>,
 }
 
 impl AssetContext {
@@ -167,12 +168,12 @@ impl AssetContext {
         let protfolios = Self::init_protfolios(Arc::clone(&config));
         let trades = Self::init_trades(Arc::clone(&config));
 
-        let asset = Self {
+        Self {
             tickers: Arc::new(tickers),
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
-        };
-        asset
+            sequence: Arc::new(Mutex::new(0)),
+        }
     }
 
     fn init_tickers(config: Arc<AppConfig>) -> LockListMap<Ticker> {
@@ -238,9 +239,19 @@ impl AssetContext {
         }
     }
 
+    pub fn next_message_id(&self) -> i64 {
+        let mut seq = self.sequence.lock().unwrap();
+        *seq += 1;
+        let v = *seq;
+        v
+    }
+
     pub fn add_trade(&self, symbol: &str, trade: TradeInfo) {
         let lock = self.symbol_trades(symbol).unwrap();
         let mut trades = lock.write().unwrap();
+        if log_enabled!(log::Level::Debug) {
+            debug!("add_trade: {} - {:?}", symbol, &trade.clone());
+        }
         trades.push_front(Arc::new(RwLock::new(trade)));
     }
 
