@@ -1,4 +1,5 @@
 pub mod es;
+pub mod grafana;
 pub mod mongo;
 
 use self::mongo::get_mongo_client;

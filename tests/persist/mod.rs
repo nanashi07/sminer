@@ -314,3 +314,29 @@ mod elastic {
         Ok(())
     }
 }
+
+mod grafana {
+
+    use sminer::{init_log, persist::grafana::add_annotation, Result};
+
+    #[test]
+    fn test_json_string() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "dashboardId": 1,
+            "panelId": 2,
+            "time": 1646848456000 as i64,
+            "text": "222"
+        });
+
+        println!("{}", value);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_add_annotation() -> Result<()> {
+        init_log("Debug").await?;
+        add_annotation().await?;
+        Ok(())
+    }
+}
