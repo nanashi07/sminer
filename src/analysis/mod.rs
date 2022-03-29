@@ -256,6 +256,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     info!("Loading tickers: {}", file);
 
     let config = context.config();
+    let asset = context.asset();
 
     let f = File::open(file)?;
     let reader = BufReader::new(f);
@@ -272,13 +273,12 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
 
     info!("Loaded tickers: {} from {}", total, file);
 
-    let mut message_id: i64 = 0;
-
     for ticker in tickers.iter_mut() {
         if mode == ReplayMode::Sync {
             debug!("************************************************************************************************************");
-            message_id += 1;
-            context.dispatch_direct(ticker, message_id).await?;
+            context
+                .dispatch_direct(ticker, asset.next_message_id())
+                .await?;
         } else {
             context.dispatch(ticker).await?;
         }
