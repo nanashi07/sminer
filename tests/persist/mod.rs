@@ -317,7 +317,13 @@ mod elastic {
 
 mod grafana {
 
-    use sminer::{init_log, persist::grafana::add_annotation, Result};
+    use chrono::{DateTime, Utc};
+    use log::info;
+    use sminer::{
+        init_log,
+        persist::grafana::{add_annotation, list_annotations, remove_annotation},
+        Result,
+    };
 
     #[test]
     fn test_json_string() -> Result<()> {
@@ -333,10 +339,59 @@ mod grafana {
         Ok(())
     }
 
+    // cargo test --package sminer --test tests -- persist::grafana::test_add_annotation --exact --nocapture
     #[tokio::test]
+    #[ignore = "manually test"]
     async fn test_add_annotation() -> Result<()> {
-        init_log("Debug").await?;
-        add_annotation().await?;
+        init_log("Trace").await?;
+        let time = DateTime::parse_from_rfc3339("2022-03-09T19:11:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let time2 = DateTime::parse_from_rfc3339("2022-03-09T19:15:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        add_annotation(&time, "my test", &vec!["aaa", "bbb", "ccc"], 1, 2).await?;
+
+        add_annotation(&time2, "my test2", &vec!["111", "222", "333"], 1, 3).await?;
+        Ok(())
+    }
+
+    // cargo test --package sminer --test tests -- persist::grafana::test_list_annotation --exact --nocapture
+    #[tokio::test]
+    #[ignore = "manually test"]
+    async fn test_list_annotation() -> Result<()> {
+        init_log("Trace").await?;
+        let from = DateTime::parse_from_rfc3339("2022-03-09T12:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let to = DateTime::parse_from_rfc3339("2022-03-09T22:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let annotations = list_annotations(&from, &to, None, None, None).await?;
+
+        for annotation in annotations {
+            info!("{:?}", &annotation);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "manually test"]
+    async fn test_delete_annotation() -> Result<()> {
+        init_log("Trace").await?;
+        let from = DateTime::parse_from_rfc3339("2022-03-09T12:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let to = DateTime::parse_from_rfc3339("2022-03-09T22:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let annotations = list_annotations(&from, &to, None, None, None).await?;
+
+        for annotation in annotations {
+            info!("delete annotation: {}", &annotation.id);
+            remove_annotation(annotation.id).await?;
+        }
+
         Ok(())
     }
 }
