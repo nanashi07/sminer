@@ -14,7 +14,7 @@
     },
     "editable": true,
     "gnetId": null,
-    "graphTooltip": 0,
+    "graphTooltip": 1,
     "id": 1,
     "links": [],
     "panels": [
@@ -44,12 +44,14 @@
             "id": 2,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -268,12 +270,14 @@
             "id": 5,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -492,12 +496,14 @@
             "id": 3,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -716,12 +722,14 @@
             "id": 4,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -940,12 +948,14 @@
             "id": 6,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -1164,12 +1174,14 @@
             "id": 7,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -1388,12 +1400,14 @@
             "id": 9,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -1612,12 +1626,14 @@
             "id": 8,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -1836,12 +1852,14 @@
             "id": 10,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -2060,12 +2078,14 @@
             "id": 11,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -2284,12 +2304,14 @@
             "id": 14,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -2508,12 +2530,14 @@
             "id": 15,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -2732,12 +2756,14 @@
             "id": 12,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -2956,12 +2982,14 @@
             "id": 13,
             "legend": {
                 "alignAsTable": true,
+                "avg": false,
                 "current": true,
                 "hideEmpty": true,
                 "hideZero": true,
                 "max": true,
                 "min": true,
                 "show": true,
+                "total": false,
                 "values": true
             },
             "lines": true,
@@ -3182,5 +3210,5 @@
     "timezone": "",
     "title": "Daily Trend",
     "uid": "8XT92WEnz",
-    "version": 22
+    "version": 27
 }
