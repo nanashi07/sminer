@@ -1,10 +1,12 @@
 use crate::{
+    persist::grafana::add_annotation,
     vo::{
-        biz::TradeInfo,
+        biz::{MarketHoursType, Order, TradeInfo},
         core::{AppConfig, AssetContext},
     },
     Result,
 };
+use chrono::{TimeZone, Utc};
 use log::{debug, warn};
 use std::{f64::NAN, sync::Arc};
 
@@ -16,10 +18,18 @@ pub fn prepare_trade(
     if let Some(lock) = asset.search_trade(message_id) {
         let trade = lock.read().unwrap();
 
+        // only accept regular market
+        if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
+            return Ok(());
+        }
+
+        // TODO: ticker time check, drop if time difference too large
+
         debug!("Trade info: {:?}", &trade);
         // audit trade
-        if audit_trade(&trade) {
-            debug!("");
+        if audit_trade(Arc::clone(&asset), &trade) {
+            // debug!("");
+            // check exists order (same side)
             // check profit to previous order
             // forecast next possible profit, after 5m place order
             // forecast possible lost
@@ -27,24 +37,63 @@ pub fn prepare_trade(
     } else {
         warn!("No trade info for message ID: {} found!", &message_id);
     }
+
     Ok(())
 }
 
-pub fn audit_trade(trade: &TradeInfo) -> bool {
+pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    let rebounds = rebound_all(trade);
     // use m1m as initial step
-    let m1m = trade.states.get("m1m").unwrap();
-    let rebount_1m = rebound_at(m1m);
+    if let Some(m1m) = rebounds.iter().find(|r| r.unit == "m1m") {
+        if matches!(m1m.trend, Trend::Upward) && m1m.up_count == 1 && m1m.down_count > 1 {
+            if let Some(protfolios_5m) = asset.get_protfolios(&trade.id, "m5m") {
+                let reader_5m = protfolios_5m.read().unwrap();
+                let min_price_5m = reader_5m.front().unwrap().min_price;
 
-    if matches!(rebount_1m.trend, Trend::Upward) && rebount_1m.up_count == 1 {
-        // TODO: check others
-        // check other trends
-        // check max/min price in past sec/min/hour
+                if min_price_5m > trade.price {
+                    if let Some(_order) = asset.find_running_order_test(&trade.id, trade.time) {
+                        // no
+                        // log::info!("----------------- {:?}", &_order);
+                    } else {
+                        // log::info!(
+                        //     "symbold: {}, time: {}, price: {}, m1m: {:?}",
+                        //     &trade.id,
+                        //     Utc.timestamp_millis(trade.time),
+                        //     trade.price,
+                        //     m1m
+                        // );
+                        if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
+                            // add_annotation(trade.time, "Place TQQQ order", &vec!["TQQQ"], 1, 2)
+                            //     .await?;
+                        }
+                    }
+                    // TODO: check others
+                    // check other trends
+                    // check max/min price in past sec/min/hour
+                }
+            }
+            // if let Some(protfolios_10m) = asset.get_protfolios(&trade.id, "m10m") {
+            //     let reader_10m = protfolios_10m.read().unwrap();
+            //     let min_price_10m = reader_10m.front().unwrap().min_price;
+
+            //     if min_price_10m > trade.price {
+            //         log::info!(
+            //             "symbold: {}, time: {}, price: {}, m1m: {:?}",
+            //             &trade.id,
+            //             Utc.timestamp_millis(trade.time),
+            //             trade.price,
+            //             m1m
+            //         );
+            //         // TODO: check others
+            //         // check other trends
+            //         // check max/min price in past sec/min/hour
+            //     }
+            // }
+        }
+    } else {
+        warn!("No m1m found for trade: {:?}", trade);
     }
 
-    false
-}
-
-fn isiw() -> bool {
     false
 }
 
@@ -56,13 +105,22 @@ pub enum Trend {
 
 #[derive(Debug, Clone)]
 pub struct SlopeTrend {
+    pub unit: String,
     pub trend: Trend,
     pub rebound_at: i32,
     pub up_count: i32,
     pub down_count: i32,
 }
 
-pub fn rebound_at(slopes: &Vec<f64>) -> SlopeTrend {
+pub fn rebound_all(trade: &TradeInfo) -> Vec<SlopeTrend> {
+    trade
+        .states
+        .iter()
+        .map(|(key, values)| rebound_at(&key, &values))
+        .collect::<Vec<SlopeTrend>>()
+}
+
+pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> SlopeTrend {
     let mut trend = Trend::Upward;
     let mut rebound_at = -1;
     let mut up_count = 0;
@@ -102,6 +160,7 @@ pub fn rebound_at(slopes: &Vec<f64>) -> SlopeTrend {
     }
 
     SlopeTrend {
+        unit: unit.to_string(),
         trend,
         rebound_at,
         up_count,

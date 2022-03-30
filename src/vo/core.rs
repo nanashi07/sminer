@@ -1,10 +1,11 @@
-use super::biz::{Protfolio, Ticker, TimeUnit, TradeInfo};
+use super::biz::{Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo};
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
     persist::{es::ElasticTicker, PersistenceContext},
     proto::biz::TickerEvent,
     Result,
 };
+use chrono::Utc;
 use config::Config;
 use log::{debug, error, log_enabled};
 use rayon::prelude::*;
@@ -159,6 +160,7 @@ pub struct AssetContext {
     tickers: Arc<LockListMap<Ticker>>,
     protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
     trades: Arc<LockListMap<LockTradeInfo>>,
+    orders: Arc<RwLock<LinkedList<Order>>>,
     sequence: Arc<Mutex<i64>>,
 }
 
@@ -172,6 +174,7 @@ impl AssetContext {
             tickers: Arc::new(tickers),
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
+            orders: Arc::new(RwLock::new(LinkedList::new())),
             sequence: Arc::new(Mutex::new(0)),
         }
     }
@@ -292,6 +295,52 @@ impl AssetContext {
             trade.finalized()
         } else {
             false
+        }
+    }
+
+    pub fn add_order(&self, order: Order) -> bool {
+        let lock = &self.orders;
+        let mut writer = lock.write().unwrap();
+        if let Some(_duplicated) = writer
+            .iter()
+            .filter(|o| o.symbol == order.symbol)
+            .filter(|o| matches!(o.status, OrderStatus::Init | OrderStatus::Accepted))
+            .filter(|o| o.created_time + 120000 > order.created_time) // FIXME: only for test
+            .next()
+        {
+            debug!("duplicated order {:?}", &order);
+            false
+        } else {
+            log::info!("add new order: {:?}", &order);
+            writer.push_front(order);
+            true
+        }
+    }
+
+    pub fn find_running_order(&self, symbol: &str) -> Option<Order> {
+        let lock = &self.orders;
+        let reader = lock.read().unwrap();
+        if let Some(order) = reader
+            .iter()
+            .filter(|o| o.symbol == symbol)
+            .filter(|o| matches!(o.status, OrderStatus::Init | OrderStatus::Accepted))
+            .next()
+        {
+            Some(order.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn find_running_order_test(&self, symbol: &str, time: i64) -> Option<Order> {
+        if let Some(order) = self.find_running_order(symbol) {
+            if order.created_time + 120000 < time {
+                None
+            } else {
+                Some(order)
+            }
+        } else {
+            None
         }
     }
 

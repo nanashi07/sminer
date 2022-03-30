@@ -1,5 +1,6 @@
 use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Display};
 
@@ -254,4 +255,48 @@ pub struct SlopeLine {
 
     // Period type
     pub period_type: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Order {
+    pub id: String,
+    pub symbol: String,
+    pub created_time: i64,
+    pub created_price: f32,
+    pub created_volume: u32,
+    pub accepted_time: Option<i64>,
+    pub accepted_price: Option<f32>,
+    pub accepted_volume: Option<u32>,
+    pub status: OrderStatus,
+    // opposite order ID
+    pub constraint_id: Option<String>,
+}
+
+impl Order {
+    pub fn new(symbol: &str, price: f32, volume: u32, time: i64) -> Self {
+        Self {
+            id: format!("{}{}", symbol, time),
+            symbol: symbol.to_string(),
+            created_time: time,
+            created_price: price,
+            created_volume: volume,
+            accepted_time: None,
+            accepted_price: None,
+            accepted_volume: None,
+            status: OrderStatus::Init,
+            constraint_id: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum OrderStatus {
+    // order created
+    Init,
+    // order submitted successfully
+    Accepted,
+    // order submitted failed
+    Rejected,
+    // order has been paired done
+    WriteOff,
 }

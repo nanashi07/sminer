@@ -29,7 +29,7 @@ fn test_replay() -> Result<()> {
         let persistence = context.persistence();
 
         let files = vec![
-            "TQQQ.tickers20220323",
+            "json/split.tickers20220309.TQQQ.json",
             // "tickers20220310",
             // "tickers20220311",
             // "tickers20220314",
@@ -57,7 +57,7 @@ fn test_replay() -> Result<()> {
 
 #[test]
 #[ignore = "manually run only, replay from file"]
-fn test_replay_async() -> Result<()> {
+fn test_rexxxplay_async() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
@@ -187,7 +187,7 @@ fn test_slope_check() -> Result<()> {
 
             for trade in trades {
                 for (unit, slopes) in trade.states {
-                    let rebound = rebound_at(&slopes);
+                    let rebound = rebound_at(&unit, &slopes);
                     info!(
                         "trade: {} / {:5} at {}, trend: {:?}, rebount at {} ({}/{}), source: {:?}",
                         trade.id,
