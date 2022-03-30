@@ -66,7 +66,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -291,7 +290,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -516,7 +514,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -741,7 +738,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -966,7 +962,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -1191,7 +1186,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -1416,7 +1410,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -1641,7 +1634,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -1866,7 +1858,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -2091,7 +2082,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -2316,7 +2306,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -2541,7 +2530,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -2766,7 +2754,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
@@ -2991,7 +2978,6 @@
                 {
                     "alias": "Volume",
                     "bars": true,
-                    "fillBelowTo": "Regular Market Price - Average",
                     "lines": false,
                     "yaxis": 2
                 }
