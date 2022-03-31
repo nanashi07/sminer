@@ -141,7 +141,7 @@ pub fn add_order_annotation(
     .collect();
 
     let panel_id = *panel_map.get(symbol.as_str()).unwrap();
-    thread::spawn(move || {
+    let handler = thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .enable_io()
@@ -150,6 +150,8 @@ pub fn add_order_annotation(
         rt.block_on(add_annotation(&time, &text, &tags, 1, panel_id))
             .unwrap();
     });
+
+    handler.join().unwrap();
 
     Ok(())
 }
