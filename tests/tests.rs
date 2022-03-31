@@ -44,3 +44,106 @@ fn test_consume_yahoo_tickers() -> Result<()> {
     });
     Ok(())
 }
+
+#[test]
+fn test_runtime_performance() -> Result<()> {
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        log::debug!("test")
+    }
+    let end = Utc::now().timestamp_millis();
+    println!("log cost : {}", Duration::milliseconds(end - start));
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let _ = tokio::runtime::Runtime::new().unwrap();
+    }
+    let end = Utc::now().timestamp_millis();
+    println!("runtime new cost : {}", Duration::milliseconds(end - start));
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let _ = tokio::runtime::Builder::new_multi_thread().build().unwrap();
+    }
+    let end = Utc::now().timestamp_millis();
+    println!(
+        "new_multi_thread cost : {}",
+        Duration::milliseconds(end - start)
+    );
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let _ = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+    }
+    let end = Utc::now().timestamp_millis();
+    println!(
+        "new_current_thread cost : {}",
+        Duration::milliseconds(end - start)
+    );
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _: Result<()> = rt.block_on(async {
+            log::debug!("test");
+            Ok(())
+        });
+    }
+    let end = Utc::now().timestamp_millis();
+    println!("new block cost : {}", Duration::milliseconds(end - start));
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let _: Result<()> = rt.block_on(async {
+            log::debug!("test");
+            Ok(())
+        });
+    }
+    let end = Utc::now().timestamp_millis();
+    println!(
+        "new_current_thread block cost : {}",
+        Duration::milliseconds(end - start)
+    );
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        let _: Result<()> = rt.block_on(async {
+            log::debug!("test");
+            Ok(())
+        });
+    }
+    let end = Utc::now().timestamp_millis();
+    println!(
+        "new_current_thread with time block cost : {}",
+        Duration::milliseconds(end - start)
+    );
+
+    let start = Utc::now().timestamp_millis();
+    for _ in 1..5000 {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .unwrap();
+        let _: Result<()> = rt.block_on(async {
+            log::debug!("test");
+            Ok(())
+        });
+    }
+    let end = Utc::now().timestamp_millis();
+    println!(
+        "new_current_thread with time/io block cost : {}",
+        Duration::milliseconds(end - start)
+    );
+
+    Ok(())
+}
