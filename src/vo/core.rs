@@ -11,7 +11,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::max,
-    collections::{HashMap, LinkedList},
+    collections::{BTreeMap, HashMap, LinkedList},
     sync::{Arc, Mutex, RwLock},
 };
 use tokio::sync::broadcast::{channel, Receiver, Sender};
@@ -20,7 +20,7 @@ pub const KEY_EXTRA_PRCOESS_IN_ASYNC: &str = "process_in_async";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 
 pub type LockTradeInfo = Arc<RwLock<TradeInfo>>;
-pub type LockListMap<T> = HashMap<String, RwLock<LinkedList<T>>>;
+pub type LockListMap<T> = BTreeMap<String, RwLock<LinkedList<T>>>;
 
 #[derive(Debug)]
 pub struct AppContext {
@@ -180,7 +180,7 @@ impl AssetContext {
 
     fn init_tickers(config: Arc<AppConfig>) -> LockListMap<Ticker> {
         let symbols = config.symbols();
-        let mut map: LockListMap<Ticker> = HashMap::new();
+        let mut map: LockListMap<Ticker> = BTreeMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }
@@ -191,7 +191,7 @@ impl AssetContext {
         let symbols = config.symbols();
         let mut map: HashMap<String, LockListMap<Protfolio>> = HashMap::new();
         for symbol in symbols {
-            let mut uniter: LockListMap<Protfolio> = HashMap::new();
+            let mut uniter: LockListMap<Protfolio> = BTreeMap::new();
             for unit in config.time_units() {
                 uniter.insert(unit.name.clone(), RwLock::new(LinkedList::new()));
             }
@@ -202,7 +202,7 @@ impl AssetContext {
 
     fn init_trades(config: Arc<AppConfig>) -> LockListMap<LockTradeInfo> {
         let symbols = config.symbols();
-        let mut map: LockListMap<LockTradeInfo> = HashMap::new();
+        let mut map: LockListMap<LockTradeInfo> = BTreeMap::new();
         for symbol in symbols {
             map.insert(symbol, RwLock::new(LinkedList::new()));
         }

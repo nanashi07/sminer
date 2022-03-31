@@ -175,8 +175,8 @@ impl TimeUnit {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Protfolio {
     pub id: String,
-    pub price: f32,
     pub time: i64,
+    pub price: f32,
 
     pub kind: char,
 

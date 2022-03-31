@@ -29,12 +29,13 @@ fn test_replay() -> Result<()> {
         let persistence = context.persistence();
 
         let files = vec![
-            // "json/split.tickers20220309.TQQQ.json",
-            "tickers20220309",
-            // "tickers20220311",
-            // "tickers20220314",
-            // "tickers20220315",
-            // "tickers20220316",
+            // "tmp/json/split.tickers20220309.LABU-LABD.json",
+            "tmp/json/split.tickers20220309.SOXL-SOXS.json",
+            // "tmp/json/split.tickers20220309.SPXL-SPXS.json",
+            // "tmp/json/split.tickers20220309.TNA-TZA.json",
+            // "tmp/json/split.tickers20220309.TQQQ-SQQQ.json",
+            // "tmp/json/split.tickers20220309.UDOW-SDOW.json",
+            // "tmp/json/split.tickers20220309.YINN-YANG.json",
         ];
         for file in files {
             if config.sync_mongo_enabled() {
@@ -45,7 +46,7 @@ fn test_replay() -> Result<()> {
                 let index_name = ticker_index_name(&index_time);
                 persistence.delete_index(&index_name).await?;
             }
-            replay(&context, &format!("tmp/{}", &file), ReplayMode::Sync).await?
+            replay(&context, file, ReplayMode::Sync).await?
         }
         Ok(())
     });

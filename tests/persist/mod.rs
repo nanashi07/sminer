@@ -389,6 +389,7 @@ mod grafana {
         Ok(())
     }
 
+    // cargo test --package sminer --test tests -- persist::grafana::test_delete_annotation --exact --nocapture --ignored
     #[tokio::test]
     #[ignore = "manually test"]
     async fn test_delete_annotation() -> Result<()> {
@@ -399,11 +400,15 @@ mod grafana {
         let to = DateTime::parse_from_rfc3339("2022-03-09T23:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        let annotations = list_annotations(&from, &to, None, None, None).await?;
 
-        for annotation in annotations {
-            info!("delete annotation: {}", &annotation.id);
-            remove_annotation(annotation.id).await?;
+        let mut count = 1;
+        while count > 0 {
+            let annotations = list_annotations(&from, &to, None, None, None).await?;
+            count = annotations.len();
+            for annotation in annotations {
+                info!("delete annotation: {}", &annotation.id);
+                remove_annotation(annotation.id).await?;
+            }
         }
 
         Ok(())

@@ -26,70 +26,70 @@ replay:
     elasticsearch:
       enabled: false
 units:
-  # - name: f10s
+  # - name: f0010
   #   duration: 10
   #   period: 0
-  # - name: f30s
+  # - name: f0030
   #   duration: 30
   #   period: 0
-  # - name: f1m
+  # - name: f0060
   #   duration: 60
   #   period: 0
-  # - name: f2m
+  # - name: f0120
   #   duration: 120
   #   period: 0
-  # - name: f3m
+  # - name: f0180
   #   duration: 180
   #   period: 0
-  # - name: f4m
+  # - name: f0240
   #   duration: 240
   #   period: 0
-  # - name: f5m
+  # - name: f0300
   #   duration: 300
   #   period: 0
-  # - name: f10m
+  # - name: f0600
   #   duration: 600
   #   period: 0
-  # - name: f20m
+  # - name: f1200
   #   duration: 1200
   #   period: 0
-  # - name: f30m
+  # - name: f1800
   #   duration: 1800
   #   period: 0
-  # - name: f1h
+  # - name: f3600
   #   duration: 3600
   #   period: 0
-  - name: m10s
+  - name: m0010
     duration: 10
     period: 100
-  - name: m30s
+  - name: m0030
     duration: 30
     period: 60
-  - name: m1m
+  - name: m0060
     duration: 60
     period: 50
-  - name: m2m
+  - name: m0120
     duration: 120
     period: 30
-  - name: m3m
+  - name: m0180
     duration: 180
     period: 15
-  - name: m4m
+  - name: m0240
     duration: 240
     period: 15
-  - name: m5m
+  - name: m0300
     duration: 300
     period: 12
-  - name: m10m
+  - name: m0600
     duration: 600
     period: 9
-  - name: m20m
+  - name: m1200
     duration: 1200
     period: 6
-  - name: m30m
+  - name: m1800
     duration: 1800
     period: 4
-  - name: m1h
+  - name: m3600
     duration: 3600
     period: 3
 tickers:

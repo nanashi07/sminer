@@ -63,13 +63,16 @@ fn calculate_slope(samples: &Vec<(f64, f64)>) -> (f64, f64) {
     }
 }
 
-fn group_by(mut map: BTreeMap<i64, Vec<Protfolio>>, p: Protfolio) -> BTreeMap<i64, Vec<Protfolio>> {
-    if let Some(list) = map.get_mut(&p.unit_time) {
-        list.push(p);
+fn group_by(
+    mut map: BTreeMap<i64, Vec<Protfolio>>,
+    protfolio: Protfolio,
+) -> BTreeMap<i64, Vec<Protfolio>> {
+    if let Some(list) = map.get_mut(&protfolio.unit_time) {
+        list.push(protfolio);
     } else {
-        let unit_time = p.unit_time;
+        let unit_time = protfolio.unit_time;
         let mut list: Vec<Protfolio> = Vec::new();
-        list.push(p);
+        list.push(protfolio);
         map.insert(unit_time, list);
     }
     map
@@ -83,16 +86,22 @@ fn calculate(values: &Vec<Protfolio>) -> Protfolio {
     let price_close = first.price;
 
     let price_max = values
-        .par_iter()
-        .map(|p| p.price)
-        .reduce(|| 0.0, |a, b| if a >= b { a } else { b });
+        .iter()
+        .map(|protfolio| protfolio.price)
+        .reduce(f32::max)
+        .unwrap();
+
     let price_min = values
-        .par_iter()
-        .map(|p| p.price)
-        .reduce(|| price_max, |a, b| if a <= b { a } else { b });
+        .iter()
+        .map(|protfolio| protfolio.price)
+        .reduce(f32::min)
+        .unwrap();
 
     // Calculate average price
-    let price_sum: f64 = values.par_iter().map(|p| p.price as f64).sum();
+    let price_sum: f64 = values
+        .par_iter()
+        .map(|protfolio| protfolio.price as f64)
+        .sum();
     let price_avg: f32 = (price_sum / values.len() as f64) as f32;
 
     let volume = first.volume - last.volume; // FIXME : lack of the volume of first item
@@ -166,9 +175,10 @@ fn aggregate_fixed_unit(
         .iter()
         .take_while(|t| t.time >= min_time)
         .map(|t| Protfolio::fixed(t, unit))
-        .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
-            group_by(map, p)
-        })
+        .fold(
+            BTreeMap::new(),
+            |map: BTreeMap<i64, Vec<Protfolio>>, protfolio| group_by(map, protfolio),
+        )
         .iter()
         .rev()
         .take(2)
@@ -218,10 +228,11 @@ fn aggregate_moving_unit(
     let results = tickers
         .iter()
         .take_while(|t| t.time > scope) // only take items in range
-        .map(|t| Protfolio::moving(t, unit, last_timestamp))
-        .fold(BTreeMap::new(), |map: BTreeMap<i64, Vec<Protfolio>>, p| {
-            group_by(map, p)
-        })
+        .map(|ticker| Protfolio::moving(ticker, unit, last_timestamp))
+        .fold(
+            BTreeMap::new(),
+            |map: BTreeMap<i64, Vec<Protfolio>>, protfolios| group_by(map, protfolios),
+        )
         .values()
         .map(|values| calculate(values))
         .rev() // sort by time desc
@@ -323,21 +334,19 @@ impl Protfolio {
         }
     }
 
-    fn moving(t: &Ticker, unit: &TimeUnit, base_time: i64) -> Self {
+    fn moving(ticker: &Ticker, unit: &TimeUnit, base_time: i64) -> Self {
         Self {
-            id: t.id.clone(),
-            price: t.price,
-            time: t.time,
+            id: ticker.id.clone(),
+            price: ticker.price,
+            time: ticker.time,
             kind: 'p',
-            // moving time range, according base_time
-            unit_time: base_time
-                + ((base_time - t.time) / (unit.duration as i64 * 1000))
-                    * (unit.duration as i64 * 1000),
+
+            unit_time: Self::moving_time(ticker.time, base_time, unit.duration as i64),
             unit: unit.clone(),
             period_type: unit.duration,
-            quote_type: t.quote_type,
-            market_hours: t.market_hours,
-            volume: t.day_volume,
+            quote_type: ticker.quote_type,
+            market_hours: ticker.market_hours,
+            volume: ticker.day_volume,
             max_price: 0.0,
             min_price: 0.0,
             open_price: 0.0,
@@ -346,6 +355,13 @@ impl Protfolio {
             slope: None,
             b_num: None,
         }
+    }
+
+    // moving time range, according base_time
+    fn moving_time(time: i64, base_time: i64, duration: i64) -> i64 {
+        let mut diff = base_time - time;
+        diff = diff - (diff % (duration * 1000));
+        base_time - diff
     }
 
     fn update_by(&mut self, source: &Self) {

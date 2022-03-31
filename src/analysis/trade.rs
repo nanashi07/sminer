@@ -7,7 +7,7 @@ use crate::{
     Result,
 };
 use chrono::{TimeZone, Utc};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::{f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
@@ -49,9 +49,9 @@ pub fn prepare_trade(
 
 pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
     let rebounds = rebound_all(trade);
-    // use m1m as initial step
-    if let Some(m1m) = rebounds.iter().find(|r| r.unit == "m1m") {
-        let map: std::collections::HashMap<&str, i64> = [
+    // use m0060 as initial step
+    if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
+        let panel_map: std::collections::HashMap<&str, i64> = [
             ("TQQQ", 2),
             ("SQQQ", 5),
             ("SOXL", 3),
@@ -71,24 +71,43 @@ pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
         .cloned()
         .collect();
 
-        if matches!(m1m.trend, Trend::Upward) && m1m.up_count == 1 && m1m.down_count > 1 {
+        if matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1 {
             // check min price in 5m
-            let min_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m1m", 1, 6);
-            let max_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m1m", 1, 6);
+            let min_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
+            let max_price_5m = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
 
             if min_price_5m.is_normal() && min_price_5m > trade.price {
                 if let Some(_duplicated) = asset.find_running_order_test(&trade.id, trade.time) {
                     // duplicated order, do nothing
                 } else {
                     if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
+                        // print details
+                        info!("################################### trade {} ###################################", &trade.message_id);
+                        for trend in &rebounds {
+                            info!("{:?}", trend);
+                        }
+                        let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
+                        for (unit, lock) in protfolio_map {
+                            let reader = lock.read().unwrap();
+                            info!("*********************************** unit {} ***********************************", unit);
+                            for protfolios in reader.iter() {
+                                info!("unit: {}, {:?}", unit, protfolios);
+                            }
+                        }
+
                         let time = Utc.timestamp_millis(trade.time);
                         let tags = vec![
                             trade.id.clone(),
-                            "m1m".to_owned(),
+                            format!("MSG-{}", &trade.message_id),
+                            format!(
+                                "1m {:?} ({}/{})",
+                                m0060.trend, m0060.up_count, m0060.down_count
+                            ),
                             format!("1-6m min: {}", min_price_5m),
+                            format!("1-6m max: {}", max_price_5m),
                             trade.price.to_string(),
                         ];
-                        let panel_id = *map.get(trade.id.as_str()).unwrap();
+                        let panel_id = *panel_map.get(trade.id.as_str()).unwrap();
                         let rt = tokio::runtime::Builder::new_current_thread()
                             .enable_time()
                             .enable_io()
