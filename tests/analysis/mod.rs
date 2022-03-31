@@ -30,10 +30,10 @@ fn test_replay() -> Result<()> {
 
         let files = vec![
             // "tmp/json/split.tickers20220309.LABU-LABD.json",
-            "tmp/json/split.tickers20220309.SOXL-SOXS.json",
+            // "tmp/json/split.tickers20220309.SOXL-SOXS.json",
             // "tmp/json/split.tickers20220309.SPXL-SPXS.json",
             // "tmp/json/split.tickers20220309.TNA-TZA.json",
-            // "tmp/json/split.tickers20220309.TQQQ-SQQQ.json",
+            "tmp/json/split.tickers20220309.TQQQ-SQQQ.json",
             // "tmp/json/split.tickers20220309.UDOW-SDOW.json",
             // "tmp/json/split.tickers20220309.YINN-YANG.json",
         ];

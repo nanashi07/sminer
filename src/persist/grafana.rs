@@ -62,6 +62,42 @@ pub async fn list_annotations(
     Ok(annotations)
 }
 
+pub fn add_order_annotation(
+    symbol: &str,
+    time: &DateTime<Utc>,
+    text: &str,
+    tags: &Vec<String>,
+) -> Result<()> {
+    let panel_map: std::collections::HashMap<&str, i64> = [
+        ("TQQQ", 2),
+        ("SQQQ", 5),
+        ("SOXL", 3),
+        ("SOXS", 4),
+        ("SPXL", 6),
+        ("SPXS", 7),
+        ("LABU", 9),
+        ("LABD", 8),
+        ("TNA", 10),
+        ("TZA", 11),
+        ("YINN", 14),
+        ("YANG", 15),
+        ("UDOW", 12),
+        ("SDOW", 13),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let panel_id = *panel_map.get(symbol).unwrap();
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .enable_io()
+        .build()
+        .unwrap();
+    rt.block_on(add_annotation(&time, text, &tags, 1, panel_id))
+}
+
 pub async fn add_annotation(
     time: &DateTime<Utc>,
     text: &str,

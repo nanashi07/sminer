@@ -1,5 +1,5 @@
 use crate::{
-    persist::grafana::add_annotation,
+    persist::grafana::add_order_annotation,
     vo::{
         biz::{MarketHoursType, Order, TradeInfo},
         core::{AppConfig, AssetContext},
@@ -51,85 +51,115 @@ pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
     let rebounds = rebound_all(trade);
     // use m0060 as initial step
     if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
-        let panel_map: std::collections::HashMap<&str, i64> = [
-            ("TQQQ", 2),
-            ("SQQQ", 5),
-            ("SOXL", 3),
-            ("SOXS", 4),
-            ("SPXL", 6),
-            ("SPXS", 7),
-            ("LABU", 9),
-            ("LABD", 8),
-            ("TNA", 10),
-            ("TZA", 11),
-            ("YINN", 14),
-            ("YANG", 15),
-            ("UDOW", 12),
-            ("SDOW", 13),
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        // check
+        // let min = DateTime::parse_from_rfc3339("2022-03-09T14:54:00.000Z")
+        //     .unwrap()
+        //     .timestamp_millis();
+        // let max = DateTime::parse_from_rfc3339("2022-03-09T14:54:30.000Z")
+        //     .unwrap()
+        //     .timestamp_millis();
+
+        // if trade.time > min && trade.time < max {
+        //     print_meta(Arc::clone(&asset), trade, &rebounds);
+        // }
 
         if matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1 {
-            // check min price in 5m
-            let min_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
-            let max_price_5m = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
-
-            if min_price_5m.is_normal() && min_price_5m > trade.price {
-                if let Some(_duplicated) = asset.find_running_order_test(&trade.id, trade.time) {
-                    // duplicated order, do nothing
-                } else {
-                    if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
-                        // print details
-                        info!("################################### trade {} ###################################", &trade.message_id);
-                        for trend in &rebounds {
-                            info!("{:?}", trend);
-                        }
-                        let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
-                        for (unit, lock) in protfolio_map {
-                            let reader = lock.read().unwrap();
-                            info!("*********************************** unit {} ***********************************", unit);
-                            for protfolios in reader.iter() {
-                                info!("unit: {}, {:?}", unit, protfolios);
-                            }
-                        }
-
-                        let time = Utc.timestamp_millis(trade.time);
-                        let tags = vec![
-                            trade.id.clone(),
-                            format!("MSG-{}", &trade.message_id),
-                            format!(
-                                "1m {:?} ({}/{})",
-                                m0060.trend, m0060.up_count, m0060.down_count
-                            ),
-                            format!("1-6m min: {}", min_price_5m),
-                            format!("1-6m max: {}", max_price_5m),
-                            trade.price.to_string(),
-                        ];
-                        let panel_id = *panel_map.get(trade.id.as_str()).unwrap();
-                        let rt = tokio::runtime::Builder::new_current_thread()
-                            .enable_time()
-                            .enable_io()
-                            .build()
-                            .unwrap();
-                        rt.block_on(async {
-                            add_annotation(&time, "Place order", &tags, 1, panel_id)
-                                .await
-                                .unwrap();
-                        });
-                    }
-                }
-                // TODO: check others
-                // check other trends
-                // check max/min price in past sec/min/hour
+            if !validate_min_price(Arc::clone(&asset), trade) {
+                return false;
             }
+
+            if matches!(
+                asset.find_running_order_test(&trade.id, trade.time),
+                Some(_duplicated)
+            ) {
+                // duplicated order, do nothing
+                return false;
+            }
+
+            if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
+                print_meta(Arc::clone(&asset), trade, &rebounds);
+                let time = Utc.timestamp_millis(trade.time);
+                let tags = vec![
+                    trade.id.clone(),
+                    format!("MSG-{}", &trade.message_id),
+                    format!(
+                        "1m {:?} ({}/{})",
+                        m0060.trend, m0060.up_count, m0060.down_count
+                    ),
+                    trade.price.to_string(),
+                ];
+                add_order_annotation(&trade.id, &time, "Place order", &tags).unwrap();
+            }
+            // TODO: check others
+            // check other trends
+            // check max/min price in past sec/min/hour
         }
     } else {
         warn!("No 1m moving data found for trade: {:?}", trade);
     }
 
     false
+}
+
+// print details
+fn print_meta(asset: Arc<AssetContext>, trade: &TradeInfo, rebounds: &Vec<SlopeTrend>) {
+    info!(
+        "################################### MSG-{} ###################################",
+        &trade.message_id
+    );
+
+    let min_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
+    let max_price_5m = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
+    let min_price_10m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 11);
+    let max_price_10m = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 1, 11);
+
+    info!(
+        "5m min: {min} < {price} : {higher}, min diff: {min_diff} ({min_diff_rate:.2}%), max: {max}, min-max: {min_max_diff} ({min_max_diff_rate:.2}%)",
+        min               = min_price_5m,
+        price             = trade.price,
+        higher            = min_price_5m < trade.price,
+        min_diff          = trade.price - min_price_5m,
+        min_diff_rate     = 100.0 * (trade.price - min_price_5m) / min_price_5m,
+        max               = max_price_5m,
+        min_max_diff      = max_price_5m - min_price_5m,
+        min_max_diff_rate = 100.0 * (max_price_5m - min_price_5m) / max_price_5m,
+    );
+
+    info!(
+        "10 min: {min} < {price} : {higher}, min diff: {min_diff} ({min_diff_rate:.2}%), max: {max}, min-max: {min_max_diff} ({min_max_diff_rate:.2}%)",
+        min               = min_price_10m,
+        price             = trade.price,
+        higher            = min_price_10m < trade.price,
+        min_diff          = trade.price - min_price_10m,
+        min_diff_rate     = 100.0 * (trade.price - min_price_10m) / min_price_10m,
+        max               = max_price_10m,
+        min_max_diff      = max_price_10m - min_price_10m,
+        min_max_diff_rate = 100.0 * (max_price_10m - min_price_10m) / max_price_10m,
+    );
+
+    for trend in rebounds {
+        info!("{:?}", trend);
+    }
+    let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
+    for (unit, lock) in protfolio_map {
+        let reader = lock.read().unwrap();
+        info!(
+            "*********************************** unit {} ***********************************",
+            unit
+        );
+        for protfolios in reader.iter() {
+            info!("unit: {}, {:?}", unit, protfolios);
+        }
+    }
+}
+
+fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    let min_price_05m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
+    // let min_price_10m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 11);
+    // let min_price_30m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 31);
+    // let min_price_50m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 51);
+
+    min_price_05m.is_normal() && min_price_05m > trade.price * 0.999
 }
 
 fn find_min_price(
