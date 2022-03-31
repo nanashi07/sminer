@@ -350,9 +350,23 @@ mod grafana {
         let time2 = DateTime::parse_from_rfc3339("2022-03-09T19:15:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        add_annotation(&time, "my test", &vec!["aaa", "bbb", "ccc"], 1, 2).await?;
+        add_annotation(
+            &time,
+            "my test",
+            &vec!["aaa".to_owned(), "bbb".to_owned(), "ccc".to_owned()],
+            1,
+            2,
+        )
+        .await?;
 
-        add_annotation(&time2, "my test2", &vec!["111", "222", "333"], 1, 3).await?;
+        add_annotation(
+            &time2,
+            "my test2",
+            &vec!["111".to_owned(), "222".to_owned(), "333".to_owned()],
+            1,
+            3,
+        )
+        .await?;
         Ok(())
     }
 
@@ -379,10 +393,10 @@ mod grafana {
     #[ignore = "manually test"]
     async fn test_delete_annotation() -> Result<()> {
         init_log("Trace").await?;
-        let from = DateTime::parse_from_rfc3339("2022-03-09T12:00:00.000Z")
+        let from = DateTime::parse_from_rfc3339("2022-03-09T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        let to = DateTime::parse_from_rfc3339("2022-03-09T22:00:00.000Z")
+        let to = DateTime::parse_from_rfc3339("2022-03-09T23:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
         let annotations = list_annotations(&from, &to, None, None, None).await?;
