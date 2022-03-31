@@ -2,7 +2,7 @@ use crate::Result;
 use chrono::{DateTime, Utc};
 use hyper::{Body, Client, Method};
 use hyper_tls::HttpsConnector;
-use log::debug;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -13,26 +13,27 @@ const AUTH: &str = "Basic YWRtaW46cGFzc3dvcmQ=";
 // .uri("http://admin:password@localhost:8091/api/annotations")
 
 pub async fn list_annotations(
-    from: &DateTime<Utc>,
-    to: &DateTime<Utc>,
+    from: Option<DateTime<Utc>>,
+    to: Option<DateTime<Utc>>,
     dashboard_id: Option<i64>,
     panel_id: Option<i64>,
-    tags: Option<Vec<String>>,
+    tags: &Vec<String>,
 ) -> Result<Vec<Annotation>> {
-    let mut params = vec![
-        ("from", from.timestamp_millis().to_string()),
-        ("to", to.timestamp_millis().to_string()),
-    ];
+    let mut params: Vec<(&str, String)> = Vec::new();
+    if let Some(time) = from {
+        params.push(("from", time.timestamp_millis().to_string()));
+    }
+    if let Some(time) = to {
+        params.push(("to", time.timestamp_millis().to_string()));
+    }
     if let Some(id) = dashboard_id {
         params.push(("dashboardId", id.to_string()));
     }
     if let Some(id) = panel_id {
         params.push(("dashboardId", id.to_string()));
     }
-    if let Some(values) = tags {
-        for tag in values {
-            params.push(("tags", tag));
-        }
+    for tag in tags {
+        params.push(("tags", tag.to_owned()));
     }
 
     let query = params
@@ -62,42 +63,6 @@ pub async fn list_annotations(
     Ok(annotations)
 }
 
-pub fn add_order_annotation(
-    symbol: &str,
-    time: &DateTime<Utc>,
-    text: &str,
-    tags: &Vec<String>,
-) -> Result<()> {
-    let panel_map: std::collections::HashMap<&str, i64> = [
-        ("TQQQ", 2),
-        ("SQQQ", 5),
-        ("SOXL", 3),
-        ("SOXS", 4),
-        ("SPXL", 6),
-        ("SPXS", 7),
-        ("LABU", 9),
-        ("LABD", 8),
-        ("TNA", 10),
-        ("TZA", 11),
-        ("YINN", 14),
-        ("YANG", 15),
-        ("UDOW", 12),
-        ("SDOW", 13),
-    ]
-    .iter()
-    .cloned()
-    .collect();
-
-    let panel_id = *panel_map.get(symbol).unwrap();
-
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_time()
-        .enable_io()
-        .build()
-        .unwrap();
-    rt.block_on(add_annotation(&time, text, &tags, 1, panel_id))
-}
-
 pub async fn add_annotation(
     time: &DateTime<Utc>,
     text: &str,
@@ -105,6 +70,7 @@ pub async fn add_annotation(
     dashboard_id: i64,
     panel_id: i64,
 ) -> Result<()> {
+    log::info!("add order annotation....");
     let value: Value = json!({
         "dashboardId": dashboard_id,
         "panelId": panel_id,
@@ -147,6 +113,59 @@ pub async fn remove_annotation(id: i32) -> Result<()> {
     Ok(())
 }
 
+pub fn add_order_annotation(
+    symbol: &str,
+    time: &DateTime<Utc>,
+    text: &str,
+    tags: &Vec<String>,
+) -> Result<()> {
+    let panel_map: std::collections::HashMap<&str, i64> = [
+        ("TQQQ", 2),
+        ("SQQQ", 5),
+        ("SOXL", 3),
+        ("SOXS", 4),
+        ("SPXL", 6),
+        ("SPXS", 7),
+        ("LABU", 9),
+        ("LABD", 8),
+        ("TNA", 10),
+        ("TZA", 11),
+        ("YINN", 14),
+        ("YANG", 15),
+        ("UDOW", 12),
+        ("SDOW", 13),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let panel_id = *panel_map.get(symbol).unwrap();
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .enable_io()
+        .build()
+        .unwrap();
+    rt.block_on(add_annotation(&time, text, &tags, 1, panel_id))
+}
+
+pub async fn clear_annotations(
+    from: Option<DateTime<Utc>>,
+    to: Option<DateTime<Utc>>,
+    tags: &Vec<String>,
+) -> Result<()> {
+    let mut count = 1;
+    while count > 0 {
+        let annotations = list_annotations(from, to, None, None, tags).await?;
+        count = annotations.len();
+        for annotation in annotations {
+            info!("Remove annotation: {}", &annotation.id);
+            remove_annotation(annotation.id).await?;
+        }
+    }
+
+    Ok(())
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Annotation {
     pub id: i32,

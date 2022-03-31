@@ -381,7 +381,7 @@ mod grafana {
         let to = DateTime::parse_from_rfc3339("2022-03-09T22:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        let annotations = list_annotations(&from, &to, None, None, None).await?;
+        let annotations = list_annotations(Some(from), Some(to), None, None, &Vec::new()).await?;
 
         for annotation in annotations {
             info!("{:?}", &annotation);
@@ -403,7 +403,8 @@ mod grafana {
 
         let mut count = 1;
         while count > 0 {
-            let annotations = list_annotations(&from, &to, None, None, None).await?;
+            let annotations =
+                list_annotations(Some(from), Some(to), None, None, &Vec::new()).await?;
             count = annotations.len();
             for annotation in annotations {
                 info!("delete annotation: {}", &annotation.id);

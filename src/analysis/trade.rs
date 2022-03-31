@@ -8,7 +8,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::{debug, info, warn};
-use std::{f64::NAN, sync::Arc};
+use std::{f64::NAN, sync::Arc, thread};
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -78,6 +78,7 @@ pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
 
             if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
                 print_meta(Arc::clone(&asset), trade, &rebounds);
+                let symbol = trade.id.clone();
                 let time = Utc.timestamp_millis(trade.time);
                 let tags = vec![
                     trade.id.clone(),
@@ -88,7 +89,9 @@ pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
                     ),
                     trade.price.to_string(),
                 ];
-                add_order_annotation(&trade.id, &time, "Place order", &tags).unwrap();
+                thread::spawn(move || {
+                    add_order_annotation(&symbol, &time, "Place order", &tags).unwrap();
+                });
             }
             // TODO: check others
             // check other trends

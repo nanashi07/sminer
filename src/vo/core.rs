@@ -382,7 +382,7 @@ impl PostMan {
         let (house_keeper, _) = channel::<TickerEvent>(2048);
         let (preparatory, _) = channel::<TickerEvent>(2048);
         let calculator = Self::init_sender(Arc::clone(&config));
-        let (trader, _) = channel::<i64>(1024);
+        let (trader, _) = channel::<i64>(128);
 
         let post_man = Self {
             house_keeper,
