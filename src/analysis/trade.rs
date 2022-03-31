@@ -8,7 +8,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::{debug, info, warn};
-use std::{f64::NAN, sync::Arc, thread};
+use std::{f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -89,9 +89,7 @@ pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
                     ),
                     trade.price.to_string(),
                 ];
-                thread::spawn(move || {
-                    add_order_annotation(&symbol, &time, "Place order", &tags).unwrap();
-                });
+                add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
             }
             // TODO: check others
             // check other trends

@@ -1,3 +1,5 @@
+use std::thread;
+
 use crate::Result;
 use chrono::{DateTime, Utc};
 use hyper::{Body, Client, Method};
@@ -70,7 +72,6 @@ pub async fn add_annotation(
     dashboard_id: i64,
     panel_id: i64,
 ) -> Result<()> {
-    log::info!("add order annotation....");
     let value: Value = json!({
         "dashboardId": dashboard_id,
         "panelId": panel_id,
@@ -78,7 +79,7 @@ pub async fn add_annotation(
         "tags": tags,
         "text": text
     });
-    debug!("body = {:?}", value);
+    debug!("add annotation body = {:?}", value);
 
     let request = hyper::Request::builder()
         .uri(URI_GRAFANA)
@@ -93,7 +94,7 @@ pub async fn add_annotation(
     // let client = Client::new();
     let response = client.request(request).await?;
 
-    debug!("response = {:?}", response);
+    debug!("add annotation response = {:?}", response);
 
     Ok(())
 }
@@ -108,16 +109,16 @@ pub async fn remove_annotation(id: i32) -> Result<()> {
     let client = Client::new();
     let response = client.request(request).await?;
 
-    debug!("response = {:?}", response);
+    debug!("remove annotation response = {:?}", response);
 
     Ok(())
 }
 
 pub fn add_order_annotation(
-    symbol: &str,
-    time: &DateTime<Utc>,
-    text: &str,
-    tags: &Vec<String>,
+    symbol: String,
+    time: DateTime<Utc>,
+    text: String,
+    tags: Vec<String>,
 ) -> Result<()> {
     let panel_map: std::collections::HashMap<&str, i64> = [
         ("TQQQ", 2),
@@ -139,14 +140,18 @@ pub fn add_order_annotation(
     .cloned()
     .collect();
 
-    let panel_id = *panel_map.get(symbol).unwrap();
+    let panel_id = *panel_map.get(symbol.as_str()).unwrap();
+    thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .unwrap();
+        rt.block_on(add_annotation(&time, &text, &tags, 1, panel_id))
+            .unwrap();
+    });
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_time()
-        .enable_io()
-        .build()
-        .unwrap();
-    rt.block_on(add_annotation(&time, text, &tags, 1, panel_id))
+    Ok(())
 }
 
 pub async fn clear_annotations(
