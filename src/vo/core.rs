@@ -5,6 +5,7 @@ use crate::{
     proto::biz::TickerEvent,
     Result,
 };
+use chrono::Utc;
 use config::Config;
 use log::{debug, error, log_enabled};
 use rayon::prelude::*;
@@ -174,7 +175,7 @@ impl AssetContext {
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
             orders: Arc::new(RwLock::new(LinkedList::new())),
-            sequence: Arc::new(Mutex::new(0)),
+            sequence: Arc::new(Mutex::new(Utc::now().timestamp_millis())),
         }
     }
 
