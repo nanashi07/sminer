@@ -1,6 +1,7 @@
 use crate::Result;
 use chrono::{DateTime, Utc};
 use hyper::{Body, Client, Method};
+use hyper_tls::HttpsConnector;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -64,7 +65,7 @@ pub async fn list_annotations(
 pub async fn add_annotation(
     time: &DateTime<Utc>,
     text: &str,
-    tags: &Vec<&str>,
+    tags: &Vec<String>,
     dashboard_id: i64,
     panel_id: i64,
 ) -> Result<()> {
@@ -84,7 +85,10 @@ pub async fn add_annotation(
         .header("Content-Type", "application/json")
         .body(Body::from(value.to_string()))?;
 
-    let client = Client::new();
+    let https_connector = HttpsConnector::new();
+    let client = Client::builder().build(https_connector);
+
+    // let client = Client::new();
     let response = client.request(request).await?;
 
     debug!("response = {:?}", response);

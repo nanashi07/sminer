@@ -10,46 +10,55 @@ platform:
   yahoo:
     uri: "wss://streamer.finance.yahoo.com/"
 replay:
+  # export:
+  #   - name: ticker
+  #     enabled: true
+  #   - name: protfolio
+  #     enabled: true
+  #   - name: slope
+  #     enabled: true
+  #   - name: trade
+  #     enabled: true
   output:
     # baseFolder: tmp
     file:
-      enabled: true
+      enabled: false
     elasticsearch:
-      enabled: true
+      enabled: false
 units:
-  - name: f10s
-    duration: 10
-    period: 0
-  - name: f30s
-    duration: 30
-    period: 0
-  - name: f1m
-    duration: 60
-    period: 0
-  - name: f2m
-    duration: 120
-    period: 0
-  - name: f3m
-    duration: 180
-    period: 0
-  - name: f4m
-    duration: 240
-    period: 0
-  - name: f5m
-    duration: 300
-    period: 0
-  - name: f10m
-    duration: 600
-    period: 0
-  - name: f20m
-    duration: 1200
-    period: 0
-  - name: f30m
-    duration: 1800
-    period: 0
-  - name: f1h
-    duration: 3600
-    period: 0
+  # - name: f10s
+  #   duration: 10
+  #   period: 0
+  # - name: f30s
+  #   duration: 30
+  #   period: 0
+  # - name: f1m
+  #   duration: 60
+  #   period: 0
+  # - name: f2m
+  #   duration: 120
+  #   period: 0
+  # - name: f3m
+  #   duration: 180
+  #   period: 0
+  # - name: f4m
+  #   duration: 240
+  #   period: 0
+  # - name: f5m
+  #   duration: 300
+  #   period: 0
+  # - name: f10m
+  #   duration: 600
+  #   period: 0
+  # - name: f20m
+  #   duration: 1200
+  #   period: 0
+  # - name: f30m
+  #   duration: 1800
+  #   period: 0
+  # - name: f1h
+  #   duration: 3600
+  #   period: 0
   - name: m10s
     duration: 10
     period: 100

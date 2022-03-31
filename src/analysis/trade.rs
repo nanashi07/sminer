@@ -23,7 +23,7 @@ pub fn prepare_trade(
             return Ok(());
         }
 
-        // TODO: ticker time check, drop if time difference too large
+        // TODO: ticker time check, drop if time difference too long
 
         debug!("Trade info: {:?}", &trade);
         // audit trade
@@ -41,60 +41,128 @@ pub fn prepare_trade(
     Ok(())
 }
 
+// 小於區間內最小值(扣除目前的上升區間)
+// 區間內與最大值的價差（比率）
+// 區間內的振蕩性
+// 區間內的最大最小價差
+// 與反向 eft 的利差（數值）
+
 pub fn audit_trade(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
     let rebounds = rebound_all(trade);
     // use m1m as initial step
     if let Some(m1m) = rebounds.iter().find(|r| r.unit == "m1m") {
+        let map: std::collections::HashMap<&str, i64> = [
+            ("TQQQ", 2),
+            ("SQQQ", 5),
+            ("SOXL", 3),
+            ("SOXS", 4),
+            ("SPXL", 6),
+            ("SPXS", 7),
+            ("LABU", 9),
+            ("LABD", 8),
+            ("TNA", 10),
+            ("TZA", 11),
+            ("YINN", 14),
+            ("YANG", 15),
+            ("UDOW", 12),
+            ("SDOW", 13),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
         if matches!(m1m.trend, Trend::Upward) && m1m.up_count == 1 && m1m.down_count > 1 {
-            if let Some(protfolios_5m) = asset.get_protfolios(&trade.id, "m5m") {
-                let reader_5m = protfolios_5m.read().unwrap();
-                let min_price_5m = reader_5m.front().unwrap().min_price;
+            // check min price in 5m
+            let min_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m1m", 1, 6);
+            let max_price_5m = find_min_price(Arc::clone(&asset), &trade.id, "m1m", 1, 6);
 
-                if min_price_5m > trade.price {
-                    if let Some(_order) = asset.find_running_order_test(&trade.id, trade.time) {
-                        // no
-                        // log::info!("----------------- {:?}", &_order);
-                    } else {
-                        // log::info!(
-                        //     "symbold: {}, time: {}, price: {}, m1m: {:?}",
-                        //     &trade.id,
-                        //     Utc.timestamp_millis(trade.time),
-                        //     trade.price,
-                        //     m1m
-                        // );
-                        if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
-                            // add_annotation(trade.time, "Place TQQQ order", &vec!["TQQQ"], 1, 2)
-                            //     .await?;
-                        }
+            if min_price_5m.is_normal() && min_price_5m > trade.price {
+                if let Some(_duplicated) = asset.find_running_order_test(&trade.id, trade.time) {
+                    // duplicated order, do nothing
+                } else {
+                    if asset.add_order(Order::new(&trade.id, trade.price, 10, trade.time)) {
+                        let time = Utc.timestamp_millis(trade.time);
+                        let tags = vec![
+                            trade.id.clone(),
+                            "m1m".to_owned(),
+                            format!("1-6m min: {}", min_price_5m),
+                            trade.price.to_string(),
+                        ];
+                        let panel_id = *map.get(trade.id.as_str()).unwrap();
+                        let rt = tokio::runtime::Builder::new_current_thread()
+                            .enable_time()
+                            .enable_io()
+                            .build()
+                            .unwrap();
+                        rt.block_on(async {
+                            add_annotation(&time, "Place order", &tags, 1, panel_id)
+                                .await
+                                .unwrap();
+                        });
                     }
-                    // TODO: check others
-                    // check other trends
-                    // check max/min price in past sec/min/hour
                 }
+                // TODO: check others
+                // check other trends
+                // check max/min price in past sec/min/hour
             }
-            // if let Some(protfolios_10m) = asset.get_protfolios(&trade.id, "m10m") {
-            //     let reader_10m = protfolios_10m.read().unwrap();
-            //     let min_price_10m = reader_10m.front().unwrap().min_price;
-
-            //     if min_price_10m > trade.price {
-            //         log::info!(
-            //             "symbold: {}, time: {}, price: {}, m1m: {:?}",
-            //             &trade.id,
-            //             Utc.timestamp_millis(trade.time),
-            //             trade.price,
-            //             m1m
-            //         );
-            //         // TODO: check others
-            //         // check other trends
-            //         // check max/min price in past sec/min/hour
-            //     }
-            // }
         }
     } else {
-        warn!("No m1m found for trade: {:?}", trade);
+        warn!("No 1m moving data found for trade: {:?}", trade);
     }
 
     false
+}
+
+fn find_min_price(
+    asset: Arc<AssetContext>,
+    symbol: &str,
+    unit: &str,
+    start: usize,
+    end: usize,
+) -> f32 {
+    if let Some(lock) = asset.get_protfolios(symbol, unit) {
+        let reader = lock.read().unwrap();
+        if reader.is_empty() {
+            f32::NAN
+        } else {
+            let min = reader
+                .iter()
+                .skip(start)
+                .take(end - start)
+                .map(|p| p.min_price)
+                .reduce(f32::min)
+                .unwrap();
+            min
+        }
+    } else {
+        f32::NAN
+    }
+}
+
+fn find_max_price(
+    asset: Arc<AssetContext>,
+    symbol: &str,
+    unit: &str,
+    start: usize,
+    end: usize,
+) -> f32 {
+    if let Some(lock) = asset.get_protfolios(symbol, unit) {
+        let reader = lock.read().unwrap();
+        if reader.is_empty() {
+            f32::NAN
+        } else {
+            let max = reader
+                .iter()
+                .skip(start)
+                .take(end - start)
+                .map(|p| p.max_price)
+                .reduce(f32::max)
+                .unwrap();
+            max
+        }
+    } else {
+        f32::NAN
+    }
 }
 
 #[derive(Debug, Clone)]

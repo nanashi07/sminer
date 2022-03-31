@@ -5,7 +5,6 @@ use crate::{
     proto::biz::TickerEvent,
     Result,
 };
-use chrono::Utc;
 use config::Config;
 use log::{debug, error, log_enabled};
 use rayon::prelude::*;
@@ -437,7 +436,7 @@ impl PostMan {
         Ok(result)
     }
 
-    pub fn watch_trade(&self, message_id: i64) -> Result<usize> {
+    pub async fn watch_trade(&self, message_id: i64) -> Result<usize> {
         let result = self.trader.send(message_id)?;
         Ok(result)
     }

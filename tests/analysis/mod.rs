@@ -29,8 +29,8 @@ fn test_replay() -> Result<()> {
         let persistence = context.persistence();
 
         let files = vec![
-            "json/split.tickers20220309.TQQQ.json",
-            // "tickers20220310",
+            // "json/split.tickers20220309.TQQQ.json",
+            "tickers20220309",
             // "tickers20220311",
             // "tickers20220314",
             // "tickers20220315",

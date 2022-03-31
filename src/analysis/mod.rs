@@ -190,7 +190,7 @@ async fn handle_message_for_calculator(
             "Prepare handle finalized trade info, symbol: {}, message_id: {}",
             symbol, &message_id
         );
-        context.post_man().watch_trade(message_id)?;
+        context.post_man().watch_trade(message_id).await?;
     }
     Ok(())
 }
