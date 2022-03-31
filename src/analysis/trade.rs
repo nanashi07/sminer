@@ -160,7 +160,7 @@ fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
     // let min_price_30m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 31);
     // let min_price_50m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 51);
 
-    min_price_05m.is_normal() && min_price_05m > trade.price * 0.999
+    min_price_05m.is_normal() && min_price_05m > trade.price * 0.998
 }
 
 fn find_min_price(
