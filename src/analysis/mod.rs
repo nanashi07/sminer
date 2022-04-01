@@ -164,7 +164,7 @@ async fn handle_message_for_preparatory(
     // only take moving data
     let unit_size = units.iter().filter(|u| u.period > 0).count();
 
-    let trade = TradeInfo::from(&ticker, message_id, unit_size);
+    let trade = TradeInfo::from(&ticker, message_id, unit_size, false);
     asset.add_trade(&ticker.id, trade);
 
     // Send signal for symbol analysis

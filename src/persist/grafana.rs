@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread, collections::HashMap};
 
 use crate::Result;
 use chrono::{DateTime, Utc};
@@ -120,7 +120,7 @@ pub fn add_order_annotation(
     text: String,
     tags: Vec<String>,
 ) -> Result<()> {
-    let panel_map: std::collections::HashMap<&str, i64> = [
+    let panel_map: HashMap<&str, i64> = [
         ("TQQQ", 2),
         ("SQQQ", 5),
         ("SOXL", 3),
@@ -141,7 +141,11 @@ pub fn add_order_annotation(
     .collect();
 
     let panel_id = *panel_map.get(symbol.as_str()).unwrap();
+
+    // async to sync, need a new thread
     let handler = thread::spawn(move || {
+        // TODO: use futures::executor::block_on(f)?
+        // futures::executor::block_on(add_annotation(&time, &text, &tags, 1, panel_id)).unwrap();
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .enable_io()

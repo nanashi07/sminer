@@ -1,5 +1,6 @@
 use crate::proto::biz::TickerEvent;
 use crate::proto::yahoo::YahooTicker;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Display};
 
@@ -216,12 +217,14 @@ pub struct TradeInfo {
     pub market_hours: MarketHoursType,
 
     #[serde(skip_serializing, skip_deserializing)]
+    pub replay: bool,
+    #[serde(skip_serializing, skip_deserializing)]
     pub unit_size: usize,
     pub states: BTreeMap<String, Vec<f64>>,
 }
 
 impl TradeInfo {
-    pub fn from(ticker: &Ticker, message_id: i64, unit_size: usize) -> Self {
+    pub fn from(ticker: &Ticker, message_id: i64, unit_size: usize, replay: bool) -> Self {
         Self {
             id: ticker.id.clone(),
             time: ticker.time,
@@ -231,6 +234,7 @@ impl TradeInfo {
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,
             unit_size,
+            replay,
             states: BTreeMap::new(),
         }
     }
@@ -241,6 +245,14 @@ impl TradeInfo {
 
     pub fn finalized(&self) -> bool {
         self.unit_size == self.states.len()
+    }
+
+    pub fn action_time(&self) -> i64 {
+        if self.replay {
+            self.time
+        } else {
+            Utc::now().timestamp_millis()
+        }
     }
 }
 

@@ -138,7 +138,7 @@ impl AppContext {
         let unit_size = units.iter().filter(|u| u.period > 0).count();
 
         // Add ticker decision data first (id/time... with empty analysis data)
-        let trade = TradeInfo::from(ticker, message_id, unit_size);
+        let trade = TradeInfo::from(ticker, message_id, unit_size, true);
         asset.add_trade(&ticker.id, trade);
 
         // calculate protfolios, speed up using parallel loop (change to normal loop when debugging log order)
