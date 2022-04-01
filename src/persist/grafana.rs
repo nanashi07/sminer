@@ -1,4 +1,4 @@
-use std::{thread, collections::HashMap};
+use std::{collections::HashMap, thread};
 
 use crate::Result;
 use chrono::{DateTime, Utc};
@@ -10,8 +10,9 @@ use serde_json::{json, Value};
 
 // https://grafana.com/docs/grafana/latest/http_api/annotations/
 
+const DASHBOARD_ID: i64 = 4;
 const URI_GRAFANA: &str = "http://localhost:8091/api/annotations";
-const AUTH: &str = "Basic YWRtaW46cGFzc3dvcmQ=";
+const TOKEN_GRAFANA: &str = "Basic YWRtaW46cGFzc3dvcmQ=";
 // .uri("http://admin:password@localhost:8091/api/annotations")
 
 pub async fn list_annotations(
@@ -49,7 +50,7 @@ pub async fn list_annotations(
     let request = hyper::Request::builder()
         .uri(format!("{}?{}", URI_GRAFANA, &query))
         .method(Method::GET)
-        .header("Authorization", AUTH)
+        .header("Authorization", TOKEN_GRAFANA)
         .body(Body::empty())?;
 
     let client = Client::new();
@@ -84,7 +85,7 @@ pub async fn add_annotation(
     let request = hyper::Request::builder()
         .uri(URI_GRAFANA)
         .method(Method::POST)
-        .header("Authorization", AUTH)
+        .header("Authorization", TOKEN_GRAFANA)
         .header("Content-Type", "application/json")
         .body(Body::from(value.to_string()))?;
 
@@ -103,7 +104,7 @@ pub async fn remove_annotation(id: i32) -> Result<()> {
     let request = hyper::Request::builder()
         .uri(format!("{}/{}", URI_GRAFANA, &id))
         .method(Method::DELETE)
-        .header("Authorization", AUTH)
+        .header("Authorization", TOKEN_GRAFANA)
         .body(Body::empty())?;
 
     let client = Client::new();
@@ -121,20 +122,34 @@ pub fn add_order_annotation(
     tags: Vec<String>,
 ) -> Result<()> {
     let panel_map: HashMap<&str, i64> = [
-        ("TQQQ", 2),
-        ("SQQQ", 5),
-        ("SOXL", 3),
-        ("SOXS", 4),
-        ("SPXL", 6),
-        ("SPXS", 7),
-        ("LABU", 9),
-        ("LABD", 8),
-        ("TNA", 10),
-        ("TZA", 11),
-        ("YINN", 14),
-        ("YANG", 15),
-        ("UDOW", 12),
-        ("SDOW", 13),
+        // ("TQQQ", 2),
+        // ("SQQQ", 5),
+        // ("SOXL", 3),
+        // ("SOXS", 4),
+        // ("SPXL", 6),
+        // ("SPXS", 7),
+        // ("LABU", 9),
+        // ("LABD", 8),
+        // ("TNA", 10),
+        // ("TZA", 11),
+        // ("YINN", 14),
+        // ("YANG", 15),
+        // ("UDOW", 12),
+        // ("SDOW", 13),
+        ("TQQQ", 1),
+        ("SQQQ", 2),
+        ("SOXL", 1),
+        ("SOXS", 2),
+        ("SPXL", 1),
+        ("SPXS", 2),
+        ("LABU", 1),
+        ("LABD", 2),
+        ("TNA", 1),
+        ("TZA", 2),
+        ("YINN", 1),
+        ("YANG", 2),
+        ("UDOW", 1),
+        ("SDOW", 2),
     ]
     .iter()
     .cloned()
@@ -144,14 +159,12 @@ pub fn add_order_annotation(
 
     // async to sync, need a new thread
     let handler = thread::spawn(move || {
-        // TODO: use futures::executor::block_on(f)?
-        // futures::executor::block_on(add_annotation(&time, &text, &tags, 1, panel_id)).unwrap();
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .enable_io()
             .build()
             .unwrap();
-        rt.block_on(add_annotation(&time, &text, &tags, 1, panel_id))
+        rt.block_on(add_annotation(&time, &text, &tags, DASHBOARD_ID, panel_id))
             .unwrap();
     });
 

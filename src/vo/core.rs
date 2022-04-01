@@ -334,7 +334,7 @@ impl AssetContext {
 
     pub fn find_running_order_test(&self, symbol: &str, time: i64) -> Option<Order> {
         if let Some(order) = self.find_running_order(symbol) {
-            if order.created_time + 120000 < time {
+            if order.created_time + 60000 < time {
                 None
             } else {
                 Some(order)
@@ -438,8 +438,13 @@ impl PostMan {
     }
 
     pub async fn watch_trade(&self, message_id: i64) -> Result<usize> {
-        let result = self.trader.send(message_id)?;
-        Ok(result)
+        match self.trader.send(message_id) {
+            Ok(result) => Ok(result),
+            Err(err) => {
+                error!("watch trade send message id failed: {:?}", err);
+                Ok(0)
+            }
+        }
     }
 }
 

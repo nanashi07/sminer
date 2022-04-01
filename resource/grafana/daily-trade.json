@@ -1,0 +1,612 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": "-- Grafana --",
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "gnetId": null,
+    "graphTooltip": 1,
+    "id": 4,
+    "iteration": 1648795777455,
+    "links": [],
+    "panels": [
+        {
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {}
+                },
+                "overrides": []
+            },
+            "fill": 1,
+            "fillGradient": 0,
+            "gridPos": {
+                "h": 9,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "hiddenSeries": false,
+            "id": 1,
+            "legend": {
+                "alignAsTable": true,
+                "avg": false,
+                "current": true,
+                "hideEmpty": true,
+                "hideZero": true,
+                "max": true,
+                "min": true,
+                "show": true,
+                "total": false,
+                "values": true
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "options": {
+                "dataLinks": []
+            },
+            "percentage": false,
+            "pointradius": 2,
+            "points": false,
+            "renderer": "flot",
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bull} AND market_hours: RegularMarket AND period_type: 0",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bull} AND market_hours: PreMarket AND period_type: 0",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bull} AND market_hours: PostMarket AND period_type: 0",
+                    "refId": "C",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bull} AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
+                }
+            ],
+            "thresholds": [],
+            "timeFrom": null,
+            "timeRegions": [],
+            "timeShift": null,
+            "title": "${bull}",
+            "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+            },
+            "type": "graph",
+            "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+            },
+            "yaxes": [
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                }
+            ],
+            "yaxis": {
+                "align": false,
+                "alignLevel": null
+            }
+        },
+        {
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "datasource": "Elasticsearch - tickers",
+            "decimals": 3,
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {}
+                },
+                "overrides": []
+            },
+            "fill": 1,
+            "fillGradient": 0,
+            "gridPos": {
+                "h": 9,
+                "w": 24,
+                "x": 0,
+                "y": 9
+            },
+            "hiddenSeries": false,
+            "id": 2,
+            "legend": {
+                "alignAsTable": true,
+                "avg": false,
+                "current": true,
+                "hideEmpty": true,
+                "hideZero": true,
+                "max": true,
+                "min": true,
+                "show": true,
+                "total": false,
+                "values": true
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "options": {
+                "dataLinks": []
+            },
+            "percentage": false,
+            "pointradius": 2,
+            "points": false,
+            "renderer": "flot",
+            "seriesOverrides": [
+                {
+                    "alias": "Volume",
+                    "bars": true,
+                    "lines": false,
+                    "yaxis": 2
+                }
+            ],
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "alias": "Regular Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {
+                                "sigma": 4
+                            },
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bear} AND market_hours: RegularMarket AND period_type: 0",
+                    "refId": "A",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "PreMarket Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bear} AND market_hours: PreMarket AND period_type: 0",
+                    "refId": "B",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Post Market Price - {{metric}}",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "price",
+                            "id": "1",
+                            "meta": {
+                                "avg": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bear} AND market_hours: PostMarket AND period_type: 0",
+                    "refId": "C",
+                    "timeField": "time"
+                },
+                {
+                    "alias": "Volume",
+                    "bucketAggs": [
+                        {
+                            "field": "time",
+                            "id": "2",
+                            "settings": {
+                                "interval": "auto",
+                                "min_doc_count": 0,
+                                "trimEdges": 0
+                            },
+                            "type": "date_histogram"
+                        }
+                    ],
+                    "hide": false,
+                    "metrics": [
+                        {
+                            "field": "volume",
+                            "id": "1",
+                            "meta": {
+                                "avg": false,
+                                "sum": true
+                            },
+                            "pipelineAgg": "select metric",
+                            "settings": {},
+                            "type": "extended_stats"
+                        }
+                    ],
+                    "query": "id: ${bear} AND period_type: 0",
+                    "refId": "D",
+                    "timeField": "time"
+                }
+            ],
+            "thresholds": [],
+            "timeFrom": null,
+            "timeRegions": [],
+            "timeShift": null,
+            "title": "${bear}",
+            "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+            },
+            "type": "graph",
+            "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+            },
+            "yaxes": [
+                {
+                    "format": "currencyUSD",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                }
+            ],
+            "yaxis": {
+                "align": false,
+                "alignLevel": null
+            }
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 25,
+    "style": "dark",
+    "tags": [],
+    "templating": {
+        "list": [
+            {
+                "allValue": null,
+                "current": {
+                    "selected": false,
+                    "text": "TQQQ",
+                    "value": "TQQQ"
+                },
+                "hide": 0,
+                "includeAll": false,
+                "label": "Bull",
+                "multi": false,
+                "name": "bull",
+                "options": [
+                    {
+                        "selected": false,
+                        "text": "TQQQ",
+                        "value": "TQQQ"
+                    },
+                    {
+                        "selected": true,
+                        "text": "SOXL",
+                        "value": "SOXL"
+                    },
+                    {
+                        "selected": false,
+                        "text": "SPXL",
+                        "value": "SPXL"
+                    },
+                    {
+                        "selected": false,
+                        "text": "LABU",
+                        "value": "LABU"
+                    },
+                    {
+                        "selected": false,
+                        "text": "TNA",
+                        "value": "TNA"
+                    },
+                    {
+                        "selected": false,
+                        "text": "YINN",
+                        "value": "YINN"
+                    },
+                    {
+                        "selected": false,
+                        "text": "UDOW",
+                        "value": "UDOW"
+                    }
+                ],
+                "query": "TQQQ, SOXL, SPXL, LABU, TNA, YINN, UDOW",
+                "queryValue": "",
+                "skipUrlSync": false,
+                "type": "custom"
+            },
+            {
+                "allValue": null,
+                "current": {
+                    "selected": false,
+                    "text": "SQQQ",
+                    "value": "SQQQ"
+                },
+                "hide": 0,
+                "includeAll": false,
+                "label": "Bear",
+                "multi": false,
+                "name": "bear",
+                "options": [
+                    {
+                        "selected": false,
+                        "text": "SQQQ",
+                        "value": "SQQQ"
+                    },
+                    {
+                        "selected": true,
+                        "text": "SOXS",
+                        "value": "SOXS"
+                    },
+                    {
+                        "selected": false,
+                        "text": "SPXS",
+                        "value": "SPXS"
+                    },
+                    {
+                        "selected": false,
+                        "text": "LABD",
+                        "value": "LABD"
+                    },
+                    {
+                        "selected": false,
+                        "text": "TZA",
+                        "value": "TZA"
+                    },
+                    {
+                        "selected": false,
+                        "text": "YANG",
+                        "value": "YANG"
+                    },
+                    {
+                        "selected": false,
+                        "text": "SDOW",
+                        "value": "SDOW"
+                    }
+                ],
+                "query": "SQQQ, SOXS, SPXS, LABD, TZA, YANG, SDOW",
+                "queryValue": "",
+                "skipUrlSync": false,
+                "type": "custom"
+            }
+        ]
+    },
+    "time": {
+        "from": "2022-03-09T14:30:00.000Z",
+        "to": "2022-03-09T21:00:00.000Z"
+    },
+    "timepicker": {
+        "refresh_intervals": [
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "1d"
+        ]
+    },
+    "timezone": "",
+    "title": "Daily Trade",
+    "uid": "77T92WEnz",
+    "version": 7
+}

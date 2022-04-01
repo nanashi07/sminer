@@ -20,7 +20,7 @@ replay:
   #   - name: trade
   #     enabled: true
   output:
-    # baseFolder: tmp
+    # baseFolder: tmp02
     file:
       enabled: false
     elasticsearch:
@@ -61,13 +61,13 @@ units:
   #   period: 0
   - name: m0010
     duration: 10
-    period: 100
+    period: 360
   - name: m0030
     duration: 30
-    period: 60
+    period: 120
   - name: m0060
     duration: 60
-    period: 50
+    period: 60
   - name: m0120
     duration: 120
     period: 30

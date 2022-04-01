@@ -8,12 +8,9 @@ use crate::{
 };
 use chrono::{DateTime, TimeZone, Utc};
 use log::{debug, warn};
-use std::{
-    collections::BTreeMap, f64::NAN, fs::OpenOptions, io::BufWriter, io::Write, path::Path,
-    sync::Arc,
-};
+use std::{f64::NAN, fs::OpenOptions, io::BufWriter, io::Write, path::Path, sync::Arc};
 
-const PRICE_DIFFER_RATE_TO_MIN: f32 = 0.999;
+const PRICE_DEVIATION_RATE_TO_MIN: f32 = 0.998;
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -33,11 +30,21 @@ pub fn prepare_trade(
         debug!("Trade info: {:?}", &trade);
         // audit trade
         if audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade) {
-            // debug!("");
-            // check exists order (same side)
-            // check profit to previous order
-            // forecast next possible profit, after 5m place order
-            // forecast possible lost
+            let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
+            if asset.add_order(order.clone()) {
+                let order_id = order.id.clone();
+                print_meta(Arc::clone(&asset), Arc::clone(&config), Some(order), &trade)
+                    .unwrap_or_default();
+                let symbol = trade.id.clone();
+                let time = Utc.timestamp_millis(trade.action_time());
+                let tags = vec![
+                    trade.id.clone(),
+                    order_id,
+                    format!("MSG-{}", &trade.message_id),
+                    trade.price.to_string(),
+                ];
+                add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+            }
         }
     } else {
         warn!("No trade info for message ID: {} found!", &message_id);
@@ -53,77 +60,64 @@ pub fn prepare_trade(
 // 與反向 eft 的利差（數值）
 
 pub fn audit_trade(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
-    let rebounds = rebound_all(trade);
-    // use m0060 as initial step
-    if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
-        // check
-        if false {
-            let min = DateTime::parse_from_rfc3339("2022-03-09T14:54:00.000Z")
-                .unwrap()
-                .timestamp_millis();
-            let max = DateTime::parse_from_rfc3339("2022-03-09T14:54:30.000Z")
-                .unwrap()
-                .timestamp_millis();
+    // FIXME: period check
+    if false {
+        let min = DateTime::parse_from_rfc3339("2022-03-09T14:54:00.000Z")
+            .unwrap()
+            .timestamp_millis();
+        let max = DateTime::parse_from_rfc3339("2022-03-09T14:54:30.000Z")
+            .unwrap()
+            .timestamp_millis();
 
-            if trade.time > min && trade.time < max {
-                print_meta(
-                    Arc::clone(&asset),
-                    Arc::clone(&config),
-                    None,
-                    trade,
-                    &rebounds,
-                )
-                .unwrap_or_default();
-            }
+        if trade.time > min && trade.time < max {
+            print_meta(Arc::clone(&asset), Arc::clone(&config), None, trade).unwrap_or_default();
         }
-
-        if matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1 {
-            if !validate_min_price(Arc::clone(&asset), trade) {
-                return false;
-            }
-
-            if matches!(
-                asset.find_running_order_test(&trade.id, trade.action_time()),
-                Some(_duplicated)
-            ) {
-                // duplicated order, do nothing
-                return false;
-            }
-
-            let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
-            if asset.add_order(order.clone()) {
-                let order_id = order.id.clone();
-                print_meta(
-                    Arc::clone(&asset),
-                    Arc::clone(&config),
-                    Some(order),
-                    trade,
-                    &rebounds,
-                )
-                .unwrap_or_default();
-                let symbol = trade.id.clone();
-                let time = Utc.timestamp_millis(trade.action_time());
-                let tags = vec![
-                    trade.id.clone(),
-                    order_id,
-                    format!("MSG-{}", &trade.message_id),
-                    format!(
-                        "1m {:?} ({}/{})",
-                        m0060.trend, m0060.up_count, m0060.down_count
-                    ),
-                    trade.price.to_string(),
-                ];
-                add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
-            }
-            // TODO: check others
-            // check other trends
-            // check max/min price in past sec/min/hour
-        }
-    } else {
-        warn!("No 1m moving data found for trade: {:?}", trade);
     }
 
-    false
+    let rebounds = rebound_all(trade);
+
+    // use m0060 as initial step
+    if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
+        // check 1m trend, should be upward and with multiple previous downwards
+        if !(matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1) {
+            return false;
+        }
+    }
+    // check 30s trend
+    if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
+        if matches!(m0030.trend, Trend::Downward) {
+            return false;
+        }
+    }
+    // check 10s trend
+    if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
+        if matches!(m0010.trend, Trend::Downward) {
+            return false;
+        }
+    }
+
+    // check max/min price in past sec/min/hour
+    if !validate_min_price(Arc::clone(&asset), trade) {
+        return false;
+    }
+
+    if matches!(
+        asset.find_running_order_test(&trade.id, trade.action_time()),
+        Some(_duplicated)
+    ) {
+        // duplicated order, do nothing
+        return false;
+    }
+
+    // TODO: check others
+    // check other trends
+    // debug!("");
+    // check exists order (same side)
+    // check profit to previous order
+    // forecast next possible profit, after 5m place order
+    // forecast possible lost
+
+    true
 }
 
 // print details
@@ -132,7 +126,6 @@ fn print_meta(
     config: Arc<AppConfig>,
     order: Option<Order>,
     trade: &TradeInfo,
-    rebounds: &Vec<SlopeTrend>,
 ) -> Result<()> {
     let mut buffered: Vec<String> = Vec::new();
 
@@ -149,31 +142,43 @@ fn print_meta(
         ));
     }
 
-    let price_check_ranges: BTreeMap<usize, &str> = [
-        (6, "5m"),
-        (11, "10m"),
-        (21, "20m"),
-        (31, "30m"),
-        (51, "50m"),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    let price_check_ranges = [
+        (1, 6),
+        (6, 11),
+        (11, 16),
+        (16, 21),
+        (21, 26),
+        (26, 31),
+        (31, 36),
+        (36, 41),
+        (41, 46),
+        (46, 51),
+        (51, 56),
+        (56, 61),
+        (1, 11),
+        (11, 21),
+        (21, 31),
+        (31, 41),
+        (41, 51),
+        (51, 61),
+        (1, 16),
+        (16, 31),
+        (31, 46),
+        (46, 61),
+        (1, 31),
+        (31, 61),
+    ];
 
-    buffered.push(format!(
-        "------------------------------------------------------------------------"
-    ));
-
-    for (end, name) in price_check_ranges {
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, end);
-        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 1, end);
+    for (start, end) in price_check_ranges {
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", start, end);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0060", start, end);
 
         buffered.push(format!(
-            "{name} min: {min} < {price} : {higher}, min diff: {min_diff} ({min_diff_rate:.2}%), max: {max}, min-max: {min_max_diff} ({min_max_diff_rate:.2}%)",
-            name              = name,
+            "{start:02}-{end:02}m price: {price:.4}, min: {min:.4}, min diff: {min_diff:.4} ({min_diff_rate:.3}%), max: {max:.4}, min-max: {min_max_diff:.4} ({min_max_diff_rate:.3}%)",
+            start             = start,
+            end               = end,
             min               = min_price,
             price             = trade.price,
-            higher            = min_price < trade.price,
             min_diff          = trade.price - min_price,
             min_diff_rate     = 100.0 * (trade.price - min_price) / min_price,
             max               = max_price,
@@ -182,24 +187,33 @@ fn print_meta(
         ));
     }
 
+    buffered.push(format!(
+        "------------------------------------------------------------------------"
+    ));
+
+    let rebounds = rebound_all(trade);
     for trend in rebounds {
         buffered.push(format!("{:?}", trend));
     }
-    let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
-    for (unit, lock) in protfolio_map {
-        let reader = lock.read().unwrap();
-        buffered.push(format!(
-            "*********************************** unit {} ***********************************",
-            unit
-        ));
-        for protfolios in reader.iter() {
-            buffered.push(format!("unit: {}, {:?}", unit, protfolios));
-        }
-    }
+
+    // let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
+    // for (unit, lock) in protfolio_map {
+    //     let reader = lock.read().unwrap();
+    //     buffered.push(format!(
+    //         "*********************************** unit {} ***********************************",
+    //         unit
+    //     ));
+    //     for protfolios in reader.iter() {
+    //         buffered.push(format!("unit: {}, {:?}", unit, protfolios));
+    //     }
+    // }
 
     let path = format!(
-        "{}/orders/{}/MSG-{}.ord",
-        &config.replay.output.base_folder, &trade.id, &trade.message_id
+        "{base}/orders/{symbol}/{day}/MSG-{id}.ord",
+        base = &config.replay.output.base_folder,
+        symbol = &trade.id,
+        day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
+        id = &trade.message_id
     );
     let parent = Path::new(&path).parent().unwrap();
     if !parent.exists() {
@@ -226,7 +240,7 @@ fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
     // let min_price_30m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 31);
     // let min_price_50m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 51);
 
-    min_price_05m.is_normal() && min_price_05m > trade.price * PRICE_DIFFER_RATE_TO_MIN
+    min_price_05m.is_normal() && min_price_05m > trade.price * PRICE_DEVIATION_RATE_TO_MIN
 }
 
 fn find_min_price(
@@ -247,7 +261,7 @@ fn find_min_price(
                 .take(end - start)
                 .map(|p| p.min_price)
                 .reduce(f32::min)
-                .unwrap();
+                .unwrap_or(f32::NAN);
             min
         }
     } else {
@@ -273,7 +287,7 @@ fn find_max_price(
                 .take(end - start)
                 .map(|p| p.max_price)
                 .reduce(f32::max)
-                .unwrap();
+                .unwrap_or(f32::NAN);
             max
         }
     } else {
