@@ -1,4 +1,4 @@
-use super::biz::{Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo};
+use super::biz::{MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo};
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
     persist::{es::ElasticTicker, PersistenceContext},
@@ -232,6 +232,31 @@ impl AssetContext {
         self.tickers.get(symbol)
     }
 
+    pub fn get_current_market(&self, symbol: &str) -> Option<MarketHoursType> {
+        let lock = self.tickers.get(symbol).unwrap();
+        let reader = lock.read().unwrap();
+        if let Some(ticker) = reader.front() {
+            Some(ticker.market_hours)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_first_post_trade(&self, symbol: &str) -> Option<Ticker> {
+        let lock = self.tickers.get(symbol).unwrap();
+        let reader = lock.read().unwrap();
+        let first_trade = reader
+            .iter()
+            .filter(|ticker| matches!(ticker.market_hours, MarketHoursType::PostMarket))
+            .last();
+
+        if let Some(trade) = first_trade {
+            Some(trade.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn symbol_protfolios(&self, symbol: &str) -> Option<&LockListMap<Protfolio>> {
         self.protfolios.get(symbol)
     }
@@ -323,7 +348,7 @@ impl AssetContext {
         }
     }
 
-    fn find_pair_symbol(&self, symbol: &str) -> Option<String> {
+    pub fn find_pair_symbol(&self, symbol: &str) -> Option<String> {
         let config = Arc::clone(&self.config);
         if let Some(ticker_group) = config
             .tickers
@@ -348,24 +373,21 @@ impl AssetContext {
 
     pub fn write_off_order(&self, order: &Order) {
         let symbol = &order.symbol;
-        let rival = self.find_pair_symbol(symbol);
+        let rival_symbol = self.find_pair_symbol(symbol).unwrap();
 
-        if let Some(rival_symbol) = rival {
-            if let Some(rival_order) = self.find_running_order(&rival_symbol) {
-                //
-                let constraint_id = format!("P{}", self.next_message_id());
-                let lock = Arc::clone(&self.orders);
-                let mut writer = lock.write().unwrap();
-                for o in writer
-                    .iter_mut()
-                    .filter(|o| o.id == rival_order.id || o.id == order.id)
-                {
-                    o.write_off_time = order.accepted_time;
-                    o.status = OrderStatus::WriteOff;
-                    o.constraint_id = Some(constraint_id.clone());
+        if let Some(rival_order) = self.find_running_order(&rival_symbol) {
+            let constraint_id = format!("P{}", self.next_message_id());
+            let lock = Arc::clone(&self.orders);
+            let mut writer = lock.write().unwrap();
+            for o in writer
+                .iter_mut()
+                .filter(|o| o.id == rival_order.id || o.id == order.id)
+            {
+                o.write_off_time = order.accepted_time;
+                o.status = OrderStatus::WriteOff;
+                o.constraint_id = Some(constraint_id.clone());
 
-                    info!("write off order: {}", &o.id);
-                }
+                debug!("write off order: {}", &o.id);
             }
         }
     }
@@ -604,6 +626,8 @@ pub struct YahooFinance {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TradeAudit {
+    #[serde(rename = "maxOrderAmount")]
+    pub max_order_amount: u32,
     pub flash: AuditMode,
     pub slug: AuditMode,
 }

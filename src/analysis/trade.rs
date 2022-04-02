@@ -8,20 +8,61 @@ use crate::{
 };
 use chrono::{DateTime, TimeZone, Utc};
 use log::{debug, info, warn};
-use std::{f64::NAN, fs::OpenOptions, io::BufWriter, io::Write, path::Path, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    f64::NAN,
+    fs::OpenOptions,
+    io::BufWriter,
+    io::Write,
+    path::Path,
+    sync::Arc,
+};
 
 pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Result<bool> {
     // find all orders
+    let lock = asset.orders();
+    let readers = lock.read().unwrap();
+    let symbols: HashSet<String> = readers.iter().map(|o| o.symbol.to_string()).collect();
+
+    // check all regular market closed
+    for symbol in &symbols {
+        if let Some(market) = asset.get_current_market(&symbol) {
+            match market {
+                MarketHoursType::PostMarket => {}
+                _ => return Ok(false),
+            }
+        }
+    }
+
+    let close_prices: HashMap<String, f32> = symbols
+        .iter()
+        .map(|symbol| asset.get_first_post_trade(symbol).unwrap())
+        .map(|ticker| (ticker.id.clone(), ticker.price))
+        .collect();
+
+    log::info!("closed prices {:?}", close_prices);
 
     info!("####################################################################################################");
     info!("####################################################################################################");
 
-    // print all orders
+    // estimate profit
+    let mut total_amount = 0.0;
+    let mut total_profit = 0.0;
     let lock = asset.orders();
     let readers = lock.read().unwrap();
     for order in readers.iter() {
-        info!("{:?}", order);
+        let post_market_price = *close_prices.get(&order.symbol).unwrap();
+        // FIXME: use accepted
+        let profit = (post_market_price - order.created_price) * order.created_volume as f32;
+        info!("profit: {} for {:?}", profit, order);
+        // FIXME: use accepted
+        total_amount += order.created_price * order.created_volume as f32;
+        total_profit += profit;
     }
+    info!(
+        "total profit: {}, total amount: {}",
+        total_profit, total_amount
+    );
 
     info!("####################################################################################################");
     info!("####################################################################################################");
@@ -50,7 +91,16 @@ pub fn prepare_trade(
         let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
         match state {
             AuditState::Flash | AuditState::Slug => {
-                let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
+                // calculate volume
+                let suspected_volume =
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
+                // create order
+                let order = Order::new(
+                    &trade.id,
+                    trade.price,
+                    suspected_volume,
+                    trade.action_time(),
+                );
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
 
@@ -86,6 +136,22 @@ pub fn prepare_trade(
     }
 
     Ok(())
+}
+
+pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> u32 {
+    // restricted amount
+    let max_amount = config.trade.max_order_amount;
+    // get opposite
+    let rival_symbol = asset.find_pair_symbol(&trade.id).unwrap();
+    if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
+        // FIXME: calculation
+        let total = (rival_order.created_volume as f32) * rival_order.created_price;
+        let suspect_volumn = total / trade.price;
+        suspect_volumn.round() as u32
+    } else {
+        let suspect_volumn = (max_amount as f32) / trade.price;
+        suspect_volumn.round() as u32
+    }
 }
 
 pub fn audit_trade(
