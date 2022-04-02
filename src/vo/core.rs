@@ -7,7 +7,7 @@ use crate::{
 };
 use chrono::Utc;
 use config::Config;
-use log::{debug, error, log_enabled};
+use log::{debug, error, info, log_enabled};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -224,6 +224,10 @@ impl AssetContext {
         Arc::clone(&self.trades)
     }
 
+    pub fn orders(&self) -> Arc<RwLock<LinkedList<Order>>> {
+        Arc::clone(&self.orders)
+    }
+
     pub fn symbol_tickers(&self, symbol: &str) -> Option<&RwLock<LinkedList<Ticker>>> {
         self.tickers.get(symbol)
     }
@@ -349,7 +353,7 @@ impl AssetContext {
         if let Some(rival_symbol) = rival {
             if let Some(rival_order) = self.find_running_order(&rival_symbol) {
                 //
-                let pair_id = "jjj";
+                let constraint_id = format!("P{}", self.next_message_id());
                 let lock = Arc::clone(&self.orders);
                 let mut writer = lock.write().unwrap();
                 for o in writer
@@ -358,7 +362,9 @@ impl AssetContext {
                 {
                     o.write_off_time = order.accepted_time;
                     o.status = OrderStatus::WriteOff;
-                    o.pair_id = Some(pair_id.to_owned());
+                    o.constraint_id = Some(constraint_id.clone());
+
+                    info!("write off order: {}", &o.id);
                 }
             }
         }

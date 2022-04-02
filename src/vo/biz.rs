@@ -280,7 +280,6 @@ pub struct Order {
     pub accepted_volume: Option<u32>,
     pub write_off_time: Option<i64>,
     pub status: OrderStatus,
-    pub pair_id: Option<String>,
     // rival order ID
     pub constraint_id: Option<String>,
 }
@@ -288,7 +287,7 @@ pub struct Order {
 impl Order {
     pub fn new(symbol: &str, price: f32, volume: u32, time: i64) -> Self {
         Self {
-            id: format!("{}{}", symbol, time),
+            id: format!("{}{}", symbol, Utc::now().timestamp_millis()),
             symbol: symbol.to_string(),
             created_time: time,
             created_price: price,
@@ -297,7 +296,6 @@ impl Order {
             accepted_price: None,
             accepted_volume: None,
             status: OrderStatus::Init,
-            pair_id: None,
             constraint_id: None,
             write_off_time: None,
         }

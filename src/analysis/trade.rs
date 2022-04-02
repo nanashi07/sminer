@@ -7,11 +7,27 @@ use crate::{
     Result,
 };
 use chrono::{DateTime, TimeZone, Utc};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::{f64::NAN, fs::OpenOptions, io::BufWriter, io::Write, path::Path, sync::Arc};
 
-const PRICE_DEVIATION_RATE_TO_MIN: f32 = (100.0 - 0.3) / 100.0; // 0.3%
-const PRICE_OSCILLATION_RANGE: f32 = 0.015; // 1.5%
+pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Result<bool> {
+    // find all orders
+
+    info!("####################################################################################################");
+    info!("####################################################################################################");
+
+    // print all orders
+    let lock = asset.orders();
+    let readers = lock.read().unwrap();
+    for order in readers.iter() {
+        info!("{:?}", order);
+    }
+
+    info!("####################################################################################################");
+    info!("####################################################################################################");
+
+    Ok(true) //FIXME:
+}
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -145,14 +161,7 @@ fn print_meta(
         &trade.message_id
     ));
 
-    buffered.push(format!(
-        "PRICE_DEVIATION_RATE_TO_MIN: {}",
-        PRICE_DEVIATION_RATE_TO_MIN
-    ));
-    buffered.push(format!(
-        "PRICE_OSCILLATION_RANGE: {}",
-        PRICE_OSCILLATION_RANGE
-    ));
+    buffered.push(format!("trade: {:?}", &config.trade));
 
     buffered.push(format!(
         "------------------------------------------------------------------------"

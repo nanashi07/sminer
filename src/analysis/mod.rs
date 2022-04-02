@@ -3,7 +3,7 @@ pub mod trade;
 
 use self::trade::prepare_trade;
 use crate::{
-    analysis::computor::draw_slop_lines,
+    analysis::{computor::draw_slop_lines, trade::profit_evaluate},
     persist::{
         es::{
             bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
@@ -13,7 +13,7 @@ use crate::{
     },
     proto::biz::TickerEvent,
     vo::{
-        biz::{Protfolio, Ticker, TimeUnit, TradeInfo},
+        biz::{MarketHoursType, Protfolio, Ticker, TimeUnit, TradeInfo},
         core::AppContext,
     },
     Result,
@@ -293,6 +293,13 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         if let ReplayMode::Async { delay } = mode {
             if delay > 0 {
                 sleep(Duration::from_millis(delay));
+            }
+        }
+
+        // settle all orders when turns to post market
+        if matches!(ticker.market_hours, MarketHoursType::PostMarket) {
+            if profit_evaluate(context.asset(), context.config())? {
+                break;
             }
         }
     }
