@@ -278,8 +278,10 @@ pub struct Order {
     pub accepted_time: Option<i64>,
     pub accepted_price: Option<f32>,
     pub accepted_volume: Option<u32>,
+    pub write_off_time: Option<i64>,
     pub status: OrderStatus,
-    // opposite order ID
+    pub pair_id: Option<String>,
+    // rival order ID
     pub constraint_id: Option<String>,
 }
 
@@ -295,7 +297,9 @@ impl Order {
             accepted_price: None,
             accepted_volume: None,
             status: OrderStatus::Init,
+            pair_id: None,
             constraint_id: None,
+            write_off_time: None,
         }
     }
 }

@@ -157,6 +157,7 @@ impl AppContext {
 
 #[derive(Debug, Clone)]
 pub struct AssetContext {
+    config: Arc<AppConfig>,
     tickers: Arc<LockListMap<Ticker>>,
     protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
     trades: Arc<LockListMap<LockTradeInfo>>,
@@ -171,6 +172,7 @@ impl AssetContext {
         let trades = Self::init_trades(Arc::clone(&config));
 
         Self {
+            config: Arc::clone(&config),
             tickers: Arc::new(tickers),
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
@@ -314,6 +316,51 @@ impl AssetContext {
             log::info!("add new order: {:?}", &order);
             writer.push_front(order);
             true
+        }
+    }
+
+    fn find_pair_symbol(&self, symbol: &str) -> Option<String> {
+        let config = Arc::clone(&self.config);
+        if let Some(ticker_group) = config
+            .tickers
+            .symbols
+            .iter()
+            .find(|group| group.bull.id == symbol)
+        {
+            return Some(ticker_group.bear.id.clone());
+        }
+
+        if let Some(ticker_group) = config
+            .tickers
+            .symbols
+            .iter()
+            .find(|group| group.bear.id == symbol)
+        {
+            return Some(ticker_group.bull.id.clone());
+        }
+
+        None
+    }
+
+    pub fn write_off_order(&self, order: &Order) {
+        let symbol = &order.symbol;
+        let rival = self.find_pair_symbol(symbol);
+
+        if let Some(rival_symbol) = rival {
+            if let Some(rival_order) = self.find_running_order(&rival_symbol) {
+                //
+                let pair_id = "jjj";
+                let lock = Arc::clone(&self.orders);
+                let mut writer = lock.write().unwrap();
+                for o in writer
+                    .iter_mut()
+                    .filter(|o| o.id == rival_order.id || o.id == order.id)
+                {
+                    o.write_off_time = order.accepted_time;
+                    o.status = OrderStatus::WriteOff;
+                    o.pair_id = Some(pair_id.to_owned());
+                }
+            }
         }
     }
 

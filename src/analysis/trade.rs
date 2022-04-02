@@ -37,8 +37,15 @@ pub fn prepare_trade(
                 let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
-                    print_meta(Arc::clone(&asset), Arc::clone(&config), Some(order), &trade)
-                        .unwrap_or_default();
+
+                    print_meta(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        Some(order.clone()),
+                        &trade,
+                    )
+                    .unwrap_or_default();
+
                     let symbol = trade.id.clone();
                     let time = Utc.timestamp_millis(trade.action_time());
                     let tags = vec![
@@ -48,6 +55,11 @@ pub fn prepare_trade(
                         format!("MSG-{}", &trade.message_id),
                         trade.price.to_string(),
                     ];
+
+                    // write off previouse order
+                    asset.write_off_order(&order);
+
+                    // add grafana annotation
                     add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
                 }
             }
@@ -95,7 +107,8 @@ pub fn audit_trade(
 
     // FIXME: check previous order status
     if matches!(
-        asset.find_running_order_test(&trade.id, trade.action_time()),
+        // asset.find_running_order_test(&trade.id, trade.action_time()),
+        asset.find_running_order(&trade.id),
         Some(_duplicated)
     ) {
         // duplicated order, do nothing
@@ -552,16 +565,12 @@ mod slug {
         let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
 
         // TODO: magic number
-        if (max_price_05 - min_price_05) / max_price_05 > 0.01 {
+        if max_price_05.is_normal()
+            && min_price_05.is_normal()
+            && (max_price_05 - min_price_05) / max_price_05 > 0.005
+        {
             result = true;
         }
-
-        // if (std::cmp::max(max_price_05, max_price_10, max_price_05, max_price_05) - min_price_05)
-        //     / max_price_05
-        //     > 0.01
-        // {
-        //     result = true;
-        // }
 
         result
     }
