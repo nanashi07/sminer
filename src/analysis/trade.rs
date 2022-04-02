@@ -368,36 +368,37 @@ pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> TradeTrend {
 
 mod flash {
 
-    use super::{
-        find_max_price, find_min_price, rebound_all, Trend, PRICE_DEVIATION_RATE_TO_MIN,
-        PRICE_OSCILLATION_RANGE,
-    };
+    use super::{find_max_price, find_min_price, rebound_all, Trend};
     use crate::vo::{
         biz::TradeInfo,
         core::{AppConfig, AssetContext},
     };
     use std::sync::Arc;
 
-    pub fn audit(asset: Arc<AssetContext>, _config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+    pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         // check oscillation first, should be greater than `base rate`
-        if !validate_oscillation(Arc::clone(&asset), trade) {
+        if !validate_oscillation(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         // check trend
-        if !validate_trend(Arc::clone(&asset), trade) {
+        if !validate_trend(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         // check min price difference
-        if !validate_min_price(Arc::clone(&asset), trade) {
+        if !validate_min_price(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         true
     }
 
-    fn validate_trend(_asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    fn validate_trend(
+        _asset: Arc<AssetContext>,
+        _config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
         let mut result = true;
         let rebounds = rebound_all(trade);
 
@@ -444,23 +445,36 @@ mod flash {
         result
     }
 
-    fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    fn validate_min_price(
+        asset: Arc<AssetContext>,
+        config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
+        let deviation_rate_to_min = config.trade.flash.min_deviation_rate;
+
+        // 70s min price
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
 
         // assume trade price is higher than min_price
-        min_price.is_normal() && (trade.price - min_price) / min_price < 0.003 // TODO: magic number
+        min_price.is_normal() && (trade.price - min_price) / min_price < deviation_rate_to_min
     }
 
-    fn validate_oscillation(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
-        let mut result = false;
+    fn validate_oscillation(
+        asset: Arc<AssetContext>,
+        config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
+        let mut result = true;
+
+        // 70s oscillation (min to max)
+        let oscillation = *config.trade.flash.oscillation_rage.get("m0070").unwrap();
 
         // 當下振幅, 0s - 70s
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
         let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
 
-        if (max_price - min_price) / max_price > 0.013 {
-            // TODO: magic number
-            result = true;
+        if (max_price - min_price) / max_price < oscillation {
+            result = false;
         }
 
         result
@@ -475,26 +489,30 @@ mod slug {
     };
     use std::sync::Arc;
 
-    pub fn audit(asset: Arc<AssetContext>, _config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+    pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         // check trend
-        if !validate_trend(Arc::clone(&asset), trade) {
+        if !validate_trend(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         // check min price difference
-        if !validate_min_price(Arc::clone(&asset), trade) {
+        if !validate_min_price(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         // check oscillation first, should be greater than `base rate`
-        if !validate_oscillation(Arc::clone(&asset), trade) {
+        if !validate_oscillation(Arc::clone(&asset), Arc::clone(&config), trade) {
             return false;
         }
 
         true
     }
 
-    fn validate_trend(_asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    fn validate_trend(
+        _asset: Arc<AssetContext>,
+        _config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
         let mut result = true;
         let rebounds = rebound_all(trade);
 
@@ -541,16 +559,29 @@ mod slug {
         result
     }
 
-    fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+    fn validate_min_price(
+        asset: Arc<AssetContext>,
+        config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
+        let deviation_rate_to_min = config.trade.slug.min_deviation_rate;
+
         // 10m min price
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
 
         // assume trade price is higher than min_price
-        min_price.is_normal() && (trade.price - min_price) / min_price < 0.003 // TODO: magic number
+        min_price.is_normal() && (trade.price - min_price) / min_price < deviation_rate_to_min
     }
 
-    fn validate_oscillation(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
-        let mut result = false;
+    fn validate_oscillation(
+        asset: Arc<AssetContext>,
+        config: Arc<AppConfig>,
+        trade: &TradeInfo,
+    ) -> bool {
+        let mut result = true;
+
+        // 70s oscillation (min to max)
+        let oscillation = *config.trade.slug.oscillation_rage.get("m0300").unwrap();
 
         let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
         let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
@@ -567,9 +598,9 @@ mod slug {
         // TODO: magic number
         if max_price_05.is_normal()
             && min_price_05.is_normal()
-            && (max_price_05 - min_price_05) / max_price_05 > 0.005
+            && (max_price_05 - min_price_05) / max_price_05 < oscillation
         {
-            result = true;
+            result = false;
         }
 
         result

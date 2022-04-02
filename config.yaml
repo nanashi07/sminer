@@ -9,6 +9,15 @@ dataSource:
 platform:
   yahoo:
     uri: "wss://streamer.finance.yahoo.com/"
+trade:
+  flash:
+    minDeviationRate: 0.003
+    oscillationRage:
+      m0070: 0.013
+  slug:
+    minDeviationRate: 0.003
+    oscillationRage:
+      m0300: 0.006
 replay:
   # export:
   #   - name: ticker

@@ -500,6 +500,7 @@ pub struct AppConfig {
     #[serde(rename = "dataSource")]
     pub data_source: DataSource,
     pub platform: Platform,
+    pub trade: TradeAudit,
     pub replay: ReplayBehavior,
     pub units: Vec<TimeUnit>,
     pub tickers: TickerList,
@@ -593,6 +594,20 @@ pub struct Platform {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct YahooFinance {
     pub uri: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TradeAudit {
+    pub flash: AuditMode,
+    pub slug: AuditMode,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AuditMode {
+    #[serde(rename = "minDeviationRate")]
+    pub min_deviation_rate: f32,
+    #[serde(rename = "oscillationRage")]
+    pub oscillation_rage: BTreeMap<String, f32>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
