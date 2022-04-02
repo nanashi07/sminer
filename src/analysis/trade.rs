@@ -10,7 +10,8 @@ use chrono::{DateTime, TimeZone, Utc};
 use log::{debug, warn};
 use std::{f64::NAN, fs::OpenOptions, io::BufWriter, io::Write, path::Path, sync::Arc};
 
-const PRICE_DEVIATION_RATE_TO_MIN: f32 = 0.998;
+const PRICE_DEVIATION_RATE_TO_MIN: f32 = (100.0 - 0.3) / 100.0; // 0.3%
+const PRICE_OSCILLATION_RANGE: f32 = 0.015; // 1.5%
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -28,23 +29,29 @@ pub fn prepare_trade(
         // TODO: ticker time check, drop if time difference too long
 
         debug!("Trade info: {:?}", &trade);
+
         // audit trade
-        if audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade) {
-            let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
-            if asset.add_order(order.clone()) {
-                let order_id = order.id.clone();
-                print_meta(Arc::clone(&asset), Arc::clone(&config), Some(order), &trade)
-                    .unwrap_or_default();
-                let symbol = trade.id.clone();
-                let time = Utc.timestamp_millis(trade.action_time());
-                let tags = vec![
-                    trade.id.clone(),
-                    order_id,
-                    format!("MSG-{}", &trade.message_id),
-                    trade.price.to_string(),
-                ];
-                add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+        let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
+        match state {
+            AuditState::Flash | AuditState::Slug => {
+                let order = Order::new(&trade.id, trade.price, 10, trade.action_time());
+                if asset.add_order(order.clone()) {
+                    let order_id = order.id.clone();
+                    print_meta(Arc::clone(&asset), Arc::clone(&config), Some(order), &trade)
+                        .unwrap_or_default();
+                    let symbol = trade.id.clone();
+                    let time = Utc.timestamp_millis(trade.action_time());
+                    let tags = vec![
+                        trade.id.clone(),
+                        order_id,
+                        format!("{:?}", state),
+                        format!("MSG-{}", &trade.message_id),
+                        trade.price.to_string(),
+                    ];
+                    add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+                }
             }
+            AuditState::Decline => {}
         }
     } else {
         warn!("No trade info for message ID: {} found!", &message_id);
@@ -53,13 +60,11 @@ pub fn prepare_trade(
     Ok(())
 }
 
-// 小於區間內最小值(扣除目前的上升區間)
-// 區間內與最大值的價差（比率）
-// 區間內的振蕩性
-// 區間內的最大最小價差
-// 與反向 eft 的利差（數值）
-
-pub fn audit_trade(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+pub fn audit_trade(
+    asset: Arc<AssetContext>,
+    config: Arc<AppConfig>,
+    trade: &TradeInfo,
+) -> AuditState {
     // FIXME: period check
     if false {
         let min = DateTime::parse_from_rfc3339("2022-03-09T14:54:00.000Z")
@@ -74,50 +79,43 @@ pub fn audit_trade(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &Tra
         }
     }
 
-    let rebounds = rebound_all(trade);
+    let mut result = AuditState::Decline;
 
-    // use m0060 as initial step
-    if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
-        // check 1m trend, should be upward and with multiple previous downwards
-        if !(matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1) {
-            return false;
-        }
-    }
-    // check 30s trend
-    if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
-        if matches!(m0030.trend, Trend::Downward) {
-            return false;
-        }
-    }
-    // check 10s trend
-    if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
-        if matches!(m0010.trend, Trend::Downward) {
-            return false;
-        }
+    // flash check
+    if flash::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
+        result = AuditState::Flash;
     }
 
-    // check max/min price in past sec/min/hour
-    if !validate_min_price(Arc::clone(&asset), trade) {
-        return false;
+    // slug check
+    if slug::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
+        result = AuditState::Slug;
     }
 
+    // TODO: reutrn if decline, unnecessary to check following
+
+    // FIXME: check previous order status
     if matches!(
         asset.find_running_order_test(&trade.id, trade.action_time()),
         Some(_duplicated)
     ) {
         // duplicated order, do nothing
-        return false;
+        return AuditState::Decline;
     }
+
+    // 小於區間內最小值(扣除目前的上升區間)
+    // 區間內與最大值的價差（比率）
+    // 區間內的振蕩性
+    // 區間內的最大最小價差
+    // 與反向 eft 的利差（數值）
 
     // TODO: check others
     // check other trends
-    // debug!("");
     // check exists order (same side)
     // check profit to previous order
     // forecast next possible profit, after 5m place order
     // forecast possible lost
 
-    true
+    result
 }
 
 // print details
@@ -132,6 +130,19 @@ fn print_meta(
     buffered.push(format!(
         "################################### MSG-{} ###################################",
         &trade.message_id
+    ));
+
+    buffered.push(format!(
+        "PRICE_DEVIATION_RATE_TO_MIN: {}",
+        PRICE_DEVIATION_RATE_TO_MIN
+    ));
+    buffered.push(format!(
+        "PRICE_OSCILLATION_RANGE: {}",
+        PRICE_OSCILLATION_RANGE
+    ));
+
+    buffered.push(format!(
+        "------------------------------------------------------------------------"
     ));
 
     if let Some(value) = order {
@@ -234,15 +245,6 @@ fn print_meta(
     Ok(())
 }
 
-fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
-    let min_price_05m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 6);
-    // let min_price_10m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 11);
-    // let min_price_30m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 31);
-    // let min_price_50m = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 1, 51);
-
-    min_price_05m.is_normal() && min_price_05m > trade.price * PRICE_DEVIATION_RATE_TO_MIN
-}
-
 fn find_min_price(
     asset: Arc<AssetContext>,
     symbol: &str,
@@ -295,30 +297,15 @@ fn find_max_price(
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Trend {
-    Upward,
-    Downward,
-}
-
-#[derive(Debug, Clone)]
-pub struct SlopeTrend {
-    pub unit: String,
-    pub trend: Trend,
-    pub rebound_at: i32,
-    pub up_count: i32,
-    pub down_count: i32,
-}
-
-pub fn rebound_all(trade: &TradeInfo) -> Vec<SlopeTrend> {
+pub fn rebound_all(trade: &TradeInfo) -> Vec<TradeTrend> {
     trade
         .states
         .iter()
         .map(|(key, values)| rebound_at(&key, &values))
-        .collect::<Vec<SlopeTrend>>()
+        .collect::<Vec<TradeTrend>>()
 }
 
-pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> SlopeTrend {
+pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> TradeTrend {
     let mut trend = Trend::Upward;
     let mut rebound_at = -1;
     let mut up_count = 0;
@@ -357,11 +344,247 @@ pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> SlopeTrend {
         last_slope = slope;
     }
 
-    SlopeTrend {
+    TradeTrend {
         unit: unit.to_string(),
         trend,
         rebound_at,
         up_count,
         down_count,
     }
+}
+
+mod flash {
+
+    use super::{
+        find_max_price, find_min_price, rebound_all, Trend, PRICE_DEVIATION_RATE_TO_MIN,
+        PRICE_OSCILLATION_RANGE,
+    };
+    use crate::vo::{
+        biz::TradeInfo,
+        core::{AppConfig, AssetContext},
+    };
+    use std::sync::Arc;
+
+    pub fn audit(asset: Arc<AssetContext>, _config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+        // check oscillation first, should be greater than `base rate`
+        if !validate_oscillation(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        // check trend
+        if !validate_trend(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        // check min price difference
+        if !validate_min_price(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        true
+    }
+
+    fn validate_trend(_asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        let mut result = true;
+        let rebounds = rebound_all(trade);
+
+        // use 10s as initial step
+        result = result
+            && if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
+                // check 10s trend, should be upward and with multiple previous downwards
+                if !(matches!(m0010.trend, Trend::Upward)
+                    && m0010.up_count == 1
+                    && m0010.down_count > 1)
+                {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        // check 30s trend, should be downward
+        result = result
+            && if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
+                if matches!(m0030.trend, Trend::Downward) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        // check 60s trend, should be downward
+        result = result
+            && if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
+                if matches!(m0060.trend, Trend::Downward) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        result
+    }
+
+    fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+
+        // assume trade price is higher than min_price
+        min_price.is_normal() && (trade.price - min_price) / min_price < 0.003 // TODO: magic number
+    }
+
+    fn validate_oscillation(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        let mut result = false;
+
+        // 當下振幅, 0s - 70s
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+
+        if (max_price - min_price) / max_price > 0.013 {
+            // TODO: magic number
+            result = true;
+        }
+
+        result
+    }
+}
+
+mod slug {
+    use super::{find_max_price, find_min_price, rebound_all, Trend};
+    use crate::vo::{
+        biz::TradeInfo,
+        core::{AppConfig, AssetContext},
+    };
+    use std::sync::Arc;
+
+    pub fn audit(asset: Arc<AssetContext>, _config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+        // check trend
+        if !validate_trend(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        // check min price difference
+        if !validate_min_price(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        // check oscillation first, should be greater than `base rate`
+        if !validate_oscillation(Arc::clone(&asset), trade) {
+            return false;
+        }
+
+        true
+    }
+
+    fn validate_trend(_asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        let mut result = true;
+        let rebounds = rebound_all(trade);
+
+        // use 1m as initial step
+        result = result
+            && if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
+                // check 10s trend, should be upward and with multiple previous downwards
+                if !(matches!(m0060.trend, Trend::Upward)
+                    && m0060.up_count == 1
+                    && m0060.down_count > 1)
+                {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        // check 30s trend, should be upward
+        result = result
+            && if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
+                if matches!(m0030.trend, Trend::Upward) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        // check 60s trend, should be upward
+        result = result
+            && if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
+                if matches!(m0010.trend, Trend::Upward) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+        result
+    }
+
+    fn validate_min_price(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        // 10m min price
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+
+        // assume trade price is higher than min_price
+        min_price.is_normal() && (trade.price - min_price) / min_price < 0.003 // TODO: magic number
+    }
+
+    fn validate_oscillation(asset: Arc<AssetContext>, trade: &TradeInfo) -> bool {
+        let mut result = false;
+
+        let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+        let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+
+        let min_price_10 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
+        let max_price_10 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
+
+        let min_price_15 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
+        let max_price_15 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
+
+        let min_price_20 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
+        let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
+
+        // TODO: magic number
+        if (max_price_05 - min_price_05) / max_price_05 > 0.01 {
+            result = true;
+        }
+
+        // if (std::cmp::max(max_price_05, max_price_10, max_price_05, max_price_05) - min_price_05)
+        //     / max_price_05
+        //     > 0.01
+        // {
+        //     result = true;
+        // }
+
+        result
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Trend {
+    Upward,
+    Downward,
+}
+
+#[derive(Debug, Clone)]
+pub struct TradeTrend {
+    pub unit: String,
+    pub trend: Trend,
+    pub rebound_at: i32,
+    pub up_count: i32,
+    pub down_count: i32,
+}
+
+#[derive(Debug, Clone)]
+pub enum AuditState {
+    Flash,
+    Slug,
+    Decline,
 }
