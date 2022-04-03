@@ -13,13 +13,50 @@ trade:
   maxOrderAmount: 500
   flash:
     lossMarginRate: 0.005
+    rules:
+    - trends:
+      - to: m0010
+        trend: Upward
+        up: '1'
+        down: '1+'
+      - to: m0030
+        trend: Downward
+      - to: m0060
+        trend: Downward
+      deviations:
+      - to: m0070
+        value: 0.003
+      oscillations:
+      - to: m0070
+        value: 0.013
+
     minDeviationRate:
       m0070: 0.003
     oscillationRage:
       m0070: 0.013
   slug:
     lossMarginRate: 0.005
+    rules:
+    - trends:
+      - to: m0060
+        trend: Upward
+        up: '1'
+        down: 1+
+      - to: m0030
+        trend: Upward
+      - to: m0010
+        trend: Upward
+      deviations:
+      - to: m0120
+        value: 0.002
+      oscillations:
+      - to: m0300
+        value: 0.005
+      
     minDeviationRate:
+      m0030: 0.0032
+      m0060: 0.0032
+      m0090: 0.0032
       m0120: 0.002
       m0300: 0.0032
     oscillationRage:

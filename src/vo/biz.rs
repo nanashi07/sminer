@@ -304,7 +304,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum OrderStatus {
     // order created
     Init,
@@ -318,10 +318,25 @@ pub enum OrderStatus {
     LossPair,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum AuditState {
     Flash,
     Slug,
     Loss,
     Decline,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub enum Trend {
+    Upward,
+    Downward,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TradeTrend {
+    pub unit: String,
+    pub trend: Trend,
+    pub rebound_at: i32,
+    pub up_count: i32,
+    pub down_count: i32,
 }

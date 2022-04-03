@@ -1,5 +1,5 @@
 use super::biz::{
-    AuditState, MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo,
+    AuditState, MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo, Trend,
 };
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
@@ -650,73 +650,73 @@ impl AppConfig {
         self.extra_present(KEY_EXTRA_ENABLE_DATA_TRUNCAT)
     }
 
-    pub fn get_trade_deviation_keys(&self, mode: &str) -> Vec<String> {
-        match mode {
-            "flash" => self
-                .trade
-                .flash
-                .min_deviation_rate
-                .iter()
-                .map(|(k, _)| k.to_string())
-                .collect(),
-            "slug" => self
-                .trade
-                .slug
-                .min_deviation_rate
-                .iter()
-                .map(|(k, _)| k.to_string())
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
+    // pub fn get_trade_deviation_keys(&self, mode: &str) -> Vec<String> {
+    //     match mode {
+    //         "flash" => self
+    //             .trade
+    //             .flash
+    //             .min_deviation_rate
+    //             .iter()
+    //             .map(|(k, _)| k.to_string())
+    //             .collect(),
+    //         "slug" => self
+    //             .trade
+    //             .slug
+    //             .min_deviation_rate
+    //             .iter()
+    //             .map(|(k, _)| k.to_string())
+    //             .collect(),
+    //         _ => Vec::new(),
+    //     }
+    // }
 
-    pub fn get_trade_deviation(&self, mode: &str, name: &str) -> Option<f32> {
-        match mode {
-            "flash" => match self.trade.flash.min_deviation_rate.get(name) {
-                Some(value) => Some(*value),
-                None => None,
-            },
-            "slug" => match self.trade.slug.min_deviation_rate.get(name) {
-                Some(value) => Some(*value),
-                None => None,
-            },
-            _ => None,
-        }
-    }
+    // pub fn get_trade_deviation(&self, mode: &str, name: &str) -> Option<f32> {
+    //     match mode {
+    //         "flash" => match self.trade.flash.min_deviation_rate.get(name) {
+    //             Some(value) => Some(*value),
+    //             None => None,
+    //         },
+    //         "slug" => match self.trade.slug.min_deviation_rate.get(name) {
+    //             Some(value) => Some(*value),
+    //             None => None,
+    //         },
+    //         _ => None,
+    //     }
+    // }
 
-    pub fn get_trade_oscillation_keys(&self, mode: &str) -> Vec<String> {
-        match mode {
-            "flash" => self
-                .trade
-                .flash
-                .oscillation_rage
-                .iter()
-                .map(|(k, _)| k.to_string())
-                .collect(),
-            "slug" => self
-                .trade
-                .slug
-                .oscillation_rage
-                .iter()
-                .map(|(k, _)| k.to_string())
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
+    // pub fn get_trade_oscillation_keys(&self, mode: &str) -> Vec<String> {
+    //     match mode {
+    //         "flash" => self
+    //             .trade
+    //             .flash
+    //             .oscillation_rage
+    //             .iter()
+    //             .map(|(k, _)| k.to_string())
+    //             .collect(),
+    //         "slug" => self
+    //             .trade
+    //             .slug
+    //             .oscillation_rage
+    //             .iter()
+    //             .map(|(k, _)| k.to_string())
+    //             .collect(),
+    //         _ => Vec::new(),
+    //     }
+    // }
 
-    pub fn get_trade_oscillation(&self, mode: &str, name: &str) -> Option<f32> {
-        match mode {
-            "flash" => match self.trade.flash.oscillation_rage.get(name) {
-                Some(value) => Some(*value),
-                None => None,
-            },
-            "slug" => match self.trade.slug.oscillation_rage.get(name) {
-                Some(value) => Some(*value),
-                None => None,
-            },
-            _ => None,
-        }
-    }
+    // pub fn get_trade_oscillation(&self, mode: &str, name: &str) -> Option<f32> {
+    //     match mode {
+    //         "flash" => match self.trade.flash.oscillation_rage.get(name) {
+    //             Some(value) => Some(*value),
+    //             None => None,
+    //         },
+    //         "slug" => match self.trade.slug.oscillation_rage.get(name) {
+    //             Some(value) => Some(*value),
+    //             None => None,
+    //         },
+    //         _ => None,
+    //     }
+    // }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -756,10 +756,88 @@ pub struct AuditMode {
     // loss margin on trend downward
     #[serde(rename = "lossMarginRate")]
     pub loss_margin_rate: f32,
-    #[serde(rename = "minDeviationRate")]
-    pub min_deviation_rate: BTreeMap<String, f32>,
-    #[serde(rename = "oscillationRage")]
-    pub oscillation_rage: BTreeMap<String, f32>,
+    pub rules: Vec<AuditRule>,
+    // #[serde(rename = "minDeviationRate")]
+    // pub min_deviation_rate: BTreeMap<String, f32>,
+    // #[serde(rename = "oscillationRage")]
+    // pub oscillation_rage: BTreeMap<String, f32>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AuditRule {
+    pub trends: Vec<TrendCriteria>,
+    pub deviations: Vec<DeviationCriteria>,
+    pub oscillations: Vec<OscillationCriteria>,
+    #[serde(default = "default_evaluation")]
+    pub evaluation: bool,
+}
+
+fn default_evaluation() -> bool {
+    false
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TrendCriteria {
+    pub from: Option<String>,
+    pub to: String,
+    pub trend: Trend,
+    pub up: Option<String>,
+    pub down: Option<String>,
+}
+
+fn value_compare(config: Option<String>, target: i32) -> bool {
+    if let Some(value) = config {
+        if value.ends_with("-") {
+            let len = value.len() - 1;
+            // ex: config: 10-, target 9, result true
+            if value[..len].parse::<i32>().unwrap() <= target {
+                return false;
+            }
+        } else if value.ends_with("+") {
+            let len = value.len() - 1;
+            // ex: config: 10+, target 9, result false
+            if value[..len].parse::<i32>().unwrap() >= target {
+                return false;
+            }
+        } else {
+            // ex: config 10, target 9, result false
+            if value.parse::<i32>().unwrap() != target {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+impl TrendCriteria {
+    pub fn up_compare(&self, up: i32) -> bool {
+        if let Some(value) = &self.up {
+            value_compare(Some(value.to_string()), up)
+        } else {
+            true
+        }
+    }
+    pub fn down_compare(&self, down: i32) -> bool {
+        if let Some(value) = &self.down {
+            value_compare(Some(value.to_string()), down)
+        } else {
+            true
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DeviationCriteria {
+    pub from: Option<String>,
+    pub to: String,
+    pub value: f32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct OscillationCriteria {
+    pub from: Option<String>,
+    pub to: String,
+    pub value: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
