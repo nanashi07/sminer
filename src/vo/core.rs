@@ -649,74 +649,6 @@ impl AppConfig {
     pub fn truncat_enabled(&self) -> bool {
         self.extra_present(KEY_EXTRA_ENABLE_DATA_TRUNCAT)
     }
-
-    // pub fn get_trade_deviation_keys(&self, mode: &str) -> Vec<String> {
-    //     match mode {
-    //         "flash" => self
-    //             .trade
-    //             .flash
-    //             .min_deviation_rate
-    //             .iter()
-    //             .map(|(k, _)| k.to_string())
-    //             .collect(),
-    //         "slug" => self
-    //             .trade
-    //             .slug
-    //             .min_deviation_rate
-    //             .iter()
-    //             .map(|(k, _)| k.to_string())
-    //             .collect(),
-    //         _ => Vec::new(),
-    //     }
-    // }
-
-    // pub fn get_trade_deviation(&self, mode: &str, name: &str) -> Option<f32> {
-    //     match mode {
-    //         "flash" => match self.trade.flash.min_deviation_rate.get(name) {
-    //             Some(value) => Some(*value),
-    //             None => None,
-    //         },
-    //         "slug" => match self.trade.slug.min_deviation_rate.get(name) {
-    //             Some(value) => Some(*value),
-    //             None => None,
-    //         },
-    //         _ => None,
-    //     }
-    // }
-
-    // pub fn get_trade_oscillation_keys(&self, mode: &str) -> Vec<String> {
-    //     match mode {
-    //         "flash" => self
-    //             .trade
-    //             .flash
-    //             .oscillation_rage
-    //             .iter()
-    //             .map(|(k, _)| k.to_string())
-    //             .collect(),
-    //         "slug" => self
-    //             .trade
-    //             .slug
-    //             .oscillation_rage
-    //             .iter()
-    //             .map(|(k, _)| k.to_string())
-    //             .collect(),
-    //         _ => Vec::new(),
-    //     }
-    // }
-
-    // pub fn get_trade_oscillation(&self, mode: &str, name: &str) -> Option<f32> {
-    //     match mode {
-    //         "flash" => match self.trade.flash.oscillation_rage.get(name) {
-    //             Some(value) => Some(*value),
-    //             None => None,
-    //         },
-    //         "slug" => match self.trade.slug.oscillation_rage.get(name) {
-    //             Some(value) => Some(*value),
-    //             None => None,
-    //         },
-    //         _ => None,
-    //     }
-    // }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -757,10 +689,6 @@ pub struct AuditMode {
     #[serde(rename = "lossMarginRate")]
     pub loss_margin_rate: f32,
     pub rules: Vec<AuditRule>,
-    // #[serde(rename = "minDeviationRate")]
-    // pub min_deviation_rate: BTreeMap<String, f32>,
-    // #[serde(rename = "oscillationRage")]
-    // pub oscillation_rage: BTreeMap<String, f32>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -770,10 +698,17 @@ pub struct AuditRule {
     pub oscillations: Vec<OscillationCriteria>,
     #[serde(default = "default_evaluation")]
     pub evaluation: bool,
+    pub mode: AuditRuleType,
 }
 
 fn default_evaluation() -> bool {
     false
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub enum AuditRuleType {
+    Permit,
+    Deny,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

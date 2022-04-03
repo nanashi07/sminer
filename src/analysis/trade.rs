@@ -928,17 +928,41 @@ mod flash {
     use super::validate_audit_rule;
     use crate::vo::{
         biz::TradeInfo,
-        core::{AppConfig, AssetContext},
+        core::{AppConfig, AssetContext, AuditRuleType},
     };
     use chrono::Duration;
     use log::*;
     use std::sync::Arc;
 
+    const BASE_DURATION: usize = 10;
+
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
-        // general validation from config rules
-        for rule in &config.trade.flash.rules {
-            if !validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule, 10) {
-                return false;
+        let mut results: Vec<bool> = Vec::new();
+
+        // general validation from config rules, at least one success and no blocked rule
+        for rule in config.trade.flash.rules.iter().filter(|r| !r.evaluation) {
+            if validate_audit_rule(
+                Arc::clone(&asset),
+                Arc::clone(&config),
+                trade,
+                rule,
+                BASE_DURATION,
+            ) {
+                match rule.mode {
+                    AuditRuleType::Permit => {
+                        results.push(true);
+                    }
+                    AuditRuleType::Deny => {
+                        results.push(false);
+                    }
+                }
+            } else {
+                match rule.mode {
+                    AuditRuleType::Permit => {} // ignore failed
+                    AuditRuleType::Deny => {
+                        results.push(true);
+                    }
+                }
             }
         }
 
@@ -946,11 +970,11 @@ mod flash {
         if let Some(order) = asset.find_last_flash_order(&trade.id) {
             if trade.action_time() - order.created_time < Duration::seconds(30).num_milliseconds() {
                 debug!("Found flash order within 30s, ignore {:?}", trade);
-                return false;
+                results.push(false);
             }
         }
 
-        true
+        !results.is_empty() && results.iter().all(|success| *success)
     }
 }
 
@@ -959,18 +983,42 @@ mod slug {
     use super::validate_audit_rule;
     use crate::vo::{
         biz::TradeInfo,
-        core::{AppConfig, AssetContext},
+        core::{AppConfig, AssetContext, AuditRuleType},
     };
     use std::sync::Arc;
 
+    const BASE_DURATION: usize = 30;
+
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
-        // general validation from config rules
-        for rule in &config.trade.slug.rules {
-            if !validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule, 30) {
-                return false;
+        let mut results: Vec<bool> = Vec::new();
+
+        // general validation from config rules, at least one success and no blocked rule
+        for rule in config.trade.slug.rules.iter().filter(|r| !r.evaluation) {
+            if validate_audit_rule(
+                Arc::clone(&asset),
+                Arc::clone(&config),
+                trade,
+                rule,
+                BASE_DURATION,
+            ) {
+                match rule.mode {
+                    AuditRuleType::Permit => {
+                        results.push(true);
+                    }
+                    AuditRuleType::Deny => {
+                        results.push(false);
+                    }
+                }
+            } else {
+                match rule.mode {
+                    AuditRuleType::Permit => {} // ignore failed
+                    AuditRuleType::Deny => {
+                        results.push(true);
+                    }
+                }
             }
         }
 
-        true
+        !results.is_empty() && results.iter().all(|success| *success)
     }
 }
