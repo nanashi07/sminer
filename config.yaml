@@ -20,7 +20,8 @@ trade:
   slug:
     lossMarginRate: 0.005
     minDeviationRate:
-      m0300: 0.003
+      m0120: 0.002
+      m0300: 0.0032
     oscillationRage:
       m0300: 0.005
 replay:
