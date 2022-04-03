@@ -1,13 +1,16 @@
 use crate::{
     persist::grafana::add_order_annotation,
     vo::{
-        biz::{MarketHoursType, Order, TradeInfo},
-        core::{AppConfig, AssetContext},
+        biz::{AuditState, MarketHoursType, Order, TradeInfo},
+        core::{
+            AppConfig, AssetContext, KEY_EXTRA_PRINT_TRADE_META_END_TIME,
+            KEY_EXTRA_PRINT_TRADE_META_START_TIME,
+        },
     },
     Result,
 };
-use chrono::{DateTime, TimeZone, Utc};
-use log::{debug, info, warn};
+use chrono::{TimeZone, Utc};
+use log::*;
 use std::{
     collections::{HashMap, HashSet},
     f64::NAN,
@@ -48,7 +51,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
     let mut total_profit = 0.0;
     let lock = asset.orders();
     let readers = lock.read().unwrap();
-    for order in readers.iter() {
+    for order in readers.iter().rev() {
         let post_market_price = *close_prices.get(&order.symbol).unwrap();
         // FIXME: use accepted
         let profit = (post_market_price - order.created_price) * order.created_volume as f32;
@@ -58,8 +61,11 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
         total_profit += profit;
     }
     info!(
-        "closed prices {:?}, total profit: {}, total amount: {}",
-        close_prices, total_profit, total_amount
+        "closed prices {:?}, order count: {}, total profit: {}, total amount: {}",
+        close_prices,
+        readers.len(),
+        total_profit,
+        total_amount
     );
 
     info!("####################################################################################################");
@@ -98,6 +104,7 @@ pub fn prepare_trade(
                     trade.price,
                     suspected_volume,
                     trade.action_time(),
+                    state.clone(),
                 );
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
@@ -115,7 +122,7 @@ pub fn prepare_trade(
                     let tags = vec![
                         trade.id.clone(),
                         order_id,
-                        format!("{:?}", state),
+                        format!("{:?}", &state),
                         format!("MSG-{}", &trade.message_id),
                         trade.price.to_string(),
                     ];
@@ -146,6 +153,7 @@ pub fn prepare_trade(
                     trade.price,
                     suspected_volume,
                     trade.action_time(),
+                    state.clone(),
                 );
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
@@ -163,7 +171,7 @@ pub fn prepare_trade(
                     let tags = vec![
                         trade.id.clone(),
                         order_id,
-                        format!("{:?}", state),
+                        format!("{:?}", &state),
                         format!("MSG-{}", &trade.message_id),
                         trade.price.to_string(),
                     ];
@@ -205,16 +213,22 @@ pub fn audit_trade(
     config: Arc<AppConfig>,
     trade: &TradeInfo,
 ) -> AuditState {
-    // FIXME: period check
-    if false {
-        let min = DateTime::parse_from_rfc3339("2022-03-09T14:54:00.000Z")
+    // print period meta
+    if config.extra_present(KEY_EXTRA_PRINT_TRADE_META_START_TIME)
+        && config.extra_present(KEY_EXTRA_PRINT_TRADE_META_END_TIME)
+    {
+        let start_at = config
+            .extra_get(KEY_EXTRA_PRINT_TRADE_META_START_TIME)
             .unwrap()
-            .timestamp_millis();
-        let max = DateTime::parse_from_rfc3339("2022-03-09T14:54:30.000Z")
+            .parse::<i64>()
+            .unwrap();
+        let end_at = config
+            .extra_get(KEY_EXTRA_PRINT_TRADE_META_END_TIME)
             .unwrap()
-            .timestamp_millis();
+            .parse::<i64>()
+            .unwrap();
 
-        if trade.time > min && trade.time < max {
+        if trade.time > start_at && trade.time < end_at {
             print_meta(Arc::clone(&asset), Arc::clone(&config), None, trade).unwrap_or_default();
         }
     }
@@ -264,7 +278,11 @@ fn loss_recognition(
     trade: &TradeInfo,
     order: &Order,
 ) -> bool {
-    let margin_rate = config.trade.loss_margin_rate;
+    let margin_rate = match order.audit {
+        AuditState::Flash => config.trade.flash.loss_margin_rate,
+        AuditState::Slug => config.trade.slug.loss_margin_rate,
+        _ => 100.0,
+    };
     let price = trade.price;
     // FIXME : use accepted price
     let order_price = order.created_price;
@@ -285,11 +303,104 @@ fn print_meta(
     let mut buffered: Vec<String> = Vec::new();
 
     buffered.push(format!(
-        "################################### MSG-{} ###################################",
-        &trade.message_id
+        "################################### MSG-{} @ {} ###################################",
+        &trade.message_id,
+        Utc.timestamp_millis(trade.time).format("%Y-%m-%d %H:%M:%S")
     ));
 
-    buffered.push(format!("trade: {:?}", &config.trade));
+    buffered.push(format!(
+        "[Config] flash.loss_margin_rate: {:?}",
+        &config.trade.flash.loss_margin_rate
+    ));
+    buffered.push(format!(
+        "[Config] flash.min_deviation_rate: {:?}",
+        &config.trade.flash.min_deviation_rate
+    ));
+    for (key, value) in &config.trade.flash.oscillation_rage {
+        buffered.push(format!(
+            "[Config] flash.oscillation_rage: {:?} = {:?}",
+            key, value
+        ));
+    }
+
+    buffered.push(format!(
+        "[Config] slug.loss_margin_rate: {:?}",
+        &config.trade.slug.loss_margin_rate
+    ));
+    buffered.push(format!(
+        "[Config] slug.min_deviation_rate: {:?}",
+        &config.trade.slug.min_deviation_rate
+    ));
+    for (key, value) in &config.trade.slug.oscillation_rage {
+        buffered.push(format!(
+            "[Config] slug.oscillation_rage: {:?} = {:?}",
+            key, value
+        ));
+    }
+
+    buffered.push(format!(
+        "----------------------------------flash--------------------------------------"
+    ));
+
+    {
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+        buffered.push(format!(
+            "70s min price: {:?}, trade price: {}, deviation: {}, validate: {}",
+            min_price,
+            trade.price,
+            (trade.price - min_price) / min_price,
+            min_price.is_normal()
+                && (trade.price - min_price) / min_price
+                    < config.get_trade_deviation("flash", "m0070").unwrap()
+        ));
+    }
+    {
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+
+        buffered.push(format!(
+            "70s min price: {:?}, max price: {}, oscillation: {}, validate: {}",
+            min_price,
+            max_price,
+            (max_price - min_price) / max_price,
+            !(min_price.is_normal()
+                && max_price.is_normal()
+                && (max_price - min_price) / max_price
+                    < config.get_trade_oscillation("flash", "m0070").unwrap())
+        ));
+    }
+
+    buffered.push(format!(
+        "---------------------------------slug---------------------------------------"
+    ));
+
+    {
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+        buffered.push(format!(
+            "5m min price: {:?}, trade price: {}, deviation: {}, validate: {}",
+            min_price,
+            trade.price,
+            (trade.price - min_price) / min_price,
+            min_price.is_normal()
+                && (trade.price - min_price) / min_price
+                    < config.get_trade_deviation("slug", "m0300").unwrap()
+        ));
+    }
+    {
+        let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+        let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+
+        buffered.push(format!(
+            "5m min price: {:?}, max price: {}, oscillation: {}, validate: {}",
+            min_price_05,
+            max_price_05,
+            (max_price_05 - min_price_05) / max_price_05,
+            !(max_price_05.is_normal()
+                && min_price_05.is_normal()
+                && (max_price_05 - min_price_05) / max_price_05
+                    < config.get_trade_oscillation("slug", "m0300").unwrap())
+        ));
+    }
 
     buffered.push(format!(
         "------------------------------------------------------------------------"
@@ -510,6 +621,8 @@ mod flash {
         biz::TradeInfo,
         core::{AppConfig, AssetContext},
     };
+    use chrono::Duration;
+    use log::*;
     use std::sync::Arc;
 
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
@@ -528,6 +641,14 @@ mod flash {
             return false;
         }
 
+        // check last order to prevent place mutiple orders (watch within 30s)
+        if let Some(order) = asset.find_last_flash_order(&trade.id) {
+            if trade.action_time() - order.created_time < Duration::seconds(30).num_milliseconds() {
+                debug!("Found flash order within 30s, ignore {:?}", trade);
+                return false;
+            }
+        }
+
         true
     }
 
@@ -543,14 +664,7 @@ mod flash {
         result = result
             && if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
                 // check 10s trend, should be upward and with multiple previous downwards
-                if !(matches!(m0010.trend, Trend::Upward)
-                    && m0010.up_count == 1
-                    && m0010.down_count > 1)
-                {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0010.trend, Trend::Upward) && m0010.up_count == 1 && m0010.down_count > 1
             } else {
                 false
             };
@@ -558,11 +672,7 @@ mod flash {
         // check 30s trend, should be downward
         result = result
             && if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
-                if matches!(m0030.trend, Trend::Downward) {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0030.trend, Trend::Downward)
             } else {
                 false
             };
@@ -570,11 +680,7 @@ mod flash {
         // check 60s trend, should be downward
         result = result
             && if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
-                if matches!(m0060.trend, Trend::Downward) {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0060.trend, Trend::Downward)
             } else {
                 false
             };
@@ -587,7 +693,7 @@ mod flash {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let deviation_rate_to_min = config.trade.flash.min_deviation_rate;
+        let deviation_rate_to_min = config.get_trade_deviation("flash", "m0070").unwrap();
 
         // 70s min price
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
@@ -604,13 +710,16 @@ mod flash {
         let mut result = true;
 
         // 70s oscillation (min to max)
-        let oscillation = *config.trade.flash.oscillation_rage.get("m0070").unwrap();
+        let oscillation = config.get_trade_oscillation("flash", "m0070").unwrap();
 
         // 當下振幅, 0s - 70s
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
         let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
 
-        if (max_price - min_price) / max_price < oscillation {
+        if min_price.is_normal()
+            && max_price.is_normal()
+            && (max_price - min_price) / max_price < oscillation
+        {
             result = false;
         }
 
@@ -657,14 +766,7 @@ mod slug {
         result = result
             && if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
                 // check 60s trend, should be upward and with multiple previous downwards
-                if matches!(m0060.trend, Trend::Upward)
-                    && m0060.up_count == 1
-                    && m0060.down_count > 1
-                {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0060.trend, Trend::Upward) && m0060.up_count == 1 && m0060.down_count > 1
             } else {
                 false
             };
@@ -672,11 +774,7 @@ mod slug {
         // check 30s trend, should be upward
         result = result
             && if let Some(m0030) = rebounds.iter().find(|r| r.unit == "m0030") {
-                if matches!(m0030.trend, Trend::Upward) {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0030.trend, Trend::Upward)
             } else {
                 false
             };
@@ -684,11 +782,7 @@ mod slug {
         // check 60s trend, should be upward
         result = result
             && if let Some(m0010) = rebounds.iter().find(|r| r.unit == "m0010") {
-                if matches!(m0010.trend, Trend::Upward) {
-                    true
-                } else {
-                    false
-                }
+                matches!(m0010.trend, Trend::Upward)
             } else {
                 false
             };
@@ -701,9 +795,9 @@ mod slug {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let deviation_rate_to_min = config.trade.slug.min_deviation_rate;
+        let deviation_rate_to_min = config.get_trade_deviation("slug", "m0300").unwrap();
 
-        // 10m min price
+        // 5m min price
         let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
 
         // assume trade price is higher than min_price
@@ -717,8 +811,8 @@ mod slug {
     ) -> bool {
         let mut result = true;
 
-        // 70s oscillation (min to max)
-        let oscillation = *config.trade.slug.oscillation_rage.get("m0300").unwrap();
+        // 5m oscillation (min to max)
+        let oscillation = config.get_trade_oscillation("slug", "m0300").unwrap();
 
         let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
         let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
@@ -732,7 +826,6 @@ mod slug {
         // let min_price_20 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
         // let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
 
-        // TODO: magic number
         if max_price_05.is_normal()
             && min_price_05.is_normal()
             && (max_price_05 - min_price_05) / max_price_05 < oscillation
@@ -757,12 +850,4 @@ pub struct TradeTrend {
     pub rebound_at: i32,
     pub up_count: i32,
     pub down_count: i32,
-}
-
-#[derive(Debug, Clone)]
-pub enum AuditState {
-    Flash,
-    Slug,
-    Loss,
-    Decline,
 }

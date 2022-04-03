@@ -280,12 +280,13 @@ pub struct Order {
     pub accepted_volume: Option<u32>,
     pub write_off_time: Option<i64>,
     pub status: OrderStatus,
+    pub audit: AuditState,
     // rival order ID
     pub constraint_id: Option<String>,
 }
 
 impl Order {
-    pub fn new(symbol: &str, price: f32, volume: u32, time: i64) -> Self {
+    pub fn new(symbol: &str, price: f32, volume: u32, time: i64, audit: AuditState) -> Self {
         Self {
             id: format!("{}{}", symbol, Utc::now().timestamp_millis()),
             symbol: symbol.to_string(),
@@ -296,6 +297,7 @@ impl Order {
             accepted_price: None,
             accepted_volume: None,
             status: OrderStatus::Init,
+            audit,
             constraint_id: None,
             write_off_time: None,
         }
@@ -314,4 +316,12 @@ pub enum OrderStatus {
     WriteOff,
     // order has been paried with loss
     LossPair,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum AuditState {
+    Flash,
+    Slug,
+    Loss,
+    Decline,
 }

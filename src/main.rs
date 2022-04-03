@@ -12,7 +12,10 @@ use sminer::{
         mongo::{export, import},
     },
     provider::yahoo::consume,
-    vo::core::{AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC},
+    vo::core::{
+        AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC,
+        KEY_EXTRA_PRINT_TRADE_META_END_TIME, KEY_EXTRA_PRINT_TRADE_META_START_TIME,
+    },
     Result,
 };
 use std::collections::HashSet;
@@ -85,6 +88,40 @@ async fn perform_consume(config: &mut AppConfig, _sub_matches: &ArgMatches) -> R
 }
 
 async fn perform_replay(config: &mut AppConfig, sub_matches: &ArgMatches) -> Result<()> {
+    let mut from: Option<DateTime<Utc>> = None;
+    let mut to: Option<DateTime<Utc>> = None;
+
+    if let Some(start) = sub_matches.value_of("print-meta-start-at") {
+        if let Ok(time) = DateTime::parse_from_rfc3339(start) {
+            from = Some(time.with_timezone(&Utc));
+        }
+        if let Ok(timestamp) = start.parse::<i64>() {
+            from = Some(Utc.timestamp_millis(timestamp));
+        }
+    }
+
+    if let Some(end) = sub_matches.value_of("print-meta-end-at") {
+        if let Ok(time) = DateTime::parse_from_rfc3339(end) {
+            to = Some(time.with_timezone(&Utc));
+        }
+        if let Ok(timestamp) = end.parse::<i64>() {
+            to = Some(Utc.timestamp_millis(timestamp));
+        }
+    }
+
+    if let Some(start) = from {
+        config.extra_put(
+            KEY_EXTRA_PRINT_TRADE_META_START_TIME,
+            &start.timestamp_millis().to_string(),
+        )
+    }
+    if let Some(end) = to {
+        config.extra_put(
+            KEY_EXTRA_PRINT_TRADE_META_END_TIME,
+            &end.timestamp_millis().to_string(),
+        )
+    }
+
     let start_time = Utc::now().timestamp_millis();
     config_truncat(config, sub_matches)?;
     let context = AppContext::new(config.to_owned()).init().await?;
@@ -277,6 +314,16 @@ fn command_args<'help>() -> Command<'help> {
                         .default_value("true")
                         .ignore_case(true)
                         .help("Truncat existing data"),
+                    Arg::new("print-meta-start-at")
+                        .long("print-meta-start-at")
+                        .takes_value(true)
+                        .required(false)
+                        .help("Print meta of trades, start time"),
+                    Arg::new("print-meta-end-at")
+                        .long("print-meta-end-at")
+                        .takes_value(true)
+                        .required(false)
+                        .help("Print meta of trades, end time"),
                     Arg::new("files")
                         .takes_value(true)
                         .multiple_values(true)

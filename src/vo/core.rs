@@ -1,4 +1,6 @@
-use super::biz::{MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo};
+use super::biz::{
+    AuditState, MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo,
+};
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
     persist::{es::ElasticTicker, PersistenceContext},
@@ -7,7 +9,7 @@ use crate::{
 };
 use chrono::Utc;
 use config::Config;
-use log::{debug, error, log_enabled};
+use log::*;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,6 +21,8 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 pub const KEY_EXTRA_PRCOESS_IN_ASYNC: &str = "process_in_async";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
+pub const KEY_EXTRA_PRINT_TRADE_META_START_TIME: &str = "print_trade_meta_start_time";
+pub const KEY_EXTRA_PRINT_TRADE_META_END_TIME: &str = "print_trade_meta_end_time";
 
 pub type LockTradeInfo = Arc<RwLock<TradeInfo>>;
 pub type LockListMap<T> = BTreeMap<String, RwLock<LinkedList<T>>>;
@@ -343,17 +347,20 @@ impl AssetContext {
     pub fn add_order(&self, order: Order) -> bool {
         let lock = &self.orders;
         let mut writer = lock.write().unwrap();
-        if let Some(_duplicated) = writer
+        if let Some(exists_order) = writer
             .iter()
             .filter(|o| o.symbol == order.symbol)
             .filter(|o| matches!(o.status, OrderStatus::Init | OrderStatus::Accepted))
-            .filter(|o| o.created_time + 120000 > order.created_time) // FIXME: only for test
             .next()
         {
-            debug!("duplicated order {:?}", &order);
+            debug!("find exists order {:?}", exists_order);
             false
         } else {
-            log::info!("add new order: {:?}", &order);
+            if matches!(order.audit, AuditState::Loss) {
+                warn!("add new order: {:?}", &order);
+            } else {
+                info!("add new order: {:?}", &order);
+            }
             writer.push_front(order);
             true
         }
@@ -418,6 +425,29 @@ impl AssetContext {
             .iter()
             .filter(|o| o.symbol == symbol)
             .filter(|o| matches!(o.status, OrderStatus::Init | OrderStatus::Accepted))
+            .next()
+        {
+            Some(order.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn find_last_flash_order(&self, symbol: &str) -> Option<Order> {
+        let lock = &self.orders;
+        let reader = lock.read().unwrap();
+        if let Some(order) = reader
+            .iter()
+            .filter(|o| o.symbol == symbol)
+            .filter(|o| {
+                matches!(
+                    o.status,
+                    OrderStatus::Init
+                        | OrderStatus::Accepted
+                        | OrderStatus::WriteOff
+                        | OrderStatus::LossPair
+                )
+            })
             .next()
         {
             Some(order.clone())
@@ -619,6 +649,34 @@ impl AppConfig {
     pub fn truncat_enabled(&self) -> bool {
         self.extra_present(KEY_EXTRA_ENABLE_DATA_TRUNCAT)
     }
+
+    pub fn get_trade_deviation(&self, mode: &str, name: &str) -> Option<f32> {
+        match mode {
+            "flash" => match self.trade.flash.min_deviation_rate.get(name) {
+                Some(value) => Some(*value),
+                None => None,
+            },
+            "slug" => match self.trade.slug.min_deviation_rate.get(name) {
+                Some(value) => Some(*value),
+                None => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn get_trade_oscillation(&self, mode: &str, name: &str) -> Option<f32> {
+        match mode {
+            "flash" => match self.trade.flash.oscillation_rage.get(name) {
+                Some(value) => Some(*value),
+                None => None,
+            },
+            "slug" => match self.trade.slug.oscillation_rage.get(name) {
+                Some(value) => Some(*value),
+                None => None,
+            },
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -649,17 +707,17 @@ pub struct TradeAudit {
     // max aount to per single order
     #[serde(rename = "maxOrderAmount")]
     pub max_order_amount: u32,
-    // loss margin on trend downward
-    #[serde(rename = "lossMarginRate")]
-    pub loss_margin_rate: f32,
     pub flash: AuditMode,
     pub slug: AuditMode,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AuditMode {
+    // loss margin on trend downward
+    #[serde(rename = "lossMarginRate")]
+    pub loss_margin_rate: f32,
     #[serde(rename = "minDeviationRate")]
-    pub min_deviation_rate: f32,
+    pub min_deviation_rate: BTreeMap<String, f32>,
     #[serde(rename = "oscillationRage")]
     pub oscillation_rage: BTreeMap<String, f32>,
 }
