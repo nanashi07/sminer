@@ -342,31 +342,45 @@ fn print_meta(
         "----------------------------------flash--------------------------------------"
     ));
 
-    {
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+    for name in config.get_trade_deviation_keys("flash") {
+        let deviation_rate_to_min = config.get_trade_deviation("flash", &name).unwrap();
+
+        // parse period from key (ex: m0070 => 70 / 10 = 7)
+        let period = name[1..].parse::<usize>().unwrap() / 10;
+
+        // min price
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+
+        // assume trade price is higher than min_price
         buffered.push(format!(
-            "70s min price: {:?}, trade price: {}, deviation: {}, validate: {}",
-            min_price,
+            "flash min price, period: {}, price: {}, min price{}, value {} < eviation {} = {}",
+            period,
             trade.price,
+            min_price,
             (trade.price - min_price) / min_price,
-            min_price.is_normal()
-                && (trade.price - min_price) / min_price
-                    < config.get_trade_deviation("flash", "m0070").unwrap()
+            deviation_rate_to_min,
+            !min_price.is_normal() || (trade.price - min_price) / min_price > deviation_rate_to_min
         ));
     }
-    {
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
-        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+    for name in config.get_trade_oscillation_keys("flash") {
+        let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
 
+        // parse period from key (ex: m0070 => 70 / 10 = 7)
+        let period = name[1..].parse::<usize>().unwrap() / 60;
+
+        // min price
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+
+        // assume trade price is higher than min_price
         buffered.push(format!(
-            "70s min price: {:?}, max price: {}, oscillation: {}, validate: {}",
-            min_price,
+            "flash oscillation, period: {}, max price: {}, min price{}, rate {} < oscillation {} = {}",
+            period,
             max_price,
+            min_price,
             (max_price - min_price) / max_price,
-            !(min_price.is_normal()
-                && max_price.is_normal()
-                && (max_price - min_price) / max_price
-                    < config.get_trade_oscillation("flash", "m0070").unwrap())
+            oscillation,
+            !max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation
         ));
     }
 
@@ -374,31 +388,44 @@ fn print_meta(
         "---------------------------------slug---------------------------------------"
     ));
 
-    {
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+    for name in config.get_trade_deviation_keys("slug") {
+        let deviation_rate_to_min = config.get_trade_deviation("slug", &name).unwrap();
+
+        // parse period from key (ex: m0300 => 300 / 60 = 5 )
+        let period = name[1..].parse::<usize>().unwrap() / 60;
+
+        // min price
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
+
+        // assume trade price is higher than min_price
         buffered.push(format!(
-            "5m min price: {:?}, trade price: {}, deviation: {}, validate: {}",
-            min_price,
+            "slug min price, period: {}, price: {}, min price{}, value {} < eviation {} = {}",
+            period,
             trade.price,
+            min_price,
             (trade.price - min_price) / min_price,
-            min_price.is_normal()
-                && (trade.price - min_price) / min_price
-                    < config.get_trade_deviation("slug", "m0300").unwrap()
+            deviation_rate_to_min,
+            !min_price.is_normal() || (trade.price - min_price) / min_price > deviation_rate_to_min
         ));
     }
-    {
-        let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
-        let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+    for name in config.get_trade_oscillation_keys("slug") {
+        let oscillation = config.get_trade_oscillation("slug", &name).unwrap();
 
+        // parse period from key (ex: m0300 => 300 / 60 = 5 )
+        let period = name[1..].parse::<usize>().unwrap() / 60;
+
+        // min price
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
+
+        // assume trade price is higher than min_price
         buffered.push(format!(
-            "5m min price: {:?}, max price: {}, oscillation: {}, validate: {}",
-            min_price_05,
-            max_price_05,
-            (max_price_05 - min_price_05) / max_price_05,
-            !(max_price_05.is_normal()
-                && min_price_05.is_normal()
-                && (max_price_05 - min_price_05) / max_price_05
-                    < config.get_trade_oscillation("slug", "m0300").unwrap())
+            "slug oscillation, period: {}, max price: {}, min price{}, rate {} < oscillation {} = {}",
+            period,
+            max_price,
+            min_price,
+            (max_price - min_price) / max_price, oscillation,
+            !max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation
         ));
     }
 
@@ -693,13 +720,28 @@ mod flash {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let deviation_rate_to_min = config.get_trade_deviation("flash", "m0070").unwrap();
+        for name in config.get_trade_deviation_keys("flash") {
+            let deviation_rate_to_min = config.get_trade_deviation("flash", &name).unwrap();
 
-        // 70s min price
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period = name[1..].parse::<usize>().unwrap() / 10;
 
-        // assume trade price is higher than min_price
-        min_price.is_normal() && (trade.price - min_price) / min_price < deviation_rate_to_min
+            // min price
+            let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+
+            // assume trade price is higher than min_price
+            if !min_price.is_normal()
+                || (trade.price - min_price) / min_price > deviation_rate_to_min
+            {
+                debug!(
+                    "validate flash min price failed, period: {}, price: {}, min price{}, value {} < eviation {}",
+                    period, trade.price, min_price, (trade.price - min_price) / min_price, deviation_rate_to_min
+                );
+                return false;
+            }
+        }
+
+        true
     }
 
     fn validate_oscillation(
@@ -707,27 +749,36 @@ mod flash {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let mut result = true;
+        for name in config.get_trade_oscillation_keys("flash") {
+            let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
 
-        // 70s oscillation (min to max)
-        let oscillation = config.get_trade_oscillation("flash", "m0070").unwrap();
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period = name[1..].parse::<usize>().unwrap() / 60;
 
-        // 當下振幅, 0s - 70s
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
-        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, 7);
+            // min price
+            let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+            let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
 
-        if min_price.is_normal()
-            && max_price.is_normal()
-            && (max_price - min_price) / max_price < oscillation
-        {
-            result = false;
+            // assume trade price is higher than min_price
+            if !max_price.is_normal()
+                || !min_price.is_normal()
+                || (max_price - min_price) / max_price < oscillation
+            {
+                debug!(
+                    "validate flash oscillation failed, period: {}, max price: {}, min price{}, rate {} < oscillation {}",
+                    period, max_price, min_price, (max_price - min_price) / max_price, oscillation
+                );
+                return false;
+            }
         }
 
-        result
+        true
     }
 }
 
 mod slug {
+    use log::debug;
+
     use super::{find_max_price, find_min_price, rebound_all, Trend};
     use crate::vo::{
         biz::TradeInfo,
@@ -795,13 +846,28 @@ mod slug {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let deviation_rate_to_min = config.get_trade_deviation("slug", "m0300").unwrap();
+        for name in config.get_trade_deviation_keys("slug") {
+            let deviation_rate_to_min = config.get_trade_deviation("slug", &name).unwrap();
 
-        // 5m min price
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+            // parse period from key (ex: m0300 => 300 / 60 = 5 )
+            let period = name[1..].parse::<usize>().unwrap() / 60;
 
-        // assume trade price is higher than min_price
-        min_price.is_normal() && (trade.price - min_price) / min_price < deviation_rate_to_min
+            // min price
+            let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
+
+            // assume trade price is higher than min_price
+            if !min_price.is_normal()
+                || (trade.price - min_price) / min_price > deviation_rate_to_min
+            {
+                debug!(
+                    "validate slug min price failed, period: {}, price: {}, min price{}, value {} < eviation {}",
+                    period, trade.price, min_price, (trade.price - min_price) / min_price, deviation_rate_to_min
+                );
+                return false;
+            }
+        }
+
+        true
     }
 
     fn validate_oscillation(
@@ -809,31 +875,30 @@ mod slug {
         config: Arc<AppConfig>,
         trade: &TradeInfo,
     ) -> bool {
-        let mut result = true;
+        for name in config.get_trade_oscillation_keys("slug") {
+            let oscillation = config.get_trade_oscillation("slug", &name).unwrap();
 
-        // 5m oscillation (min to max)
-        let oscillation = config.get_trade_oscillation("slug", "m0300").unwrap();
+            // parse period from key (ex: m0300 => 300 / 60 = 5 )
+            let period = name[1..].parse::<usize>().unwrap() / 60;
 
-        let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
-        let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
+            // min price
+            let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
+            let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, period);
 
-        // let min_price_10 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
-        // let max_price_10 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
-
-        // let min_price_15 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
-        // let max_price_15 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
-
-        // let min_price_20 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
-        // let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
-
-        if max_price_05.is_normal()
-            && min_price_05.is_normal()
-            && (max_price_05 - min_price_05) / max_price_05 < oscillation
-        {
-            result = false;
+            // assume trade price is higher than min_price
+            if !max_price.is_normal()
+                || !min_price.is_normal()
+                || (max_price - min_price) / max_price < oscillation
+            {
+                debug!(
+                    "validate slug oscillation failed, period: {}, max price: {}, min price{}, rate {} < oscillation {}",
+                    period, max_price, min_price, (max_price - min_price) / max_price, oscillation
+                );
+                return false;
+            }
         }
 
-        result
+        true
     }
 }
 

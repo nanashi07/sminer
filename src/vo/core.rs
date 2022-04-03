@@ -650,6 +650,26 @@ impl AppConfig {
         self.extra_present(KEY_EXTRA_ENABLE_DATA_TRUNCAT)
     }
 
+    pub fn get_trade_deviation_keys(&self, mode: &str) -> Vec<String> {
+        match mode {
+            "flash" => self
+                .trade
+                .flash
+                .min_deviation_rate
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect(),
+            "slug" => self
+                .trade
+                .slug
+                .min_deviation_rate
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
     pub fn get_trade_deviation(&self, mode: &str, name: &str) -> Option<f32> {
         match mode {
             "flash" => match self.trade.flash.min_deviation_rate.get(name) {
@@ -661,6 +681,26 @@ impl AppConfig {
                 None => None,
             },
             _ => None,
+        }
+    }
+
+    pub fn get_trade_oscillation_keys(&self, mode: &str) -> Vec<String> {
+        match mode {
+            "flash" => self
+                .trade
+                .flash
+                .oscillation_rage
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect(),
+            "slug" => self
+                .trade
+                .slug
+                .oscillation_rage
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect(),
+            _ => Vec::new(),
         }
     }
 
