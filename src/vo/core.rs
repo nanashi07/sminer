@@ -7,7 +7,7 @@ use crate::{
 };
 use chrono::Utc;
 use config::Config;
-use log::{debug, error, info, log_enabled};
+use log::{debug, error, log_enabled};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -242,7 +242,7 @@ impl AssetContext {
         }
     }
 
-    pub fn get_first_post_trade(&self, symbol: &str) -> Option<Ticker> {
+    pub fn get_first_post_ticker(&self, symbol: &str) -> Option<Ticker> {
         let lock = self.tickers.get(symbol).unwrap();
         let reader = lock.read().unwrap();
         let first_trade = reader
@@ -329,6 +329,17 @@ impl AssetContext {
         }
     }
 
+    pub fn get_latest_trade(&self, symbol: &str) -> Option<TradeInfo> {
+        let lock = self.trades.get(symbol).unwrap();
+        let reader = lock.read().unwrap();
+        if let Some(trade_lock) = reader.front() {
+            let trade_reader = trade_lock.read().unwrap();
+            Some(trade_reader.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn add_order(&self, order: Order) -> bool {
         let lock = &self.orders;
         let mut writer = lock.write().unwrap();
@@ -371,7 +382,15 @@ impl AssetContext {
         None
     }
 
-    pub fn write_off_order(&self, order: &Order) {
+    pub fn write_off(&self, order: &Order) {
+        self.pair_order(order, OrderStatus::WriteOff);
+    }
+
+    pub fn realized_loss(&self, order: &Order) {
+        self.pair_order(order, OrderStatus::LossPair);
+    }
+
+    fn pair_order(&self, order: &Order, status: OrderStatus) {
         let symbol = &order.symbol;
         let rival_symbol = self.find_pair_symbol(symbol).unwrap();
 
@@ -384,7 +403,7 @@ impl AssetContext {
                 .filter(|o| o.id == rival_order.id || o.id == order.id)
             {
                 o.write_off_time = order.accepted_time;
-                o.status = OrderStatus::WriteOff;
+                o.status = status.clone();
                 o.constraint_id = Some(constraint_id.clone());
 
                 debug!("write off order: {}", &o.id);
@@ -407,6 +426,7 @@ impl AssetContext {
         }
     }
 
+    #[deprecated(note = "test only")]
     pub fn find_running_order_test(&self, symbol: &str, time: i64) -> Option<Order> {
         if let Some(order) = self.find_running_order(symbol) {
             if order.created_time + 60000 < time {
@@ -626,8 +646,12 @@ pub struct YahooFinance {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TradeAudit {
+    // max aount to per single order
     #[serde(rename = "maxOrderAmount")]
     pub max_order_amount: u32,
+    // loss margin on trend downward
+    #[serde(rename = "lossMarginRate")]
+    pub loss_margin_rate: f32,
     pub flash: AuditMode,
     pub slug: AuditMode,
 }

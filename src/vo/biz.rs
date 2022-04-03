@@ -312,4 +312,6 @@ pub enum OrderStatus {
     Rejected,
     // order has been paired done
     WriteOff,
+    // order has been paried with loss
+    LossPair,
 }

@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
 };
 
-pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Result<bool> {
+pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Result<bool> {
     // find all orders
     let lock = asset.orders();
     let readers = lock.read().unwrap();
@@ -36,11 +36,9 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     let close_prices: HashMap<String, f32> = symbols
         .iter()
-        .map(|symbol| asset.get_first_post_trade(symbol).unwrap())
+        .map(|symbol| asset.get_first_post_ticker(symbol).unwrap())
         .map(|ticker| (ticker.id.clone(), ticker.price))
         .collect();
-
-    log::info!("closed prices {:?}", close_prices);
 
     info!("####################################################################################################");
     info!("####################################################################################################");
@@ -60,8 +58,8 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         total_profit += profit;
     }
     info!(
-        "total profit: {}, total amount: {}",
-        total_profit, total_amount
+        "closed prices {:?}, total profit: {}, total amount: {}",
+        close_prices, total_profit, total_amount
     );
 
     info!("####################################################################################################");
@@ -123,7 +121,55 @@ pub fn prepare_trade(
                     ];
 
                     // write off previouse order
-                    asset.write_off_order(&order);
+                    asset.write_off(&order);
+
+                    // add grafana annotation
+                    add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+                }
+            }
+            AuditState::Loss => {
+                // get latest rival ticker
+                let symbol = &trade.id;
+                let rival_symbol = asset.find_pair_symbol(symbol).unwrap();
+                let time = trade.time;
+
+                // replace with rival latest trade
+                let mut trade = asset.get_latest_trade(&rival_symbol).unwrap();
+                trade.time = time + 1;
+
+                // calculate volume
+                let suspected_volume =
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
+                // create order
+                let order = Order::new(
+                    &trade.id,
+                    trade.price,
+                    suspected_volume,
+                    trade.action_time(),
+                );
+                if asset.add_order(order.clone()) {
+                    let order_id = order.id.clone();
+
+                    print_meta(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        Some(order.clone()),
+                        &trade,
+                    )
+                    .unwrap_or_default();
+
+                    let symbol = trade.id.clone();
+                    let time = Utc.timestamp_millis(trade.action_time());
+                    let tags = vec![
+                        trade.id.clone(),
+                        order_id,
+                        format!("{:?}", state),
+                        format!("MSG-{}", &trade.message_id),
+                        trade.price.to_string(),
+                    ];
+
+                    // take loss previouse order
+                    asset.realized_loss(&order);
 
                     // add grafana annotation
                     add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
@@ -188,13 +234,12 @@ pub fn audit_trade(
     // TODO: reutrn if decline, unnecessary to check following
 
     // FIXME: check previous order status
-    if matches!(
-        // asset.find_running_order_test(&trade.id, trade.action_time()),
-        asset.find_running_order(&trade.id),
-        Some(_duplicated)
-    ) {
-        // duplicated order, do nothing
-        return AuditState::Decline;
+    if let Some(exists_order) = asset.find_running_order(&trade.id) {
+        // exists order, check PnL
+        if loss_recognition(asset, config, trade, &exists_order) {
+            return AuditState::Loss;
+        }
+        result = AuditState::Decline;
     }
 
     // 小於區間內最小值(扣除目前的上升區間)
@@ -211,6 +256,23 @@ pub fn audit_trade(
     // forecast possible lost
 
     result
+}
+
+fn loss_recognition(
+    _asset: Arc<AssetContext>,
+    config: Arc<AppConfig>,
+    trade: &TradeInfo,
+    order: &Order,
+) -> bool {
+    let margin_rate = config.trade.loss_margin_rate;
+    let price = trade.price;
+    // FIXME : use accepted price
+    let order_price = order.created_price;
+    if price < order_price && (order_price - price) / order_price > margin_rate {
+        true
+    } else {
+        false
+    }
 }
 
 // print details
@@ -594,10 +656,10 @@ mod slug {
         // use 1m as initial step
         result = result
             && if let Some(m0060) = rebounds.iter().find(|r| r.unit == "m0060") {
-                // check 10s trend, should be upward and with multiple previous downwards
-                if !(matches!(m0060.trend, Trend::Upward)
+                // check 60s trend, should be upward and with multiple previous downwards
+                if matches!(m0060.trend, Trend::Upward)
                     && m0060.up_count == 1
-                    && m0060.down_count > 1)
+                    && m0060.down_count > 1
                 {
                     true
                 } else {
@@ -661,14 +723,14 @@ mod slug {
         let min_price_05 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
         let max_price_05 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 0, 5);
 
-        let min_price_10 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
-        let max_price_10 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
+        // let min_price_10 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
+        // let max_price_10 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 5, 10);
 
-        let min_price_15 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
-        let max_price_15 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
+        // let min_price_15 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
+        // let max_price_15 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 10, 15);
 
-        let min_price_20 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
-        let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
+        // let min_price_20 = find_min_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
+        // let max_price_20 = find_max_price(Arc::clone(&asset), &trade.id, "m0060", 15, 20);
 
         // TODO: magic number
         if max_price_05.is_normal()
@@ -701,5 +763,6 @@ pub struct TradeTrend {
 pub enum AuditState {
     Flash,
     Slug,
+    Loss,
     Decline,
 }

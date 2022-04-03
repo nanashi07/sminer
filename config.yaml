@@ -10,7 +10,8 @@ platform:
   yahoo:
     uri: "wss://streamer.finance.yahoo.com/"
 trade:
-  maxOrderAmount: 1000
+  maxOrderAmount: 500
+  lossMarginRate: 0.003
   flash:
     minDeviationRate: 0.003
     oscillationRage:
@@ -18,7 +19,7 @@ trade:
   slug:
     minDeviationRate: 0.002
     oscillationRage:
-      m0300: 0.008
+      m0300: 0.005
 replay:
   # export:
   #   - name: ticker
