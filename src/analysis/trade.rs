@@ -1,10 +1,10 @@
 use crate::{
     persist::grafana::add_order_annotation,
     vo::{
-        biz::{AuditState, MarketHoursType, Order, TradeInfo, TradeTrend, Trend},
+        biz::{AuditState, MarketHoursType, Order, Protfolio, TradeInfo, TradeTrend, Trend},
         core::{
-            AppConfig, AssetContext, AuditRule, DeviationCriteria, OscillationCriteria,
-            TrendCriteria, KEY_EXTRA_PRINT_TRADE_META_END_TIME,
+            AppConfig, AssetContext, AuditRule, DeviationCriteria, LowerCriteria,
+            OscillationCriteria, TrendCriteria, KEY_EXTRA_PRINT_TRADE_META_END_TIME,
             KEY_EXTRA_PRINT_TRADE_META_START_TIME,
         },
     },
@@ -319,7 +319,10 @@ fn print_meta(
         &config.trade.flash.loss_margin_rate
     ));
     for (index, rule) in config.trade.flash.rules.iter().enumerate() {
-        buffered.push(format!("########## [flash rule {}] ##########", index));
+        buffered.push(format!(
+            "########## [flash rule {} - {:?}] ##########",
+            index, rule.mode
+        ));
         for trend in &rule.trends {
             buffered.push(format!(
                 "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -328,24 +331,43 @@ fn print_meta(
         }
         for deviation in &rule.deviations {
             buffered.push(format!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:?}",
-                index, deviation.from, deviation.to, deviation.value
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
             ));
         }
         for oscillation in &rule.oscillations {
             buffered.push(format!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:?}",
-                index, oscillation.from, oscillation.to, oscillation.value
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            ));
+        }
+        for lower in &rule.lowers {
+            buffered.push(format!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
             ));
         }
     }
+
+    buffered.push(format!(
+        "------------------------------------------------------------------------"
+    ));
 
     buffered.push(format!(
         "[Config] slug.loss_margin_rate: {:?}",
         &config.trade.slug.loss_margin_rate
     ));
     for (index, rule) in config.trade.slug.rules.iter().enumerate() {
-        buffered.push(format!("########## [slug rule {}] ##########", index));
+        buffered.push(format!(
+            "########## [slug rule {} - {:?}] ##########",
+            index, rule.mode
+        ));
         for trend in &rule.trends {
             buffered.push(format!(
                 "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -354,14 +376,26 @@ fn print_meta(
         }
         for deviation in &rule.deviations {
             buffered.push(format!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:?}",
-                index, deviation.from, deviation.to, deviation.value
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
             ));
         }
         for oscillation in &rule.oscillations {
             buffered.push(format!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:?}",
-                index, oscillation.from, oscillation.to, oscillation.value
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            ));
+        }
+        for lower in &rule.lowers {
+            buffered.push(format!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
             ));
         }
     }
@@ -370,7 +404,7 @@ fn print_meta(
         "----------------------------------flash--------------------------------------"
     ));
 
-    for rule in &config.trade.flash.rules {
+    for (index, rule) in config.trade.flash.rules.iter().enumerate() {
         // for trend in &rule.trends {
         //     buffered.push(format!(
         //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -379,15 +413,14 @@ fn print_meta(
         // }
         for deviation_rule in &rule.deviations {
             let mut period_from = 0;
-            let duration = 10;
 
             if let Some(from) = &deviation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / duration;
+                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
             }
 
-            let base_unit = format!("m{:04}", duration);
+            let base_unit = format!("m{:04}", flash::BASE_DURATION);
             // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / duration;
+            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
 
             // min price
             let min_price = find_min_price(
@@ -399,30 +432,32 @@ fn print_meta(
             );
 
             buffered.push(format!(
-                "flash min price, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {} = {}",
-                period_from * duration,
-                period_to * duration,
+                "[{}/{:?}] flash min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < eviation {:.03}% = {}",
+                index,
+                rule.mode,
+                period_from * flash::BASE_DURATION,
+                period_to * flash::BASE_DURATION,
                 trade.price,
                 min_price,
-                (trade.price - min_price) / min_price,
-                deviation_rule.value,
+                (trade.price - min_price) / min_price * 100.0,
+                deviation_rule.value * 100.0,
                 !(!min_price.is_normal()
                     || (trade.price - min_price) / min_price > deviation_rule.value)
             ));
         }
         for oscillation_rule in &rule.oscillations {
             let mut period_from = 0;
-            let duration = 30;
 
             if let Some(from) = &oscillation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / duration;
+                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
             }
 
             // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", duration);
+            let base_unit = format!("m{:04}", flash::BASE_DURATION);
 
             // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = oscillation_rule.to[1..].parse::<usize>().unwrap() / duration;
+            let period_to =
+                oscillation_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
 
             // min price
             let min_price = find_min_price(
@@ -441,15 +476,60 @@ fn print_meta(
             );
 
             buffered.push(format!(
-                "flash oscillation, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {} = {}",
-                period_from * duration,
-                period_to * duration,
+                "[{}/{:?}] flash oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
+                index,
+                rule.mode,
+                period_from * flash::BASE_DURATION,
+                period_to * flash::BASE_DURATION,
                 max_price,
                 min_price,
-                (max_price - min_price) / max_price,
-                oscillation_rule.value,
+                (max_price - min_price) / max_price * 100.0,
+                oscillation_rule.value * 100.0,
                 !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
             ));
+        }
+        for lower_rule in &rule.lowers {
+            let mut period_from = 0;
+
+            if let Some(from) = &lower_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
+            }
+
+            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+            let base_unit = format!("m{:04}", flash::BASE_DURATION);
+
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            // find price time lower than min_price before
+            if min_price.is_normal() {
+                if let Some(last_protfolio) =
+                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
+                {
+                    // there is lower price than catched min price with this duration
+                    let last_time = last_protfolio.time;
+                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
+                        buffered.push(format!(
+                            "validate lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            period_from * flash::BASE_DURATION,
+                            period_to * flash::BASE_DURATION,
+                            min_price,
+                            last_protfolio.min_price,
+                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
+                            (trade.time - last_time) / 1000
+                        ));
+                    }
+                }
+            };
         }
     }
 
@@ -457,7 +537,7 @@ fn print_meta(
         "---------------------------------slug---------------------------------------"
     ));
 
-    for rule in &config.trade.slug.rules {
+    for (index, rule) in config.trade.slug.rules.iter().enumerate() {
         // for trend in &rule.trends {
         //     buffered.push(format!(
         //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -466,15 +546,14 @@ fn print_meta(
         // }
         for deviation_rule in &rule.deviations {
             let mut period_from = 0;
-            let duration = 10;
 
             if let Some(from) = &deviation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / duration;
+                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
             }
 
-            let base_unit = format!("m{:04}", duration);
+            let base_unit = format!("m{:04}", slug::BASE_DURATION);
             // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / duration;
+            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
 
             // min price
             let min_price = find_min_price(
@@ -486,30 +565,32 @@ fn print_meta(
             );
 
             buffered.push(format!(
-                "slug min price, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {} = {}",
-                period_from * duration,
-                period_to * duration,
+                "[{}/{:?}] slug min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < eviation {:.03}% = {}",
+                index,
+                rule.mode,
+                period_from * slug::BASE_DURATION,
+                period_to * slug::BASE_DURATION,
                 trade.price,
                 min_price,
-                (trade.price - min_price) / min_price,
-                deviation_rule.value,
+                (trade.price - min_price) / min_price * 100.0,
+                deviation_rule.value * 100.0,
                 !(!min_price.is_normal()
                     || (trade.price - min_price) / min_price > deviation_rule.value)
             ));
         }
         for oscillation_rule in &rule.oscillations {
             let mut period_from = 0;
-            let duration = 30;
 
             if let Some(from) = &oscillation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / duration;
+                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
             }
 
             // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", duration);
+            let base_unit = format!("m{:04}", slug::BASE_DURATION);
 
             // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = oscillation_rule.to[1..].parse::<usize>().unwrap() / duration;
+            let period_to =
+                oscillation_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
 
             // min price
             let min_price = find_min_price(
@@ -528,14 +609,69 @@ fn print_meta(
             );
 
             buffered.push(format!(
-                "flash oscillation, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {} = {}",
-                period_from * duration,
-                period_to * duration,
+                "[{}/{:?}] flash oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
+                index,
+                rule.mode,
+                period_from * slug::BASE_DURATION,
+                period_to * slug::BASE_DURATION,
                 max_price,
                 min_price,
-                (max_price - min_price) / max_price,
-                oscillation_rule.value,
+                (max_price - min_price) / max_price * 100.0,
+                oscillation_rule.value * 100.0,
                 !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
+            ));
+        }
+        for lower_rule in &rule.lowers {
+            let mut period_from = 0;
+
+            if let Some(from) = &lower_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
+            }
+
+            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+            let base_unit = format!("m{:04}", slug::BASE_DURATION);
+
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            // find price time lower than min_price before
+            if min_price.is_normal() {
+                if let Some(last_protfolio) =
+                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
+                {
+                    // there is lower price than catched min price with this duration
+                    let last_time = last_protfolio.time;
+                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
+                        buffered.push(format!(
+                            "validate lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            period_from * slug::BASE_DURATION,
+                            period_to * slug::BASE_DURATION,
+                            min_price,
+                            last_protfolio.min_price,
+                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
+                            (trade.time - last_time) / 1000
+                        ));
+                        continue;
+                    }
+                }
+            };
+            buffered.push(format!(
+                "validate lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                period_from * slug::BASE_DURATION,
+                period_to * slug::BASE_DURATION,
+                min_price,
+                "",
+                "",
+                ""
             ));
         }
     }
@@ -550,11 +686,11 @@ fn print_meta(
     }
 
     if let Some(value) = order {
-        buffered.push(format!("{:?}", value));
         buffered.push(format!(
             "----------------------------------- {} -----------------------------------",
             &value.id
         ));
+        buffered.push(format!("{:?}", value));
     }
 
     buffered.push(format!(
@@ -562,40 +698,47 @@ fn print_meta(
     ));
 
     let price_check_ranges = [
-        (1, 6),
-        (6, 11),
-        (11, 16),
-        (16, 21),
-        (21, 26),
-        (26, 31),
-        (31, 36),
-        (36, 41),
-        (41, 46),
-        (46, 51),
-        (51, 56),
-        (56, 61),
-        (1, 11),
-        (11, 21),
-        (21, 31),
-        (31, 41),
-        (41, 51),
-        (51, 61),
-        (1, 16),
-        (16, 31),
-        (31, 46),
-        (46, 61),
-        (1, 31),
-        (31, 61),
+        (0, 60),
+        (60, 90),
+        (90, 120),
+        (60, 120),
+        (120, 150),
+        (150, 180),
+        (120, 180),
+        (6 * 1, 6 * 6),
+        (6 * 6, 6 * 11),
+        (6 * 11, 6 * 16),
+        (6 * 16, 6 * 21),
+        (6 * 21, 6 * 26),
+        (6 * 26, 6 * 31),
+        (6 * 31, 6 * 36),
+        (6 * 36, 6 * 41),
+        (6 * 41, 6 * 46),
+        (6 * 46, 6 * 51),
+        (6 * 51, 6 * 56),
+        (6 * 56, 6 * 61),
+        (6 * 1, 6 * 11),
+        (6 * 11, 6 * 21),
+        (6 * 21, 6 * 31),
+        (6 * 31, 6 * 41),
+        (6 * 41, 6 * 51),
+        (6 * 51, 6 * 61),
+        (6 * 1, 6 * 16),
+        (6 * 16, 6 * 31),
+        (6 * 31, 6 * 46),
+        (6 * 46, 6 * 61),
+        (6 * 1, 6 * 31),
+        (6 * 31, 6 * 61),
     ];
 
     for (start, end) in price_check_ranges {
-        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0060", start, end);
-        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0060", start, end);
+        let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", start, end);
+        let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", start, end);
 
         buffered.push(format!(
-            "{start:02}-{end:02}m price: {price:.4}, min: {min:.4}, min diff: {min_diff:.4} ({min_diff_rate:.3}%), max: {max:.4}, min-max: {min_max_diff:.4} ({min_max_diff_rate:.3}%)",
-            start             = start,
-            end               = end,
+            "{start:04}-{end:04} price: {price:.4}, min: {min:.4}, min diff: {min_diff:.4} ({min_diff_rate:.3}%), max: {max:.4}, min-max: {min_max_diff:.4} ({min_max_diff_rate:.3}%)",
+            start             = start * 10,
+            end               = end * 10,
             min               = min_price,
             price             = trade.price,
             min_diff          = trade.price - min_price,
@@ -610,23 +753,24 @@ fn print_meta(
         "------------------------------------------------------------------------"
     ));
 
-    // let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
-    // for (unit, lock) in protfolio_map {
-    //     let reader = lock.read().unwrap();
-    //     buffered.push(format!(
-    //         "*********************************** unit {} ***********************************",
-    //         unit
-    //     ));
-    //     for protfolios in reader.iter() {
-    //         buffered.push(format!("unit: {}, {:?}", unit, protfolios));
-    //     }
-    // }
+    let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
+    for (unit, lock) in protfolio_map {
+        let reader = lock.read().unwrap();
+        buffered.push(format!(
+            "*********************************** unit {} ***********************************",
+            unit
+        ));
+        for protfolios in reader.iter() {
+            buffered.push(format!("unit: {}, {:?}", unit, protfolios));
+        }
+    }
 
     let path = format!(
-        "{base}/orders/{symbol}/{day}/MSG-{id}.ord",
+        "{base}/orders/{symbol}/{day}/MSG-{time}-{id}.ord",
         base = &config.replay.output.base_folder,
         symbol = &trade.id,
         day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
+        time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
         id = &trade.message_id
     );
     let parent = Path::new(&path).parent().unwrap();
@@ -646,6 +790,31 @@ fn print_meta(
     }
 
     Ok(())
+}
+
+fn find_min_price_time(
+    asset: Arc<AssetContext>,
+    symbol: &str,
+    unit: &str,
+    start: usize,
+    min_price: f32,
+) -> Option<Protfolio> {
+    if let Some(lock) = asset.get_protfolios(symbol, unit) {
+        let reader = lock.read().unwrap();
+        if reader.is_empty() {
+            None
+        } else {
+            if let Some(last_protfolio) =
+                reader.iter().skip(start).find(|p| p.min_price < min_price)
+            {
+                Some(last_protfolio.clone())
+            } else {
+                None
+            }
+        }
+    } else {
+        None
+    }
 }
 
 fn find_min_price(
@@ -763,12 +932,12 @@ pub fn validate_audit_rule(
     rule: &AuditRule,
     duration: usize,
 ) -> bool {
-    // validate trend
+    // analysis trade trend and match config
     if !validate_trend(Arc::clone(&asset), Arc::clone(&config), trade, &rule.trends) {
         return false;
     }
 
-    // validate deviations
+    // validate deviations between current price to min price
     if !validate_deviation(
         Arc::clone(&asset),
         Arc::clone(&config),
@@ -778,13 +947,24 @@ pub fn validate_audit_rule(
     ) {
         return false;
     }
-    // validate oscillations
+    // validate oscillations, between max price and min price
     if !validate_oscillation(
         Arc::clone(&asset),
         Arc::clone(&config),
         trade,
         duration,
         &rule.oscillations,
+    ) {
+        return false;
+    }
+
+    // validate min price, which has lower price than current min
+    if !validate_lower(
+        Arc::clone(&asset),
+        Arc::clone(&config),
+        trade,
+        duration,
+        &rule.lowers,
     ) {
         return false;
     }
@@ -851,14 +1031,14 @@ fn validate_deviation(
         // assume trade price is higher than min_price
         if !min_price.is_normal() || (trade.price - min_price) / min_price > deviation_rule.value {
             debug!(
-                    "validate min price failed, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {}",
-                    period_from * duration,
-                    period_to * duration,
-                    trade.price,
-                    min_price,
-                    (trade.price - min_price) / min_price,
-                    deviation_rule.value
-                );
+                "validate min price failed, period: {:04} - {:04}, price: {}, min price: {}, value {} < eviation {}",
+                period_from * duration,
+                period_to * duration,
+                trade.price,
+                min_price,
+                (trade.price - min_price) / min_price,
+                deviation_rule.value
+            );
             return false;
         }
     }
@@ -908,16 +1088,75 @@ fn validate_oscillation(
             || (max_price - min_price) / max_price < oscillation_rule.value
         {
             debug!(
-                    "validate oscillation failed, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {}",
-                    period_from * duration,
-                    period_to * duration,
-                    max_price,
-                    min_price,
-                    (max_price - min_price) / max_price,
-                    oscillation_rule.value
-                );
+                "validate oscillation failed, period: {:04} - {:04}, max price: {}, min price: {}, rate {} < oscillation {}",
+                period_from * duration,
+                period_to * duration,
+                max_price,
+                min_price,
+                (max_price - min_price) / max_price,
+                oscillation_rule.value
+            );
             return false;
         }
+    }
+
+    true
+}
+
+fn validate_lower(
+    asset: Arc<AssetContext>,
+    _config: Arc<AppConfig>,
+    trade: &TradeInfo,
+    duration: usize,
+    lower_rules: &Vec<LowerCriteria>,
+) -> bool {
+    for lower_rule in lower_rules {
+        let mut period_from = 0;
+
+        if let Some(from) = &lower_rule.from {
+            period_from = from[1..].parse::<usize>().unwrap() / duration;
+        }
+
+        // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+        let base_unit = format!("m{:04}", duration);
+
+        // parse period from key (ex: m0070 => 70 / 10 = 7)
+        let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / duration;
+
+        // min price
+        let min_price = find_min_price(
+            Arc::clone(&asset),
+            &trade.id,
+            &base_unit,
+            period_from,
+            period_to,
+        );
+
+        // find price time lower than min_price before
+        if min_price.is_normal() {
+            if let Some(last_protfolio) =
+                find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
+            {
+                // there is lower price than catched min price with this duration
+                let last_time = last_protfolio.time;
+                if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
+                    debug!(
+                        "validate lower failed, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                        period_from * duration,
+                        period_to * duration,
+                        min_price,
+                        last_protfolio.min_price,
+                        Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
+                        (trade.time - last_time) / 1000
+                    );
+                    return false;
+                }
+            } else {
+                // no trade found, there is no lower price than current min price
+            }
+        } else {
+            return false;
+        };
     }
 
     true
@@ -934,7 +1173,7 @@ mod flash {
     use log::*;
     use std::sync::Arc;
 
-    const BASE_DURATION: usize = 10;
+    pub const BASE_DURATION: usize = 10;
 
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
@@ -987,7 +1226,7 @@ mod slug {
     };
     use std::sync::Arc;
 
-    const BASE_DURATION: usize = 30;
+    pub const BASE_DURATION: usize = 30;
 
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();

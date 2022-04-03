@@ -693,12 +693,30 @@ pub struct AuditMode {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AuditRule {
+    #[serde(default = "default_trends")]
     pub trends: Vec<TrendCriteria>,
+    #[serde(default = "default_deviations")]
     pub deviations: Vec<DeviationCriteria>,
+    #[serde(default = "default_oscillations")]
     pub oscillations: Vec<OscillationCriteria>,
+    #[serde(default = "default_lowers")]
+    pub lowers: Vec<LowerCriteria>,
     #[serde(default = "default_evaluation")]
     pub evaluation: bool,
     pub mode: AuditRuleType,
+}
+
+fn default_trends() -> Vec<TrendCriteria> {
+    Vec::new()
+}
+fn default_deviations() -> Vec<DeviationCriteria> {
+    Vec::new()
+}
+fn default_oscillations() -> Vec<OscillationCriteria> {
+    Vec::new()
+}
+fn default_lowers() -> Vec<LowerCriteria> {
+    Vec::new()
 }
 
 fn default_evaluation() -> bool {
@@ -773,6 +791,13 @@ pub struct OscillationCriteria {
     pub from: Option<String>,
     pub to: String,
     pub value: f32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct LowerCriteria {
+    pub from: Option<String>,
+    pub to: String,
+    pub duration: u32,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
