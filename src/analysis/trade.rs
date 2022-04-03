@@ -314,132 +314,231 @@ fn print_meta(
         Utc.timestamp_millis(trade.time).format("%Y-%m-%d %H:%M:%S")
     ));
 
-    // buffered.push(format!(
-    //     "[Config] flash.loss_margin_rate: {:?}",
-    //     &config.trade.flash.loss_margin_rate
-    // ));
-    // for (key, value) in &config.trade.flash.min_deviation_rate {
-    //     buffered.push(format!(
-    //         "[Config] flash.min_deviation_rate: {:?} = {:?}",
-    //         key, value
-    //     ));
-    // }
-    // for (key, value) in &config.trade.flash.oscillation_rage {
-    //     buffered.push(format!(
-    //         "[Config] flash.oscillation_rage: {:?} = {:?}",
-    //         key, value
-    //     ));
-    // }
+    buffered.push(format!(
+        "[Config] flash.loss_margin_rate: {:?}",
+        &config.trade.flash.loss_margin_rate
+    ));
+    for (index, rule) in config.trade.flash.rules.iter().enumerate() {
+        buffered.push(format!("########## [flash rule {}] ##########", index));
+        for trend in &rule.trends {
+            buffered.push(format!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            ));
+        }
+        for deviation in &rule.deviations {
+            buffered.push(format!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:?}",
+                index, deviation.from, deviation.to, deviation.value
+            ));
+        }
+        for oscillation in &rule.oscillations {
+            buffered.push(format!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:?}",
+                index, oscillation.from, oscillation.to, oscillation.value
+            ));
+        }
+    }
 
-    // buffered.push(format!(
-    //     "[Config] slug.loss_margin_rate: {:?}",
-    //     &config.trade.slug.loss_margin_rate
-    // ));
-    // for (key, value) in &config.trade.slug.min_deviation_rate {
-    //     buffered.push(format!(
-    //         "[Config] slug.min_deviation_rate: {:?} = {:?}",
-    //         key, value
-    //     ));
-    // }
-    // for (key, value) in &config.trade.slug.oscillation_rage {
-    //     buffered.push(format!(
-    //         "[Config] slug.oscillation_rage: {:?} = {:?}",
-    //         key, value
-    //     ));
-    // }
+    buffered.push(format!(
+        "[Config] slug.loss_margin_rate: {:?}",
+        &config.trade.slug.loss_margin_rate
+    ));
+    for (index, rule) in config.trade.slug.rules.iter().enumerate() {
+        buffered.push(format!("########## [slug rule {}] ##########", index));
+        for trend in &rule.trends {
+            buffered.push(format!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            ));
+        }
+        for deviation in &rule.deviations {
+            buffered.push(format!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:?}",
+                index, deviation.from, deviation.to, deviation.value
+            ));
+        }
+        for oscillation in &rule.oscillations {
+            buffered.push(format!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:?}",
+                index, oscillation.from, oscillation.to, oscillation.value
+            ));
+        }
+    }
 
-    // buffered.push(format!(
-    //     "----------------------------------flash--------------------------------------"
-    // ));
+    buffered.push(format!(
+        "----------------------------------flash--------------------------------------"
+    ));
 
-    // for name in config.get_trade_deviation_keys("flash") {
-    //     let deviation_rate_to_min = config.get_trade_deviation("flash", &name).unwrap();
+    for rule in &config.trade.flash.rules {
+        // for trend in &rule.trends {
+        //     buffered.push(format!(
+        //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+        //         trend.from, trend.to, trend.trend, trend.up, trend.down,
+        //     ));
+        // }
+        for deviation_rule in &rule.deviations {
+            let mut period_from = 0;
+            let duration = 10;
 
-    //     // parse period from key (ex: m0070 => 70 / 10 = 7)
-    //     let period = name[1..].parse::<usize>().unwrap() / 10;
+            if let Some(from) = &deviation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
 
-    //     // min price
-    //     let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+            let base_unit = format!("m{:04}", duration);
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / duration;
 
-    //     // assume trade price is higher than min_price
-    //     buffered.push(format!(
-    //         "flash min price, period: {}, price: {}, min price{}, value {} < eviation {} = {}",
-    //         period,
-    //         trade.price,
-    //         min_price,
-    //         (trade.price - min_price) / min_price,
-    //         deviation_rate_to_min,
-    //         !(!min_price.is_normal()
-    //             || (trade.price - min_price) / min_price > deviation_rate_to_min)
-    //     ));
-    // }
-    // for name in config.get_trade_oscillation_keys("flash") {
-    //     let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
 
-    //     // parse period from key (ex: m0070 => 70 / 10 = 7)
-    //     let period = name[1..].parse::<usize>().unwrap() / 60;
+            buffered.push(format!(
+                "flash min price, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {} = {}",
+                period_from * duration,
+                period_to * duration,
+                trade.price,
+                min_price,
+                (trade.price - min_price) / min_price,
+                deviation_rule.value,
+                !(!min_price.is_normal()
+                    || (trade.price - min_price) / min_price > deviation_rule.value)
+            ));
+        }
+        for oscillation_rule in &rule.oscillations {
+            let mut period_from = 0;
+            let duration = 30;
 
-    //     // min price
-    //     let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
-    //     let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0010", 0, period);
+            if let Some(from) = &oscillation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
 
-    //     // assume trade price is higher than min_price
-    //     buffered.push(format!(
-    //         "flash oscillation, period: {}, max price: {}, min price{}, rate {} > oscillation {} = {}",
-    //         period,
-    //         max_price,
-    //         min_price,
-    //         (max_price - min_price) / max_price,
-    //         oscillation,
-    //         !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation)
-    //     ));
-    // }
+            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+            let base_unit = format!("m{:04}", duration);
 
-    // buffered.push(format!(
-    //     "---------------------------------slug---------------------------------------"
-    // ));
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = oscillation_rule.to[1..].parse::<usize>().unwrap() / duration;
 
-    // for name in config.get_trade_deviation_keys("slug") {
-    //     let deviation_rate_to_min = config.get_trade_deviation("slug", &name).unwrap();
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+            let max_price = find_max_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
 
-    //     // parse period from key (ex: m0300 => 300 / 30 = 10 )
-    //     let period = name[1..].parse::<usize>().unwrap() / 30;
+            buffered.push(format!(
+                "flash oscillation, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {} = {}",
+                period_from * duration,
+                period_to * duration,
+                max_price,
+                min_price,
+                (max_price - min_price) / max_price,
+                oscillation_rule.value,
+                !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
+            ));
+        }
+    }
 
-    //     // min price
-    //     let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0030", 0, period);
+    buffered.push(format!(
+        "---------------------------------slug---------------------------------------"
+    ));
 
-    //     // assume trade price is higher than min_price
-    //     buffered.push(format!(
-    //         "slug min price, period: {}, price: {}, min price{}, value {} < eviation {} = {}",
-    //         period,
-    //         trade.price,
-    //         min_price,
-    //         (trade.price - min_price) / min_price,
-    //         deviation_rate_to_min,
-    //         !(!min_price.is_normal()
-    //             || (trade.price - min_price) / min_price > deviation_rate_to_min)
-    //     ));
-    // }
-    // for name in config.get_trade_oscillation_keys("slug") {
-    //     let oscillation = config.get_trade_oscillation("slug", &name).unwrap();
+    for rule in &config.trade.slug.rules {
+        // for trend in &rule.trends {
+        //     buffered.push(format!(
+        //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+        //         trend.from, trend.to, trend.trend, trend.up, trend.down,
+        //     ));
+        // }
+        for deviation_rule in &rule.deviations {
+            let mut period_from = 0;
+            let duration = 10;
 
-    //     // parse period from key (ex: m0300 => 300 / 30 = 10 )
-    //     let period = name[1..].parse::<usize>().unwrap() / 30;
+            if let Some(from) = &deviation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
 
-    //     // min price
-    //     let min_price = find_min_price(Arc::clone(&asset), &trade.id, "m0030", 0, period);
-    //     let max_price = find_max_price(Arc::clone(&asset), &trade.id, "m0030", 0, period);
+            let base_unit = format!("m{:04}", duration);
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / duration;
 
-    //     // assume trade price is higher than min_price
-    //     buffered.push(format!(
-    //         "slug oscillation, period: {}, max price: {}, min price{}, rate {} > oscillation {} = {}",
-    //         period,
-    //         max_price,
-    //         min_price,
-    //         (max_price - min_price) / max_price, oscillation,
-    //         !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation)
-    //     ));
-    // }
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            buffered.push(format!(
+                "slug min price, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {} = {}",
+                period_from * duration,
+                period_to * duration,
+                trade.price,
+                min_price,
+                (trade.price - min_price) / min_price,
+                deviation_rule.value,
+                !(!min_price.is_normal()
+                    || (trade.price - min_price) / min_price > deviation_rule.value)
+            ));
+        }
+        for oscillation_rule in &rule.oscillations {
+            let mut period_from = 0;
+            let duration = 30;
+
+            if let Some(from) = &oscillation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
+
+            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
+            let base_unit = format!("m{:04}", duration);
+
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = oscillation_rule.to[1..].parse::<usize>().unwrap() / duration;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+            let max_price = find_max_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            buffered.push(format!(
+                "flash oscillation, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {} = {}",
+                period_from * duration,
+                period_to * duration,
+                max_price,
+                min_price,
+                (max_price - min_price) / max_price,
+                oscillation_rule.value,
+                !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
+            ));
+        }
+    }
 
     buffered.push(format!(
         "------------------------------------------------------------------------"
@@ -752,9 +851,9 @@ fn validate_deviation(
         // assume trade price is higher than min_price
         if !min_price.is_normal() || (trade.price - min_price) / min_price > deviation_rule.value {
             debug!(
-                    "validate {} min price failed, period: {}, price: {}, min price{}, value {} < eviation {}",
-                    duration,
-                    period_to,
+                    "validate min price failed, period: {:04} - {:04}, price: {}, min price{}, value {} < eviation {}",
+                    period_from * duration,
+                    period_to * duration,
                     trade.price,
                     min_price,
                     (trade.price - min_price) / min_price,
@@ -809,9 +908,9 @@ fn validate_oscillation(
             || (max_price - min_price) / max_price < oscillation_rule.value
         {
             debug!(
-                    "validate {} oscillation failed, period: {}, max price: {}, min price{}, rate {} < oscillation {}",
-                    duration,
-                    period_to,
+                    "validate oscillation failed, period: {:04} - {:04}, max price: {}, min price{}, rate {} < oscillation {}",
+                    period_from * duration,
+                    period_to * duration,
                     max_price,
                     min_price,
                     (max_price - min_price) / max_price,
