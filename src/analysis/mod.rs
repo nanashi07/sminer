@@ -1,9 +1,10 @@
 mod computor;
+mod debug;
 pub mod trade;
 
 use self::trade::prepare_trade;
 use crate::{
-    analysis::{computor::draw_slop_lines, trade::profit_evaluate},
+    analysis::{computor::draw_slop_lines, debug::profit_evaluate},
     persist::{
         es::{
             bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,

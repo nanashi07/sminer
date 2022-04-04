@@ -7,7 +7,7 @@ use crate::{
     proto::biz::TickerEvent,
     Result,
 };
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use config::Config;
 use log::*;
 use rayon::prelude::*;
@@ -181,7 +181,9 @@ impl AssetContext {
             protfolios: Arc::new(protfolios),
             trades: Arc::new(trades),
             orders: Arc::new(RwLock::new(LinkedList::new())),
-            sequence: Arc::new(Mutex::new(Utc::now().timestamp_millis())),
+            sequence: Arc::new(Mutex::new(
+                Utc::now().timestamp_millis() % Duration::days(3).num_milliseconds(),
+            )),
         }
     }
 

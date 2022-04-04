@@ -31,27 +31,27 @@ trade:
       oscillations:
       - to: m0070
         value: 0.013
-    # - mode: Permit
-    #   trends:
-    #   - to: m0010
-    #     trend: Upward
-    #     up: '1'
-    #     down: '3+'
-    #   - to: m0030
-    #     trend: Downward
-    #   - to: m0060
-    #     trend: Downward
-    #   deviations:
-    #   - to: m0070
-    #     value: 0.003
-    #   oscillations:
-    #   - to: m0070
-    #     value: 0.005
-    #   lowers:
-    #   - to: m0070
-    #     duration: 3000
+    - mode: Permit
+      trends:
+      - to: m0010
+        trend: Upward
+        up: '1'
+        down: '3+'
+      - to: m0030
+        trend: Downward
+      - to: m0060
+        trend: Downward
+      deviations:
+      - to: m0070
+        value: 0.003
+      oscillations:
+      - to: m0360
+        value: 0.0175
+      lowers:
+      - to: m0070
+        duration: 3000
   slug:
-    lossMarginRate: 0.005
+    lossMarginRate: 0.003
     rules:
     - mode: Permit
       evaluation: false
@@ -70,23 +70,23 @@ trade:
       oscillations:
       - to: m0300
         value: 0.005
-    - mode: Permit
-      evaluation: true
-      trends:
-      - to: m0060
-        trend: Upward
-        up: '1'
-        down: 1+
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
-      deviations:
-      - to: m0120
-        value: 0.0035
-      oscillations:
-      - to: m0300
-        value: 0.005
+    # - mode: Permit
+    #   evaluation: true
+    #   trends:
+    #   - to: m0060
+    #     trend: Upward
+    #     up: '1'
+    #     down: 1+
+    #   - to: m0030
+    #     trend: Upward
+    #   - to: m0010
+    #     trend: Upward
+    #   deviations:
+    #   - to: m0120
+    #     value: 0.0035
+    #   oscillations:
+    #   - to: m0300
+    #     value: 0.005
 replay:
   # export:
   #   - name: ticker
