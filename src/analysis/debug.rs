@@ -15,7 +15,10 @@ use std::{
     sync::Arc,
 };
 
-use super::trade::{find_max_price, find_min_price, find_min_price_time, flash, rebound_all, slug};
+use super::trade::{
+    find_max_price, find_min_price, find_min_price_time, flash, rebound_all, rebound_at, slug,
+    validate_audit_rule,
+};
 
 pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Result<bool> {
     // find all orders
@@ -237,17 +240,50 @@ pub fn print_meta(
 
     buffered.push(format!("{:?}", trade));
 
+    if let Some(value) = order {
+        buffered.push(format!(
+            "----------------------------------- {} / {:?} / {:?} -----------------------------------",
+            &value.id, &value.status, &value.audit
+        ));
+        buffered.push(format!("{:?}", value));
+    }
+
     buffered.push(format!(
         "----------------------------------flash--------------------------------------"
     ));
 
     for (index, rule) in config.trade.flash.rules.iter().enumerate() {
-        // for trend in &rule.trends {
-        //     buffered.push(format!(
-        //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-        //         trend.from, trend.to, trend.trend, trend.up, trend.down,
-        //     ));
-        // }
+        for trend_rule in &rule.trends {
+            let mut result = true;
+            if let Some(_from) = &trend_rule.from {
+                // TODO
+            } else {
+                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
+                let actual_trend = rebound.trend;
+                let target_trend = &trend_rule.trend;
+
+                if &actual_trend != target_trend {
+                    result = false;
+                }
+                if !trend_rule.up_compare(rebound.up_count) {
+                    result = false;
+                }
+                if !trend_rule.down_compare(rebound.down_count) {
+                    result = false;
+                }
+            }
+            buffered.push(format!(
+                "[{}/{:?}] flash trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
+                index,
+                rule.mode,
+                trend_rule.from,
+                trend_rule.to,
+                trend_rule.trend,
+                trend_rule.up,
+                trend_rule.down,
+                result,
+            ));
+        }
         for deviation_rule in &rule.deviations {
             let mut period_from = 0;
 
@@ -269,7 +305,7 @@ pub fn print_meta(
             );
 
             buffered.push(format!(
-                "[{}/{:?}] flash min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < eviation {:.03}% = {}",
+                "[{}/{:?}] flash min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < deviation {:.03}% = {}",
                 index,
                 rule.mode,
                 period_from * flash::BASE_DURATION,
@@ -356,7 +392,9 @@ pub fn print_meta(
                     let last_time = last_protfolio.time;
                     if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
                         buffered.push(format!(
-                            "validate lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            "[{}/{:?}] flash lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            index,
+                            rule.mode,
                             period_from * flash::BASE_DURATION,
                             period_to * flash::BASE_DURATION,
                             min_price,
@@ -364,10 +402,47 @@ pub fn print_meta(
                             Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
                             (trade.time - last_time) / 1000
                         ));
+                        continue;
                     }
                 }
             };
+            buffered.push(format!(
+                "[{}/{:?}] flash lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                index,
+                rule.mode,
+                period_from * flash::BASE_DURATION,
+                period_to * flash::BASE_DURATION,
+                min_price,
+                "",
+                "",
+                ""
+            ));
         }
+
+        let result = validate_audit_rule(
+            Arc::clone(&asset),
+            Arc::clone(&config),
+            trade,
+            rule,
+            flash::BASE_DURATION,
+        );
+        buffered.push(format!(
+            "[{}/{:?}] {}flash, result: {}, evaluate: {}{}",
+            index,
+            rule.mode,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+            result,
+            rule.evaluation,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+        ));
     }
 
     buffered.push(format!(
@@ -375,12 +450,37 @@ pub fn print_meta(
     ));
 
     for (index, rule) in config.trade.slug.rules.iter().enumerate() {
-        // for trend in &rule.trends {
-        //     buffered.push(format!(
-        //         "TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-        //         trend.from, trend.to, trend.trend, trend.up, trend.down,
-        //     ));
-        // }
+        for trend_rule in &rule.trends {
+            let mut result = true;
+            if let Some(_from) = &trend_rule.from {
+                // TODO
+            } else {
+                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
+                let actual_trend = rebound.trend;
+                let target_trend = &trend_rule.trend;
+
+                if &actual_trend != target_trend {
+                    result = false;
+                }
+                if !trend_rule.up_compare(rebound.up_count) {
+                    result = false;
+                }
+                if !trend_rule.down_compare(rebound.down_count) {
+                    result = false;
+                }
+            }
+            buffered.push(format!(
+                "[{}/{:?}] slug trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
+                index,
+                rule.mode,
+                trend_rule.from,
+                trend_rule.to,
+                trend_rule.trend,
+                trend_rule.up,
+                trend_rule.down,
+                result,
+            ));
+        }
         for deviation_rule in &rule.deviations {
             let mut period_from = 0;
 
@@ -402,7 +502,7 @@ pub fn print_meta(
             );
 
             buffered.push(format!(
-                "[{}/{:?}] slug min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < eviation {:.03}% = {}",
+                "[{}/{:?}] slug min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < deviation {:.03}% = {}",
                 index,
                 rule.mode,
                 period_from * slug::BASE_DURATION,
@@ -446,7 +546,7 @@ pub fn print_meta(
             );
 
             buffered.push(format!(
-                "[{}/{:?}] flash oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
+                "[{}/{:?}] slug oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
                 index,
                 rule.mode,
                 period_from * slug::BASE_DURATION,
@@ -489,7 +589,9 @@ pub fn print_meta(
                     let last_time = last_protfolio.time;
                     if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
                         buffered.push(format!(
-                            "validate lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            "[{}/{:?}] slug lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            index,
+                            rule.mode,
                             period_from * slug::BASE_DURATION,
                             period_to * slug::BASE_DURATION,
                             min_price,
@@ -502,7 +604,9 @@ pub fn print_meta(
                 }
             };
             buffered.push(format!(
-                "validate lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                "[{}/{:?}] slug lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                index,
+                rule.mode,
                 period_from * slug::BASE_DURATION,
                 period_to * slug::BASE_DURATION,
                 min_price,
@@ -511,6 +615,31 @@ pub fn print_meta(
                 ""
             ));
         }
+
+        let result = validate_audit_rule(
+            Arc::clone(&asset),
+            Arc::clone(&config),
+            trade,
+            rule,
+            flash::BASE_DURATION,
+        );
+        buffered.push(format!(
+            "[{}/{:?}] {}slug, result: {}, evaluate: {}{}",
+            index,
+            rule.mode,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+            result,
+            rule.evaluation,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+        ));
     }
 
     buffered.push(format!(
@@ -520,14 +649,6 @@ pub fn print_meta(
     let rebounds = rebound_all(trade);
     for trend in rebounds {
         buffered.push(format!("{:?}", trend));
-    }
-
-    if let Some(value) = order {
-        buffered.push(format!(
-            "----------------------------------- {} -----------------------------------",
-            &value.id
-        ));
-        buffered.push(format!("{:?}", value));
     }
 
     buffered.push(format!(

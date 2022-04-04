@@ -13,7 +13,6 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::*;
-use rand::Rng;
 use std::{f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
@@ -209,12 +208,8 @@ pub fn audit_trade(
                     } else {
                         let rate = price_diff / rival_order.created_price;
                         if rate > 0.005 {
-                            // let mut rng = rand::thread_rng();
-                            // let y: f64 = rng.gen(); // generates a float between 0 and 1
-                            // if y < 0.5 {
                             info!("profit = {} ({:.04})%, random sell", profit, rate * 100.0);
                             result = AuditState::RndSell;
-                            // }
                         }
                     }
                 }
@@ -507,7 +502,7 @@ fn validate_deviation(
         // assume trade price is higher than min_price
         if !min_price.is_normal() || (trade.price - min_price) / min_price > deviation_rule.value {
             debug!(
-                "validate min price failed, period: {:04} - {:04}, price: {}, min price: {}, value {} < eviation {}",
+                "validate min price failed, period: {:04} - {:04}, price: {}, min price: {}, value {} < deviation {}",
                 period_from * duration,
                 period_to * duration,
                 trade.price,

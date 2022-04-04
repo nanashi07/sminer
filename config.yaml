@@ -55,7 +55,7 @@ trade:
     lossMarginRate: 0.002
     rules:
     - mode: Permit
-      evaluation: false
+      evaluation: true
       trends:
       - to: m0060
         trend: Upward
@@ -72,7 +72,7 @@ trade:
       - to: m0300
         value: 0.005
     - mode: Permit
-      evaluation: true
+      evaluation: false
       trends:
       - to: m0060
         trend: Upward
@@ -84,10 +84,10 @@ trade:
         trend: Upward
       deviations:
       - to: m0120
-        value: 0.0035
+        value: 0.002
       oscillations:
       - to: m0300
-        value: 0.005
+        value: 0.006
 replay:
   # export:
   #   - name: ticker
