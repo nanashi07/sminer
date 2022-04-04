@@ -1,6 +1,6 @@
 use crate::{
     vo::{
-        biz::{AuditState, MarketHoursType, Order, TradeInfo},
+        biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo},
         core::{AppConfig, AssetContext},
     },
     Result,
@@ -54,7 +54,14 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
         let post_market_price = *close_prices.get(&order.symbol).unwrap();
         // FIXME: use accepted
         let profit = (post_market_price - order.created_price) * order.created_volume as f32;
-        info!("profit: {} for {:?}", profit, order);
+
+        let level = if order.status == OrderStatus::LossPair || profit < 0.0 {
+            log::Level::Warn
+        } else {
+            log::Level::Info
+        };
+
+        log::log!(level, "profit: {} for {:?}", profit, order);
         // FIXME: use accepted
         total_amount += order.created_price * order.created_volume as f32;
         total_profit += profit;
@@ -88,11 +95,21 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
         let another = orders.last().unwrap();
         let one_post_market_price = *close_prices.get(&one.symbol).unwrap();
         let another_post_market_price = *close_prices.get(&another.symbol).unwrap();
+
+        let level = if one.status == OrderStatus::LossPair {
+            log::Level::Warn
+        } else {
+            log::Level::Info
+        };
+
         // FIXME: use accepted instead
-        info!(
-            "constraint: {}={:?}, [{}] ({} - {}) x {} + [{}] ({} - {}) x {} = {}",
+        log::log!(
+            level,
+            "constraint: {}={:?},{:?}/{:?}, [{}] ({} - {}) x {} + [{}] ({} - {}) x {} = {}",
             constraint,
             one.status,
+            one.audit,
+            another.audit,
             one.symbol,
             one_post_market_price,
             one.created_price,

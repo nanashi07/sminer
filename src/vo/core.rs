@@ -392,14 +392,14 @@ impl AssetContext {
     }
 
     pub fn write_off(&self, order: &Order) {
-        self.pair_order(order, OrderStatus::WriteOff);
+        self.finalize_order(order, OrderStatus::WriteOff);
     }
 
     pub fn realized_loss(&self, order: &Order) {
-        self.pair_order(order, OrderStatus::LossPair);
+        self.finalize_order(order, OrderStatus::LossPair);
     }
 
-    fn pair_order(&self, order: &Order, status: OrderStatus) {
+    fn finalize_order(&self, order: &Order, status: OrderStatus) {
         let symbol = &order.symbol;
         let rival_symbol = self.find_pair_symbol(symbol).unwrap();
 
@@ -453,19 +453,6 @@ impl AssetContext {
             .next()
         {
             Some(order.clone())
-        } else {
-            None
-        }
-    }
-
-    #[deprecated(note = "test only")]
-    pub fn find_running_order_test(&self, symbol: &str, time: i64) -> Option<Order> {
-        if let Some(order) = self.find_running_order(symbol) {
-            if order.created_time + 60000 < time {
-                None
-            } else {
-                Some(order)
-            }
         } else {
             None
         }

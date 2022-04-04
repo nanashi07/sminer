@@ -13,6 +13,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::*;
+use rand::Rng;
 use std::{f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
@@ -35,7 +36,7 @@ pub fn prepare_trade(
         // audit trade
         let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
         match state {
-            AuditState::Flash | AuditState::Slug => {
+            AuditState::Flash | AuditState::Slug | AuditState::RndSell => {
                 // calculate volume
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
@@ -186,6 +187,41 @@ pub fn audit_trade(
         result = AuditState::Slug;
     }
 
+    if matches!(result, AuditState::Flash | AuditState::Slug) {
+        // check last pair order if exists, make sure make off gain profit
+        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+            if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
+                // get latest trade of rival ticker
+                if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
+                    // FIXME : use accepted price
+                    let price_diff = rival_trade.price - rival_order.created_price;
+                    let profit = price_diff * rival_order.created_volume as f32;
+                    if profit < 0.0 {
+                        warn!(
+                            "block write off due to profit is negative: [{}] ({} - {}) x {} = {}",
+                            rival_symbol,
+                            rival_trade.price,
+                            rival_order.created_price,
+                            rival_order.created_volume,
+                            profit
+                        );
+                        result = AuditState::Decline;
+                    } else {
+                        let rate = price_diff / rival_order.created_price;
+                        if rate > 0.005 {
+                            // let mut rng = rand::thread_rng();
+                            // let y: f64 = rng.gen(); // generates a float between 0 and 1
+                            // if y < 0.5 {
+                            info!("profit = {} ({:.04})%, random sell", profit, rate * 100.0);
+                            result = AuditState::RndSell;
+                            // }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // TODO: reutrn if decline, unnecessary to check following
 
     // FIXME: check previous order status
@@ -227,11 +263,9 @@ fn loss_recognition(
     let price = trade.price;
     // FIXME : use accepted price
     let order_price = order.created_price;
-    if price < order_price && (order_price - price) / order_price > margin_rate {
-        true
-    } else {
-        false
-    }
+
+    // check if loss over than configured margin value
+    price < order_price && (order_price - price) / order_price > margin_rate
 }
 
 pub fn find_min_price_time(
