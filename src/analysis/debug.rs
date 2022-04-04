@@ -20,7 +20,7 @@ use super::trade::{
     validate_audit_rule,
 };
 
-pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Result<bool> {
+pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Result<bool> {
     // find all orders
     let lock = asset.orders();
     let readers = lock.read().unwrap();
@@ -82,14 +82,6 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
             }
         }
     }
-    info!(
-        "closed prices {:?}, order count: {}, loss order: {}, total profit: {}, total amount: {}",
-        close_prices,
-        readers.len(),
-        loss_order,
-        total_profit,
-        total_amount
-    );
 
     info!("####################################################################################################");
 
@@ -125,6 +117,115 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, _config: Arc<AppConfig>) -> Res
                 + (another_post_market_price - another.created_price)
                     * another.created_volume as f32
         );
+    }
+    info!("closed prices {:?}", close_prices,);
+    info!(
+        "order count: {}, loss order: {}, total profit: {}, total amount: {}, rate: {:.5}%",
+        readers.len(),
+        loss_order,
+        total_profit,
+        total_amount,
+        total_profit / total_amount * 100.0
+    );
+
+    info!("####################################################################################################");
+
+    info!(
+        "[Config] flash.loss_margin_rate: {:?}",
+        &config.trade.flash.loss_margin_rate
+    );
+    for (index, rule) in config
+        .trade
+        .flash
+        .rules
+        .iter()
+        .filter(|r| !r.evaluation)
+        .enumerate()
+    {
+        info!(
+            "########## [flash rule {} - {:?}] ##########",
+            index, rule.mode
+        );
+        for trend in &rule.trends {
+            info!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            );
+        }
+        for deviation in &rule.deviations {
+            info!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
+            );
+        }
+        for oscillation in &rule.oscillations {
+            info!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            );
+        }
+        for lower in &rule.lowers {
+            info!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
+            );
+        }
+    }
+
+    info!("------------------------------------------------------------------------");
+
+    info!(
+        "[Config] slug.loss_margin_rate: {:?}",
+        &config.trade.slug.loss_margin_rate
+    );
+    for (index, rule) in config
+        .trade
+        .slug
+        .rules
+        .iter()
+        .filter(|r| !r.evaluation)
+        .enumerate()
+    {
+        info!(
+            "########## [slug rule {} - {:?}] ##########",
+            index, rule.mode
+        );
+        for trend in &rule.trends {
+            info!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            );
+        }
+        for deviation in &rule.deviations {
+            info!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
+            );
+        }
+        for oscillation in &rule.oscillations {
+            info!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            );
+        }
+        for lower in &rule.lowers {
+            info!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
+            );
+        }
     }
 
     info!("####################################################################################################");
@@ -713,15 +814,18 @@ pub fn print_meta(
         ));
     }
 
-    let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
-    for (unit, lock) in protfolio_map {
-        let reader = lock.read().unwrap();
-        buffered.push(format!(
-            "*********************************** unit {} ***********************************",
-            unit
-        ));
-        for protfolios in reader.iter() {
-            buffered.push(format!("unit: {}, {:?}", unit, protfolios));
+    // only enable for check detail
+    if false {
+        let protfolio_map = asset.symbol_protfolios(&trade.id).unwrap();
+        for (unit, lock) in protfolio_map {
+            let reader = lock.read().unwrap();
+            buffered.push(format!(
+                "*********************************** unit {} ***********************************",
+                unit
+            ));
+            for protfolios in reader.iter() {
+                buffered.push(format!("unit: {}, {:?}", unit, protfolios));
+            }
         }
     }
 
