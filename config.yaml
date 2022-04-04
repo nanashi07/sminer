@@ -15,7 +15,7 @@ trade:
     lossMarginRate: 0.005
     rules:
     - mode: Permit
-      evaluation: true # default false, true to evaluate in log only
+      evaluation: false # default false, true to evaluate in log only
       trends:
       - to: m0010
         trend: Upward
@@ -52,7 +52,7 @@ trade:
       - to: m0070
         duration: 3000
   slug:
-    lossMarginRate: 0.002
+    lossMarginRate: 0.003
     rules:
     - mode: Permit
       evaluation: true
@@ -87,7 +87,7 @@ trade:
         value: 0.002
       oscillations:
       - to: m0300
-        value: 0.006
+        value: 0.008
 replay:
   # export:
   #   - name: ticker

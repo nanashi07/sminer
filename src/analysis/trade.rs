@@ -139,10 +139,82 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
     // get opposite
     let rival_symbol = asset.find_pair_symbol(&trade.id).unwrap();
     if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
-        // FIXME: calculation
-        let total = (rival_order.created_volume as f32) * rival_order.created_price;
-        let suspect_volumn = total / trade.price;
-        suspect_volumn.round() as u32
+        // calculation concept: price change rate / total price change amount, should be the same
+        // ex:
+        // TQQQ: 56.194 (*unknow)
+        // SQQQ: 35.351
+        // SQQQ volume: 10
+
+        // TQQQ: 53.845
+        // SQQQ: 36.845
+        // TQQQ volume: ??
+
+        // rival_last_price = 35.351
+        // rival_volume = 10
+        // current_price = 53.845
+        // rival_current_price = 36.845
+
+        // rate = (rival_current_price - rival_last_price) / rival_current_price
+        //      = (36.845 - 35.351) / 36.845
+        //      = 0.0405482426380784366942597367349708237
+
+        // expected_last_price = current_price + (rate * current_price)
+        //   = 53.845 + (0.0405482426380784366942597367349708237 * 53.845)
+        //   = 56.028320124847333423802415524494504002
+
+        // rival_total_change_amount = (rival_current_price - rival_last_price) * rival_volume
+        //   = (36.845 - 35.351) * 10
+        //   = 14.94
+
+        // expected_total_change_amount = rival_total_change_amount * -1.0
+        //   = -14.94
+
+        // expected_volume = expected_total_change_amount / (current_price - expected_last_price)
+        //   = -14.94 / (53.845 - 56.028320124847333423802415524494504002)
+        //   = 6.842789488346178846689571919398272824
+
+        // test profit by calculate result
+        // (53.845 - 56.028320124847333423802415524494504002) * v + (36.845 - 35.351) * 10
+
+        let rival_volume = rival_order.created_volume;
+        let rival_last_price = rival_order.created_price;
+        let current_price = trade.price;
+
+        // get rival price, ex: SQQQ current price
+        let mut rival_current_price = f32::NAN;
+        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+            if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
+                rival_current_price = rival_trade.price;
+            }
+        }
+        if rival_current_price.is_nan() {
+            warn!("rival price not available, skip order {:?}", trade);
+            return 0;
+        }
+
+        let rate = (rival_current_price - rival_last_price) / rival_current_price;
+
+        let rival_total_change_amount =
+            (rival_current_price - rival_last_price) * rival_volume as f32;
+
+        let expected_total_change_amount = rival_total_change_amount * -1.0;
+
+        // -1 * rate = (current_price - expected_last_price) / current_price
+        let expected_last_price = current_price + (rate * current_price);
+
+        // expected_total_change_amount = (current_price - expected_last_price) * volume;
+        let expected_volume = expected_total_change_amount / (current_price - expected_last_price);
+
+        // test profit
+        if (rival_current_price - rival_last_price) * rival_volume as f32
+            + (current_price - expected_last_price) * expected_volume.floor()
+            > (rival_current_price - rival_last_price) * rival_volume as f32
+                + (current_price - expected_last_price) * expected_volume.ceil()
+        {
+            expected_volume.floor() as u32 // TODO -1
+        } else {
+            expected_volume.ceil() as u32 // TODO: +1
+        }
     } else {
         let suspect_volumn = (max_amount as f32) / trade.price;
         suspect_volumn.round() as u32

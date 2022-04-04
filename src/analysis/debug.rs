@@ -131,8 +131,8 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("####################################################################################################");
 
     info!(
-        "[Config] flash.loss_margin_rate: {:?}",
-        &config.trade.flash.loss_margin_rate
+        "[Config] flash.loss_margin_rate: {:?}%",
+        &config.trade.flash.loss_margin_rate * 100.0
     );
     for (index, rule) in config
         .trade
@@ -154,7 +154,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         }
         for deviation in &rule.deviations {
             info!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
                 index,
                 deviation.from,
                 deviation.to,
@@ -163,7 +163,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         }
         for oscillation in &rule.oscillations {
             info!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
                 index,
                 oscillation.from,
                 oscillation.to,
@@ -181,8 +181,8 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("------------------------------------------------------------------------");
 
     info!(
-        "[Config] slug.loss_margin_rate: {:?}",
-        &config.trade.slug.loss_margin_rate
+        "[Config] slug.loss_margin_rate: {:?}%",
+        &config.trade.slug.loss_margin_rate * 100.0
     );
     for (index, rule) in config
         .trade
@@ -204,7 +204,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         }
         for deviation in &rule.deviations {
             info!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
                 index,
                 deviation.from,
                 deviation.to,
@@ -213,7 +213,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         }
         for oscillation in &rule.oscillations {
             info!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
                 index,
                 oscillation.from,
                 oscillation.to,
