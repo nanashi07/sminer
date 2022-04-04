@@ -1,3 +1,7 @@
+use super::trade::{
+    find_max_price, find_min_price, find_min_price_time, flash, rebound_all, rebound_at, slug,
+    validate_audit_rule,
+};
 use crate::{
     vo::{
         biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo},
@@ -13,11 +17,6 @@ use std::{
     io::{BufWriter, Write},
     path::Path,
     sync::Arc,
-};
-
-use super::trade::{
-    find_max_price, find_min_price, find_min_price_time, flash, rebound_all, rebound_at, slug,
-    validate_audit_rule,
 };
 
 pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Result<bool> {

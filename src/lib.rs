@@ -10,8 +10,7 @@ use log4rs::{
     config::{Appender, Root},
     Config,
 };
-use std::error::Error;
-use std::str::FromStr;
+use std::{error::Error, str::FromStr};
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 

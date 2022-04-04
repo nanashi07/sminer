@@ -1,11 +1,17 @@
-use crate::vo::biz::{Protfolio, SlopeLine, Ticker, TimeUnit};
-use crate::vo::core::LockTradeInfo;
-use crate::Result;
+use crate::{
+    vo::{
+        biz::{Protfolio, SlopeLine, Ticker, TimeUnit},
+        core::LockTradeInfo,
+    },
+    Result,
+};
 use chrono::{TimeZone, Utc};
 use log::{debug, log_enabled, trace};
 use rayon::prelude::*;
-use std::collections::{BTreeMap, LinkedList};
-use std::f64::NAN;
+use std::{
+    collections::{BTreeMap, LinkedList},
+    f64::NAN,
+};
 
 // Calculate slope for nearest line
 // Reference to doc/trend.md

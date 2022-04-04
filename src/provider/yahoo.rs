@@ -1,20 +1,21 @@
-use crate::provider::decoder::deserialize_yahoo_message;
-use crate::vo::biz::{SubscribeCommand, Ticker};
-use crate::vo::core::AppContext;
-use crate::Result;
-use chrono::TimeZone;
-use chrono::Utc;
+use crate::{
+    provider::decoder::deserialize_yahoo_message,
+    vo::{
+        biz::{SubscribeCommand, Ticker},
+        core::AppContext,
+    },
+    Result,
+};
+use chrono::{TimeZone, Utc};
 use log::{debug, error, info, warn};
-use std::error::Error;
-use std::fmt::Display;
-use std::net::TcpStream;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{error::Error, fmt::Display, net::TcpStream, sync::Arc, time::Duration};
 use tokio::time::sleep;
-use websocket::header::{Headers, UserAgent};
-use websocket::native_tls::TlsStream;
-use websocket::ClientBuilder;
-use websocket::{sync::Client, Message, OwnedMessage};
+use websocket::{
+    header::{Headers, UserAgent},
+    native_tls::TlsStream,
+    sync::Client,
+    ClientBuilder, Message, OwnedMessage,
+};
 
 #[derive(Debug)]
 pub enum HandleResult {

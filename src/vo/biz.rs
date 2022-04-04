@@ -1,5 +1,4 @@
-use crate::proto::biz::TickerEvent;
-use crate::proto::yahoo::YahooTicker;
+use crate::proto::{biz::TickerEvent, yahoo::YahooTicker};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Display};
