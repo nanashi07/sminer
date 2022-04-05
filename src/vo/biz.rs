@@ -331,6 +331,7 @@ pub enum AuditState {
     Flash,
     Slug,
     Loss,
+    ProfitTaking,
     EarlySell,
     Decline,
 }
