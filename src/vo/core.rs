@@ -688,6 +688,8 @@ pub struct TradeAudit {
     pub max_order_amount: u32,
     pub flash: AuditMode,
     pub slug: AuditMode,
+    // used to prevent loss, check downward trend while profit still positive
+    pub revert: AuditMode,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

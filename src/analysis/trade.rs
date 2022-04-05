@@ -35,7 +35,7 @@ pub fn prepare_trade(
         // audit trade
         let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
         match state {
-            AuditState::Flash | AuditState::Slug | AuditState::RndSell => {
+            AuditState::Flash | AuditState::Slug | AuditState::EarlySell => {
                 // calculate volume
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
@@ -310,10 +310,36 @@ pub fn audit_trade(
                         result = AuditState::Decline;
                     } else {
                         let rate = price_diff / rival_order.created_price;
+                        // FIXME: consider if this is correct?
                         if rate > 0.005 {
-                            info!("profit = {} ({:.04})%, random sell", profit, rate * 100.0);
-                            result = AuditState::RndSell;
+                            info!("profit = {} ({:.04}%), early sell", profit, rate * 100.0);
+                            result = AuditState::EarlySell;
                         }
+                    }
+                }
+            }
+        }
+    } else {
+        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+            if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
+                // get latest trade of rival ticker
+                if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
+                    // FIXME : use accepted price
+                    let price_diff = rival_trade.price - rival_order.created_price;
+                    let profit = price_diff * rival_order.created_volume as f32;
+                    let rate = price_diff / rival_order.created_price;
+
+                    // this stop early sell
+                    if rate > 0.0
+                        && rate < 0.005
+                        && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
+                    {
+                        info!(
+                        "%%%%%%%%%%%%%%%% revert trade match trends {}, rate= {} %%%%%%%%%%%%%%%%",
+                            profit,
+                            rate
+                        );
+                        result = AuditState::Slug;
                     }
                 }
             }
@@ -805,6 +831,51 @@ pub mod slug {
 
         // general validation from config rules, at least one success and no blocked rule
         for rule in config.trade.slug.rules.iter().filter(|r| !r.evaluation) {
+            if validate_audit_rule(
+                Arc::clone(&asset),
+                Arc::clone(&config),
+                trade,
+                rule,
+                BASE_DURATION,
+            ) {
+                match rule.mode {
+                    AuditRuleType::Permit => {
+                        results.push(true);
+                    }
+                    AuditRuleType::Deny => {
+                        results.push(false);
+                    }
+                }
+            } else {
+                match rule.mode {
+                    AuditRuleType::Permit => {} // ignore failed
+                    AuditRuleType::Deny => {
+                        results.push(true);
+                    }
+                }
+            }
+        }
+
+        !results.is_empty() && results.iter().all(|success| *success)
+    }
+}
+
+pub mod revert {
+
+    use super::validate_audit_rule;
+    use crate::vo::{
+        biz::TradeInfo,
+        core::{AppConfig, AssetContext, AuditRuleType},
+    };
+    use std::sync::Arc;
+
+    pub const BASE_DURATION: usize = 10;
+
+    pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
+        let mut results: Vec<bool> = Vec::new();
+
+        // general validation from config rules, at least one success and no blocked rule
+        for rule in config.trade.revert.rules.iter().filter(|r| !r.evaluation) {
             if validate_audit_rule(
                 Arc::clone(&asset),
                 Arc::clone(&config),

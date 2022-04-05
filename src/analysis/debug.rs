@@ -5,7 +5,7 @@ use super::trade::{
 use crate::{
     vo::{
         biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo},
-        core::{AppConfig, AssetContext},
+        core::{AppConfig, AssetContext, AuditMode},
     },
     Result,
 };
@@ -129,108 +129,314 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     info!("####################################################################################################");
 
-    info!(
-        "[Config] flash.loss_margin_rate: {:?}%",
-        &config.trade.flash.loss_margin_rate * 100.0
-    );
-    for (index, rule) in config
-        .trade
-        .flash
-        .rules
-        .iter()
-        .filter(|r| !r.evaluation)
-        .enumerate()
-    {
-        info!(
-            "########## [flash rule {} - {:?}] ##########",
-            index, rule.mode
-        );
-        for trend in &rule.trends {
-            info!(
-                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-                index, trend.from, trend.to, trend.trend, trend.up, trend.down
-            );
-        }
-        for deviation in &rule.deviations {
-            info!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
-                index,
-                deviation.from,
-                deviation.to,
-                deviation.value * 100.0
-            );
-        }
-        for oscillation in &rule.oscillations {
-            info!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
-                index,
-                oscillation.from,
-                oscillation.to,
-                oscillation.value * 100.0
-            );
-        }
-        for lower in &rule.lowers {
-            info!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
-            );
-        }
-    }
+    print_config("flash", &config.trade.flash);
 
     info!("------------------------------------------------------------------------");
 
-    info!(
-        "[Config] slug.loss_margin_rate: {:?}%",
-        &config.trade.slug.loss_margin_rate * 100.0
-    );
-    for (index, rule) in config
-        .trade
-        .slug
-        .rules
-        .iter()
-        .filter(|r| !r.evaluation)
-        .enumerate()
-    {
-        info!(
-            "########## [slug rule {} - {:?}] ##########",
-            index, rule.mode
-        );
-        for trend in &rule.trends {
-            info!(
-                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-                index, trend.from, trend.to, trend.trend, trend.up, trend.down
-            );
-        }
-        for deviation in &rule.deviations {
-            info!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
-                index,
-                deviation.from,
-                deviation.to,
-                deviation.value * 100.0
-            );
-        }
-        for oscillation in &rule.oscillations {
-            info!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
-                index,
-                oscillation.from,
-                oscillation.to,
-                oscillation.value * 100.0
-            );
-        }
-        for lower in &rule.lowers {
-            info!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
-            );
-        }
-    }
+    print_config("slug", &config.trade.slug);
+
+    info!("------------------------------------------------------------------------");
+
+    print_config("slug", &config.trade.revert);
 
     info!("####################################################################################################");
     info!("####################################################################################################");
 
     Ok(true) //FIXME:
+}
+
+fn print_config(name: &str, mode: &AuditMode) {
+    info!(
+        "[Config] {}.loss_margin_rate: {:?}%",
+        name,
+        &mode.loss_margin_rate * 100.0
+    );
+    for (index, rule) in mode.rules.iter().filter(|r| !r.evaluation).enumerate() {
+        info!(
+            "########## [{} rule {} - {:?}] ##########",
+            name, index, rule.mode
+        );
+        for trend in &rule.trends {
+            info!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            );
+        }
+        for deviation in &rule.deviations {
+            info!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
+            );
+        }
+        for oscillation in &rule.oscillations {
+            info!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            );
+        }
+        for lower in &rule.lowers {
+            info!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
+            );
+        }
+    }
+}
+
+fn buffer_config(buffered: &mut Vec<String>, name: &str, mode: &AuditMode) {
+    buffered.push(format!(
+        "[Config] {}.loss_margin_rate: {:?}%",
+        name,
+        &mode.loss_margin_rate * 100.0
+    ));
+    for (index, rule) in mode.rules.iter().filter(|r| !r.evaluation).enumerate() {
+        buffered.push(format!(
+            "########## [{} rule {} - {:?}] ##########",
+            name, index, rule.mode
+        ));
+        for trend in &rule.trends {
+            buffered.push(format!(
+                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
+                index, trend.from, trend.to, trend.trend, trend.up, trend.down
+            ));
+        }
+        for deviation in &rule.deviations {
+            buffered.push(format!(
+                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {}%",
+                index,
+                deviation.from,
+                deviation.to,
+                deviation.value * 100.0
+            ));
+        }
+        for oscillation in &rule.oscillations {
+            buffered.push(format!(
+                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {}%",
+                index,
+                oscillation.from,
+                oscillation.to,
+                oscillation.value * 100.0
+            ));
+        }
+        for lower in &rule.lowers {
+            buffered.push(format!(
+                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
+                index, lower.from, lower.to, lower.duration
+            ));
+        }
+    }
+}
+
+fn buffer_matched_rules(
+    asset: Arc<AssetContext>,
+    config: Arc<AppConfig>,
+    trade: &TradeInfo,
+    buffered: &mut Vec<String>,
+    mode_name: &str,
+    mode: &AuditMode,
+    duration: usize,
+) {
+    for (index, rule) in mode.rules.iter().enumerate() {
+        for trend_rule in &rule.trends {
+            let mut result = true;
+            if let Some(_from) = &trend_rule.from {
+                // TODO
+            } else {
+                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
+                let actual_trend = rebound.trend;
+                let target_trend = &trend_rule.trend;
+
+                if &actual_trend != target_trend {
+                    result = false;
+                }
+                if !trend_rule.up_compare(rebound.up_count) {
+                    result = false;
+                }
+                if !trend_rule.down_compare(rebound.down_count) {
+                    result = false;
+                }
+            }
+            buffered.push(format!(
+                "[{}/{:?}] {} trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
+                index,
+                rule.mode,
+                mode_name,
+                trend_rule.from,
+                trend_rule.to,
+                trend_rule.trend,
+                trend_rule.up,
+                trend_rule.down,
+                result,
+            ));
+        }
+        for deviation_rule in &rule.deviations {
+            let mut period_from = 0;
+
+            if let Some(from) = &deviation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
+
+            let base_unit = format!("m{:04}", duration);
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / duration;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            buffered.push(format!(
+                "[{}/{:?}] {} min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < deviation {:.03}% = {}",
+                index,
+                rule.mode,
+                mode_name,
+                period_from * duration,
+                period_to * duration,
+                trade.price,
+                min_price,
+                (trade.price - min_price) / min_price * 100.0,
+                deviation_rule.value * 100.0,
+                !(!min_price.is_normal()
+                    || (trade.price - min_price) / min_price > deviation_rule.value)
+            ));
+        }
+        for oscillation_rule in &rule.oscillations {
+            let mut period_from = 0;
+
+            if let Some(from) = &oscillation_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
+
+            let base_unit = format!("m{:04}", duration);
+
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = oscillation_rule.to[1..].parse::<usize>().unwrap() / duration;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+            let max_price = find_max_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            buffered.push(format!(
+                "[{}/{:?}] {} oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
+                index,
+                rule.mode,
+                mode_name,
+                period_from * duration,
+                period_to * duration,
+                max_price,
+                min_price,
+                (max_price - min_price) / max_price * 100.0,
+                oscillation_rule.value * 100.0,
+                !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
+            ));
+        }
+        for lower_rule in &rule.lowers {
+            let mut period_from = 0;
+
+            if let Some(from) = &lower_rule.from {
+                period_from = from[1..].parse::<usize>().unwrap() / duration;
+            }
+
+            let base_unit = format!("m{:04}", duration);
+
+            // parse period from key (ex: m0070 => 70 / 10 = 7)
+            let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / duration;
+
+            // min price
+            let min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                period_from,
+                period_to,
+            );
+
+            // find price time lower than min_price before
+            if min_price.is_normal() {
+                if let Some(last_protfolio) =
+                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
+                {
+                    // there is lower price than catched min price with this duration
+                    let last_time = last_protfolio.time;
+                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
+                        buffered.push(format!(
+                            "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
+                            index,
+                            rule.mode,
+                            mode_name,
+                            period_from * duration,
+                            period_to * duration,
+                            min_price,
+                            last_protfolio.min_price,
+                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
+                            (trade.time - last_time) / 1000
+                        ));
+                        continue;
+                    }
+                }
+            };
+            buffered.push(format!(
+                "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                index,
+                rule.mode,
+                mode_name,
+                period_from * duration,
+                period_to * duration,
+                min_price,
+                "",
+                "",
+                ""
+            ));
+        }
+
+        let result = validate_audit_rule(
+            Arc::clone(&asset),
+            Arc::clone(&config),
+            trade,
+            rule,
+            flash::BASE_DURATION,
+        );
+        buffered.push(format!(
+            "[{}/{:?}] {}{}, result: {}, evaluate: {}{}",
+            index,
+            rule.mode,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+            mode_name,
+            result,
+            rule.evaluation,
+            if result && !rule.evaluation {
+                "********"
+            } else {
+                ""
+            },
+        ));
+    }
 }
 
 // print details
@@ -248,91 +454,19 @@ pub fn print_meta(
         Utc.timestamp_millis(trade.time).format("%Y-%m-%d %H:%M:%S")
     ));
 
-    buffered.push(format!(
-        "[Config] flash.loss_margin_rate: {:?}",
-        &config.trade.flash.loss_margin_rate
-    ));
-    for (index, rule) in config.trade.flash.rules.iter().enumerate() {
-        buffered.push(format!(
-            "########## [flash rule {} - {:?}] ##########",
-            index, rule.mode
-        ));
-        for trend in &rule.trends {
-            buffered.push(format!(
-                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-                index, trend.from, trend.to, trend.trend, trend.up, trend.down
-            ));
-        }
-        for deviation in &rule.deviations {
-            buffered.push(format!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
-                index,
-                deviation.from,
-                deviation.to,
-                deviation.value * 100.0
-            ));
-        }
-        for oscillation in &rule.oscillations {
-            buffered.push(format!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
-                index,
-                oscillation.from,
-                oscillation.to,
-                oscillation.value * 100.0
-            ));
-        }
-        for lower in &rule.lowers {
-            buffered.push(format!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
-            ));
-        }
-    }
+    buffer_config(&mut buffered, "flash", &config.trade.flash);
 
     buffered.push(format!(
         "------------------------------------------------------------------------"
     ));
 
+    buffer_config(&mut buffered, "slug", &config.trade.slug);
+
     buffered.push(format!(
-        "[Config] slug.loss_margin_rate: {:?}",
-        &config.trade.slug.loss_margin_rate
+        "------------------------------------------------------------------------"
     ));
-    for (index, rule) in config.trade.slug.rules.iter().enumerate() {
-        buffered.push(format!(
-            "########## [slug rule {} - {:?}] ##########",
-            index, rule.mode
-        ));
-        for trend in &rule.trends {
-            buffered.push(format!(
-                "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
-                index, trend.from, trend.to, trend.trend, trend.up, trend.down
-            ));
-        }
-        for deviation in &rule.deviations {
-            buffered.push(format!(
-                "[rule {}] DEVIATION, from: {:?}, to: {}, value: {:.03}%",
-                index,
-                deviation.from,
-                deviation.to,
-                deviation.value * 100.0
-            ));
-        }
-        for oscillation in &rule.oscillations {
-            buffered.push(format!(
-                "[rule {}] OSCILLATION, from: {:?}, to: {}, value: {:.03}%",
-                index,
-                oscillation.from,
-                oscillation.to,
-                oscillation.value * 100.0
-            ));
-        }
-        for lower in &rule.lowers {
-            buffered.push(format!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
-            ));
-        }
-    }
+
+    buffer_config(&mut buffered, "revert", &config.trade.revert);
 
     buffered.push(format!(
         "------------------------------------------------------------------------"
@@ -352,395 +486,43 @@ pub fn print_meta(
         "----------------------------------flash--------------------------------------"
     ));
 
-    for (index, rule) in config.trade.flash.rules.iter().enumerate() {
-        for trend_rule in &rule.trends {
-            let mut result = true;
-            if let Some(_from) = &trend_rule.from {
-                // TODO
-            } else {
-                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
-                let actual_trend = rebound.trend;
-                let target_trend = &trend_rule.trend;
-
-                if &actual_trend != target_trend {
-                    result = false;
-                }
-                if !trend_rule.up_compare(rebound.up_count) {
-                    result = false;
-                }
-                if !trend_rule.down_compare(rebound.down_count) {
-                    result = false;
-                }
-            }
-            buffered.push(format!(
-                "[{}/{:?}] flash trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
-                index,
-                rule.mode,
-                trend_rule.from,
-                trend_rule.to,
-                trend_rule.trend,
-                trend_rule.up,
-                trend_rule.down,
-                result,
-            ));
-        }
-        for deviation_rule in &rule.deviations {
-            let mut period_from = 0;
-
-            if let Some(from) = &deviation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-            }
-
-            let base_unit = format!("m{:04}", flash::BASE_DURATION);
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            buffered.push(format!(
-                "[{}/{:?}] flash min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < deviation {:.03}% = {}",
-                index,
-                rule.mode,
-                period_from * flash::BASE_DURATION,
-                period_to * flash::BASE_DURATION,
-                trade.price,
-                min_price,
-                (trade.price - min_price) / min_price * 100.0,
-                deviation_rule.value * 100.0,
-                !(!min_price.is_normal()
-                    || (trade.price - min_price) / min_price > deviation_rule.value)
-            ));
-        }
-        for oscillation_rule in &rule.oscillations {
-            let mut period_from = 0;
-
-            if let Some(from) = &oscillation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-            }
-
-            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", flash::BASE_DURATION);
-
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to =
-                oscillation_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-            let max_price = find_max_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            buffered.push(format!(
-                "[{}/{:?}] flash oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
-                index,
-                rule.mode,
-                period_from * flash::BASE_DURATION,
-                period_to * flash::BASE_DURATION,
-                max_price,
-                min_price,
-                (max_price - min_price) / max_price * 100.0,
-                oscillation_rule.value * 100.0,
-                !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
-            ));
-        }
-        for lower_rule in &rule.lowers {
-            let mut period_from = 0;
-
-            if let Some(from) = &lower_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-            }
-
-            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", flash::BASE_DURATION);
-
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / flash::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            // find price time lower than min_price before
-            if min_price.is_normal() {
-                if let Some(last_protfolio) =
-                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
-                {
-                    // there is lower price than catched min price with this duration
-                    let last_time = last_protfolio.time;
-                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
-                        buffered.push(format!(
-                            "[{}/{:?}] flash lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
-                            index,
-                            rule.mode,
-                            period_from * flash::BASE_DURATION,
-                            period_to * flash::BASE_DURATION,
-                            min_price,
-                            last_protfolio.min_price,
-                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
-                            (trade.time - last_time) / 1000
-                        ));
-                        continue;
-                    }
-                }
-            };
-            buffered.push(format!(
-                "[{}/{:?}] flash lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
-                index,
-                rule.mode,
-                period_from * flash::BASE_DURATION,
-                period_to * flash::BASE_DURATION,
-                min_price,
-                "",
-                "",
-                ""
-            ));
-        }
-
-        let result = validate_audit_rule(
-            Arc::clone(&asset),
-            Arc::clone(&config),
-            trade,
-            rule,
-            flash::BASE_DURATION,
-        );
-        buffered.push(format!(
-            "[{}/{:?}] {}flash, result: {}, evaluate: {}{}",
-            index,
-            rule.mode,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
-            result,
-            rule.evaluation,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
-        ));
-    }
+    buffer_matched_rules(
+        Arc::clone(&asset),
+        Arc::clone(&config),
+        &trade,
+        &mut buffered,
+        "flash",
+        &config.trade.flash,
+        flash::BASE_DURATION,
+    );
 
     buffered.push(format!(
         "---------------------------------slug---------------------------------------"
     ));
 
-    for (index, rule) in config.trade.slug.rules.iter().enumerate() {
-        for trend_rule in &rule.trends {
-            let mut result = true;
-            if let Some(_from) = &trend_rule.from {
-                // TODO
-            } else {
-                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
-                let actual_trend = rebound.trend;
-                let target_trend = &trend_rule.trend;
+    buffer_matched_rules(
+        Arc::clone(&asset),
+        Arc::clone(&config),
+        &trade,
+        &mut buffered,
+        "slug",
+        &config.trade.slug,
+        slug::BASE_DURATION,
+    );
 
-                if &actual_trend != target_trend {
-                    result = false;
-                }
-                if !trend_rule.up_compare(rebound.up_count) {
-                    result = false;
-                }
-                if !trend_rule.down_compare(rebound.down_count) {
-                    result = false;
-                }
-            }
-            buffered.push(format!(
-                "[{}/{:?}] slug trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
-                index,
-                rule.mode,
-                trend_rule.from,
-                trend_rule.to,
-                trend_rule.trend,
-                trend_rule.up,
-                trend_rule.down,
-                result,
-            ));
-        }
-        for deviation_rule in &rule.deviations {
-            let mut period_from = 0;
+    buffered.push(format!(
+        "---------------------------------revert---------------------------------------"
+    ));
 
-            if let Some(from) = &deviation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-            }
-
-            let base_unit = format!("m{:04}", slug::BASE_DURATION);
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = deviation_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            buffered.push(format!(
-                "[{}/{:?}] slug min price, period: {:04} - {:04}, price: {}, min price: {}, rate {:.03}% < deviation {:.03}% = {}",
-                index,
-                rule.mode,
-                period_from * slug::BASE_DURATION,
-                period_to * slug::BASE_DURATION,
-                trade.price,
-                min_price,
-                (trade.price - min_price) / min_price * 100.0,
-                deviation_rule.value * 100.0,
-                !(!min_price.is_normal()
-                    || (trade.price - min_price) / min_price > deviation_rule.value)
-            ));
-        }
-        for oscillation_rule in &rule.oscillations {
-            let mut period_from = 0;
-
-            if let Some(from) = &oscillation_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-            }
-
-            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", slug::BASE_DURATION);
-
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to =
-                oscillation_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-            let max_price = find_max_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            buffered.push(format!(
-                "[{}/{:?}] slug oscillation, period: {:04} - {:04}, max price: {}, min price: {}, rate {:.03}% > oscillation {:.03}% = {}",
-                index,
-                rule.mode,
-                period_from * slug::BASE_DURATION,
-                period_to * slug::BASE_DURATION,
-                max_price,
-                min_price,
-                (max_price - min_price) / max_price * 100.0,
-                oscillation_rule.value * 100.0,
-                !(!max_price.is_normal() || !min_price.is_normal() || (max_price - min_price) / max_price < oscillation_rule.value)
-            ));
-        }
-        for lower_rule in &rule.lowers {
-            let mut period_from = 0;
-
-            if let Some(from) = &lower_rule.from {
-                period_from = from[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-            }
-
-            // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
-            let base_unit = format!("m{:04}", slug::BASE_DURATION);
-
-            // parse period from key (ex: m0070 => 70 / 10 = 7)
-            let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / slug::BASE_DURATION;
-
-            // min price
-            let min_price = find_min_price(
-                Arc::clone(&asset),
-                &trade.id,
-                &base_unit,
-                period_from,
-                period_to,
-            );
-
-            // find price time lower than min_price before
-            if min_price.is_normal() {
-                if let Some(last_protfolio) =
-                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
-                {
-                    // there is lower price than catched min price with this duration
-                    let last_time = last_protfolio.time;
-                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
-                        buffered.push(format!(
-                            "[{}/{:?}] slug lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
-                            index,
-                            rule.mode,
-                            period_from * slug::BASE_DURATION,
-                            period_to * slug::BASE_DURATION,
-                            min_price,
-                            last_protfolio.min_price,
-                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
-                            (trade.time - last_time) / 1000
-                        ));
-                        continue;
-                    }
-                }
-            };
-            buffered.push(format!(
-                "[{}/{:?}] slug lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
-                index,
-                rule.mode,
-                period_from * slug::BASE_DURATION,
-                period_to * slug::BASE_DURATION,
-                min_price,
-                "",
-                "",
-                ""
-            ));
-        }
-
-        let result = validate_audit_rule(
-            Arc::clone(&asset),
-            Arc::clone(&config),
-            trade,
-            rule,
-            flash::BASE_DURATION,
-        );
-        buffered.push(format!(
-            "[{}/{:?}] {}slug, result: {}, evaluate: {}{}",
-            index,
-            rule.mode,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
-            result,
-            rule.evaluation,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
-        ));
-    }
+    buffer_matched_rules(
+        Arc::clone(&asset),
+        Arc::clone(&config),
+        &trade,
+        &mut buffered,
+        "revert",
+        &config.trade.revert,
+        flash::BASE_DURATION,
+    );
 
     buffered.push(format!(
         "------------------------------------------------------------------------"

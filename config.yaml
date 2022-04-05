@@ -88,6 +88,19 @@ trade:
       oscillations:
       - to: m0300
         value: 0.008
+  revert:
+    lossMarginRate: 0.0
+    rules:
+    - mode: Permit
+      evaluation: false
+      trends:
+      - to: m0030
+        trend: Upward
+      - to: m0010
+        trend: Upward
+      deviations:
+      - to: m0120
+        value: 0.002
 replay:
   exports:
     - name: protfolio
@@ -97,7 +110,7 @@ replay:
     - name: trade
       enabled: true
     - name: order
-      enabled: false
+      enabled: true
   outputs:
     # baseFolder: tmp02
     file:
