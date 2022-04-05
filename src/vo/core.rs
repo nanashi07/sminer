@@ -601,7 +601,7 @@ impl AppConfig {
     pub fn load(file: &str) -> Result<Self> {
         let settings = Config::builder()
             .add_source(config::File::with_name(file))
-            .set_default("replay.output.baseFolder", "tmp")?
+            .set_default("replay.outputs.baseFolder", "tmp")?
             .set_default("dataSource.mongodb.target", "yahoo")?
             .build()?;
 
@@ -809,7 +809,23 @@ pub struct LowerCriteria {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ReplayBehavior {
-    pub output: Outputs,
+    pub exports: Vec<ContentType>,
+    pub outputs: Outputs,
+}
+
+impl ReplayBehavior {
+    pub fn export_enabled(&self, name: &str) -> bool {
+        self.exports
+            .iter()
+            .filter(|content_type| content_type.enabled)
+            .any(|content_type| content_type.name == name)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ContentType {
+    pub name: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

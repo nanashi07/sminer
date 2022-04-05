@@ -306,19 +306,23 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
     }
     info!("Tickers: {} replay done", &file);
 
-    if config.replay.output.file.enabled || config.replay.output.elasticsearch.enabled {
+    if config.replay.outputs.file.enabled || config.replay.outputs.elasticsearch.enabled {
         let source_file = Path::new(file).file_name().unwrap().to_str().unwrap();
 
-        // TODO: export ticker
+        if config.replay.export_enabled("protfolio") {
+            info!("Exporting protfolios for {}", source_file);
+            export_protfolios(&context, source_file).await?;
+        }
 
-        info!("Exporting protfolios for {}", source_file);
-        export_protfolios(&context, source_file).await?;
+        if config.replay.export_enabled("slope") {
+            info!("Exporting slopes for {}", source_file);
+            export_slope_points(&context, source_file).await?;
+        }
 
-        info!("Exporting slopes for {}", source_file);
-        export_slope_points(&context, source_file).await?;
-
-        info!("Exporting trades info for {}", source_file);
-        export_trades(&context, source_file).await?;
+        if config.replay.export_enabled("trade") {
+            info!("Exporting trades info for {}", source_file);
+            export_trades(&context, source_file).await?;
+        }
     }
 
     // clean memory
@@ -333,15 +337,15 @@ async fn export_protfolios(context: &AppContext, file: &str) -> Result<()> {
     let persistence = context.persistence();
 
     // delete file
-    if config.replay.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/analysis/{}", &config.replay.output.base_folder, file);
+    if config.replay.outputs.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/analysis/{}", &config.replay.outputs.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
         }
     }
     // delete index
-    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
+    if config.replay.outputs.elasticsearch.enabled && config.truncat_enabled() {
         let index_time = take_index_time(&file);
         let index_name = protfolio_index_name(&index_time);
         persistence.delete_index(&index_name).await?;
@@ -356,10 +360,10 @@ async fn export_protfolios(context: &AppContext, file: &str) -> Result<()> {
 
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                if config.replay.output.file.enabled {
+                if config.replay.outputs.file.enabled {
                     let output_name = format!(
                         "{}/analysis/{}/protfolio-{}-{}.json",
-                        &config.replay.output.base_folder, file, symbol, unit
+                        &config.replay.outputs.base_folder, file, symbol, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -377,7 +381,7 @@ async fn export_protfolios(context: &AppContext, file: &str) -> Result<()> {
                     });
                     debug!("Finish analysis: {} file", &output_name);
                 }
-                if config.replay.output.elasticsearch.enabled {
+                if config.replay.outputs.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
 
@@ -399,15 +403,15 @@ async fn export_slope_points(context: &AppContext, file: &str) -> Result<()> {
     let persistence = context.persistence();
 
     // delete file
-    if config.replay.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/slopes/{}", &config.replay.output.base_folder, file);
+    if config.replay.outputs.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/slopes/{}", &config.replay.outputs.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
         }
     }
     // delete index
-    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
+    if config.replay.outputs.elasticsearch.enabled && config.truncat_enabled() {
         let index_time = take_index_time(&file);
         let index_name = slope_index_name(&index_time);
         persistence.delete_index(&index_name).await?;
@@ -422,10 +426,10 @@ async fn export_slope_points(context: &AppContext, file: &str) -> Result<()> {
 
             let list_reader = lock.read().unwrap();
             if !list_reader.is_empty() {
-                if config.replay.output.file.enabled {
+                if config.replay.outputs.file.enabled {
                     let output_name = format!(
                         "{}/slopes/{}/slope-{}-{}.json",
-                        &config.replay.output.base_folder, file, symbol, unit
+                        &config.replay.outputs.base_folder, file, symbol, unit
                     );
                     let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
                     create_dir_all(&path)?;
@@ -447,7 +451,7 @@ async fn export_slope_points(context: &AppContext, file: &str) -> Result<()> {
                     });
                     debug!("Finish slope: {} file", &output_name);
                 }
-                if config.replay.output.elasticsearch.enabled {
+                if config.replay.outputs.elasticsearch.enabled {
                     let protfolios: Vec<Protfolio> =
                         list_reader.iter().map(|p| p.clone()).collect();
                     let points = draw_slop_lines(&protfolios);
@@ -471,15 +475,15 @@ async fn export_trades(context: &AppContext, file: &str) -> Result<()> {
     let asset = context.asset();
 
     // delete file
-    if config.replay.output.file.enabled && config.truncat_enabled() {
-        let base_path = format!("{}/trades/{}", &config.replay.output.base_folder, file);
+    if config.replay.outputs.file.enabled && config.truncat_enabled() {
+        let base_path = format!("{}/trades/{}", &config.replay.outputs.base_folder, file);
         if Path::new(&base_path).exists() {
             info!("Remove files under {}", &base_path);
             remove_dir_all(&base_path)?;
         }
     }
     // delete index
-    if config.replay.output.elasticsearch.enabled && config.truncat_enabled() {
+    if config.replay.outputs.elasticsearch.enabled && config.truncat_enabled() {
         let index_time = take_index_time(&file);
         let index_name = trade_index_name(&index_time);
         persistence.delete_index(&index_name).await?;
@@ -487,10 +491,10 @@ async fn export_trades(context: &AppContext, file: &str) -> Result<()> {
 
     for (symbol, list_lock) in asset.trades().as_ref() {
         let list_reader = list_lock.read().unwrap();
-        if config.replay.output.file.enabled {
+        if config.replay.outputs.file.enabled {
             let output_name = format!(
                 "{}/trades/{}/trade-{}.json",
-                &config.replay.output.base_folder, file, symbol
+                &config.replay.outputs.base_folder, file, symbol
             );
             let path = Path::new(&output_name).parent().unwrap().to_str().unwrap();
             create_dir_all(&path)?;
@@ -510,7 +514,7 @@ async fn export_trades(context: &AppContext, file: &str) -> Result<()> {
             debug!("Finish trades: {} file", &output_name);
         }
         // too many data, stop export temporary
-        if config.replay.output.elasticsearch.enabled && false {
+        if config.replay.outputs.elasticsearch.enabled && false {
             let trades: Vec<ElasticTrade> = list_reader
                 .iter()
                 .flat_map(|item_lock| ElasticTrade::from(&item_lock.read().unwrap()))

@@ -150,7 +150,7 @@ pub async fn export(context: &AppContext, name: &str) -> Result<()> {
     let persistence = context.persistence();
     let config = context.config();
     let db_name = config.data_source.mongodb.target.as_ref().unwrap();
-    let base_path = config.replay.output.base_folder.as_str();
+    let base_path = config.replay.outputs.base_folder.as_str();
     let client: Client = persistence.get_connection()?;
     let path = format!("{}/{}", &base_path, &name);
 

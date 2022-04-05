@@ -89,16 +89,16 @@ trade:
       - to: m0300
         value: 0.008
 replay:
-  # export:
-  #   - name: ticker
-  #     enabled: true
-  #   - name: protfolio
-  #     enabled: true
-  #   - name: slope
-  #     enabled: true
-  #   - name: trade
-  #     enabled: true
-  output:
+  exports:
+    - name: protfolio
+      enabled: true
+    - name: slope
+      enabled: true
+    - name: trade
+      enabled: true
+    - name: order
+      enabled: false
+  outputs:
     # baseFolder: tmp02
     file:
       enabled: false

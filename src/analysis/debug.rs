@@ -830,7 +830,7 @@ pub fn print_meta(
 
     let path = format!(
         "{base}/orders/{symbol}/{day}/MSG-{time}-{id}.ord",
-        base = &config.replay.output.base_folder,
+        base = &config.replay.outputs.base_folder,
         symbol = &trade.id,
         day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
         time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),

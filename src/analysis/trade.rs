@@ -58,13 +58,15 @@ pub fn prepare_trade(
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
 
-                    print_meta(
-                        Arc::clone(&asset),
-                        Arc::clone(&config),
-                        Some(order.clone()),
-                        &trade,
-                    )
-                    .unwrap_or_default();
+                    if config.replay.export_enabled("order") {
+                        print_meta(
+                            Arc::clone(&asset),
+                            Arc::clone(&config),
+                            Some(order.clone()),
+                            &trade,
+                        )
+                        .unwrap_or_default();
+                    }
 
                     let symbol = trade.id.clone();
                     let time = Utc.timestamp_millis(trade.action_time());
@@ -116,13 +118,15 @@ pub fn prepare_trade(
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
 
-                    print_meta(
-                        Arc::clone(&asset),
-                        Arc::clone(&config),
-                        Some(order.clone()),
-                        &trade,
-                    )
-                    .unwrap_or_default();
+                    if config.replay.export_enabled("order") {
+                        print_meta(
+                            Arc::clone(&asset),
+                            Arc::clone(&config),
+                            Some(order.clone()),
+                            &trade,
+                        )
+                        .unwrap_or_default();
+                    }
 
                     let symbol = trade.id.clone();
                     let time = Utc.timestamp_millis(trade.action_time());
@@ -268,6 +272,7 @@ pub fn audit_trade(
             .unwrap();
 
         if trade.time > start_at && trade.time < end_at {
+            // not affected by config.replay.exports.order
             print_meta(Arc::clone(&asset), Arc::clone(&config), None, trade).unwrap_or_default();
         }
     }
@@ -629,7 +634,6 @@ fn validate_oscillation(
             period_from = from[1..].parse::<usize>().unwrap() / duration;
         }
 
-        // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
         let base_unit = format!("m{:04}", duration);
 
         // parse period from key (ex: m0070 => 70 / 10 = 7)
@@ -686,7 +690,6 @@ fn validate_lower(
             period_from = from[1..].parse::<usize>().unwrap() / duration;
         }
 
-        // let oscillation = config.get_trade_oscillation("flash", &name).unwrap();
         let base_unit = format!("m{:04}", duration);
 
         // parse period from key (ex: m0070 => 70 / 10 = 7)
