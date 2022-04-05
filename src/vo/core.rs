@@ -683,6 +683,7 @@ pub struct YahooFinance {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TradeAudit {
+    pub enabled: bool,
     // max aount to per single order
     #[serde(rename = "maxOrderAmount")]
     pub max_order_amount: u32,

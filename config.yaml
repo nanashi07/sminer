@@ -10,6 +10,8 @@ platform:
   yahoo:
     uri: "wss://streamer.finance.yahoo.com/"
 trade:
+  # only works for consume
+  enabled: true # TODO: enable calculation
   maxOrderAmount: 500
   flash:
     lossMarginRate: 0.005
@@ -98,6 +100,7 @@ trade:
         trend: Upward
       - to: m0010
         trend: Upward
+        # up: '1+'
       deviations:
       - to: m0120
         value: 0.002

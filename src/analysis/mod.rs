@@ -78,19 +78,21 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     });
 
-    info!("Initialize event trade handler");
-    let mut rx = post_man.subscribe_trade();
-    let root = Arc::clone(&context);
-    tokio::spawn(async move {
-        loop {
-            match handle_message_for_trade(&mut rx, &root).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for preparatory error: {:?}", err);
+    if config.trade.enabled {
+        info!("Initialize event trade handler");
+        let mut rx = post_man.subscribe_trade();
+        let root = Arc::clone(&context);
+        tokio::spawn(async move {
+            loop {
+                match handle_message_for_trade(&mut rx, &root).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Handle ticker for preparatory error: {:?}", err);
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     info!("Initialize event calculator handler");
     let root = Arc::clone(&context);
@@ -186,7 +188,7 @@ async fn handle_message_for_calculator(
     context.route(message_id, symbol, unit)?;
 
     // check all values finalized then push to prepare trade
-    if context.asset().is_trade_finalized(symbol, message_id) {
+    if context.config().trade.enabled && context.asset().is_trade_finalized(symbol, message_id) {
         debug!(
             "Prepare handle finalized trade info, symbol: {}, message_id: {}",
             symbol, &message_id
