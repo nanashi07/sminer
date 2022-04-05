@@ -263,6 +263,24 @@ impl AssetContext {
         }
     }
 
+    pub fn get_latest_ticker(&self, symbol: &str) -> Option<Ticker> {
+        let lock = self.tickers.get(symbol).unwrap();
+        let reader = lock.read().unwrap();
+        if let Some(ticker) = reader.front() {
+            Some(ticker.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_latest_rival_ticker(&self, symbol: &str) -> Option<Ticker> {
+        if let Some(rival_symbol) = self.find_pair_symbol(symbol) {
+            self.get_latest_ticker(&rival_symbol)
+        } else {
+            None
+        }
+    }
+
     pub fn symbol_protfolios(&self, symbol: &str) -> Option<&LockListMap<Protfolio>> {
         self.protfolios.get(symbol)
     }

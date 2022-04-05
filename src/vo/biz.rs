@@ -273,6 +273,7 @@ pub struct Order {
     pub symbol: String,
     pub created_time: i64,
     pub created_price: f32,
+    pub created_rival_price: f32,
     pub created_volume: u32,
     pub accepted_time: Option<i64>,
     pub accepted_price: Option<f32>,
@@ -285,12 +286,20 @@ pub struct Order {
 }
 
 impl Order {
-    pub fn new(symbol: &str, price: f32, volume: u32, time: i64, audit: AuditState) -> Self {
+    pub fn new(
+        symbol: &str,
+        price: f32,
+        rival_price: f32,
+        volume: u32,
+        time: i64,
+        audit: AuditState,
+    ) -> Self {
         Self {
             id: format!("{}{}", symbol, Utc::now().timestamp_millis()),
             symbol: symbol.to_string(),
             created_time: time,
             created_price: price,
+            created_rival_price: rival_price,
             created_volume: volume,
             accepted_time: None,
             accepted_price: None,
