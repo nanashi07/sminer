@@ -104,13 +104,13 @@ trade:
 replay:
   exports:
     - name: protfolio
-      enabled: true
+      enabled: false
     - name: slope
-      enabled: true
+      enabled: false
     - name: trade
-      enabled: true
+      enabled: false
     - name: order
-      enabled: true
+      enabled: false
   outputs:
     # baseFolder: tmp02
     file:

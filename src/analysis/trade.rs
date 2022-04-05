@@ -35,7 +35,10 @@ pub fn prepare_trade(
         // audit trade
         let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
         match state {
-            AuditState::Flash | AuditState::Slug | AuditState::EarlySell => {
+            AuditState::Flash
+            | AuditState::Slug
+            | AuditState::ProfitTaking
+            | AuditState::EarlySell => {
                 // calculate volume
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
@@ -194,6 +197,12 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
         // test profit by calculate result
         // (53.845 - 56.194) * expected_volume + (36.845 - 35.351) * 10 > 0
 
+        // *** (!important) clear price affects the write of result ***
+        // (53.845 - 56.194) * 6 + (36.845 - 35.351) * 10 = 0.846
+        // (42.355 - 56.194) * 6 + (48.540 - 35.351) * 10 = 48.856
+        // (62.383 - 56.194) * 6 + (31.428 - 35.351) * 10 = -2.096
+        // TODO: think a better approach to avoid this effection
+
         let rival_volume = rival_order.created_volume;
         let rival_last_price = rival_order.created_price;
         let current_price = trade.price;
@@ -289,15 +298,17 @@ pub fn audit_trade(
         result = AuditState::Slug;
     }
 
-    if matches!(result, AuditState::Flash | AuditState::Slug) {
-        // check last pair order if exists, make sure make off gain profit
-        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
-            if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
-                // get latest trade of rival ticker
-                if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
-                    // FIXME : use accepted price
-                    let price_diff = rival_trade.price - rival_order.created_price;
-                    let profit = price_diff * rival_order.created_volume as f32;
+    // check last pair order if exists, make sure make off gain profit
+    if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+        if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
+            // get latest trade of rival ticker
+            if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
+                // FIXME : use accepted price
+                let price_diff = rival_trade.price - rival_order.created_price;
+                let profit = price_diff * rival_order.created_volume as f32;
+                let rate = price_diff / rival_order.created_price;
+
+                if matches!(result, AuditState::Flash | AuditState::Slug) {
                     if profit < 0.0 {
                         warn!(
                             "block write off due to profit is negative: [{}] ({} - {}) x {} = {}",
@@ -308,38 +319,20 @@ pub fn audit_trade(
                             profit
                         );
                         result = AuditState::Decline;
-                    } else {
-                        let rate = price_diff / rival_order.created_price;
-                        // FIXME: consider if this is correct?
-                        if rate > 0.005 {
-                            info!("profit = {} ({:.04}%), early sell", profit, rate * 100.0);
-                            result = AuditState::EarlySell;
-                        }
                     }
-                }
-            }
-        }
-    } else {
-        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
-            if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
-                // get latest trade of rival ticker
-                if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
-                    // FIXME : use accepted price
-                    let price_diff = rival_trade.price - rival_order.created_price;
-                    let profit = price_diff * rival_order.created_volume as f32;
-                    let rate = price_diff / rival_order.created_price;
-
-                    // this stop early sell
-                    if rate > 0.0
-                        && rate < 0.005
+                } else {
+                    // early sell even if there is no match rule found
+                    if rate > 0.005 {
+                        info!("profit taking, profit = {} ({:.04}%)", profit, rate * 100.0);
+                        result = AuditState::ProfitTaking;
+                    }
+                    // early sell when the trend is starting to go down
+                    else if rate > 0.0
+                        && rate < 0.005 // TODO
                         && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
                     {
-                        info!(
-                        "%%%%%%%%%%%%%%%% revert trade match trends {}, rate= {} %%%%%%%%%%%%%%%%",
-                            profit,
-                            rate
-                        );
-                        result = AuditState::Slug;
+                        info!("early sell, profit = {} ({}%)", profit, rate * 100.0);
+                        result = AuditState::EarlySell;
                     }
                 }
             }
@@ -351,29 +344,21 @@ pub fn audit_trade(
     // FIXME: check previous order status
     if let Some(exists_order) = asset.find_running_order(&trade.id) {
         // exists order, check PnL
-        if loss_recognition(asset, config, trade, &exists_order) {
+        if recognize_loss(asset, config, trade, &exists_order) {
             return AuditState::Loss;
         }
         result = AuditState::Decline;
     }
 
-    // 小於區間內最小值(扣除目前的上升區間)
-    // 區間內與最大值的價差（比率）
-    // 區間內的振蕩性
-    // 區間內的最大最小價差
-    // 與反向 eft 的利差（數值）
+    // TODO: real time calculate PnL and avoid get loss finally
 
-    // TODO: check others
-    // check other trends
-    // check exists order (same side)
-    // check profit to previous order
-    // forecast next possible profit, after 5m place order
-    // forecast possible lost
+    // 區間內與最大值的價差（比率）
+    // 與反向 eft 的利差（數值）
 
     result
 }
 
-fn loss_recognition(
+fn recognize_loss(
     _asset: Arc<AssetContext>,
     config: Arc<AppConfig>,
     trade: &TradeInfo,
@@ -382,7 +367,7 @@ fn loss_recognition(
     let margin_rate = match order.audit {
         AuditState::Flash => config.trade.flash.loss_margin_rate,
         AuditState::Slug => config.trade.slug.loss_margin_rate,
-        _ => 100.0,
+        _ => 100.0, // TODO
     };
     let price = trade.price;
     // FIXME : use accepted price
