@@ -10,9 +10,10 @@ do
     if [[ -f "$FILE" ]];
     then
       echo splitting $SYMBOL from $FILE
-      mkdir -p json/$FILE
+      FILENAME=`basename $FILE`
+      mkdir -p json/$FILENAME
       SYMBOL_PATTERN=`echo $SYMBOL | sed 's/|/-/g'`
-      grep -E $SYMBOL $FILE > json/$FILE/split.$FILE.$SYMBOL_PATTERN.json
+      grep -E $SYMBOL $FILE > json/$FILENAME/split.$FILENAME.$SYMBOL_PATTERN.json
     fi
   done
 done
