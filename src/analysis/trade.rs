@@ -43,6 +43,11 @@ pub fn prepare_trade(
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
+                if suspected_volume == 0 {
+                    warn!("suspected order volume is zero, ignore order");
+                    return Ok(());
+                }
+
                 // get rival price
                 let mut rival_price = f32::NAN;
                 if let Some(rival_ticker) = asset.get_latest_rival_ticker(&trade.id) {
@@ -102,6 +107,11 @@ pub fn prepare_trade(
                 // calculate volume
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
+
+                if suspected_volume == 0 {
+                    warn!("suspected order volume is zero, ignore order");
+                    return Ok(());
+                }
 
                 // get rival price
                 let mut rival_price = f32::NAN;
@@ -205,8 +215,9 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
 
         let rival_volume = rival_order.created_volume;
         let rival_last_price = rival_order.created_price;
+
         let current_price = trade.price;
-        let last_price = rival_order.created_rival_price;
+        let mut last_price = rival_order.created_rival_price;
 
         // get rival price, ex: SQQQ current price
         let mut rival_current_price = f32::NAN;
@@ -218,6 +229,17 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
         if rival_current_price.is_nan() {
             warn!("rival price not available, skip order {:?}", trade);
             return 0;
+        }
+
+        // when both bull/bear upward or bull/bear downward, result valume is negative
+        // use estimated last price for calculation
+        if (rival_current_price - rival_last_price) * (current_price - last_price) > 0.0 {
+            let rival_change_rate = (rival_current_price - rival_last_price) / rival_last_price;
+            let change_rate = rival_change_rate * -1.0;
+            // change_rate = (current_price - estimated_last_price) / estimated_last_price
+            // => estimated_last_price + change_rate * estimated_last_price = current_price
+            // => estimated_last_price = current_price / (1.0 + change_rate)
+            last_price = current_price / (1.0 + change_rate);
         }
 
         let rival_total_change_amount =
@@ -235,22 +257,30 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
                 + (current_price - last_price) * expected_volume.ceil()
         {
             let mut final_volume = expected_volume.floor() as u32;
+            let restriction = final_volume / 2;
             // adjust volume to make profit positive
             while (rival_current_price - rival_last_price) * (rival_volume as f32)
                 + (current_price - last_price) * (final_volume as f32)
                 < 0.0
             {
                 final_volume -= 1;
+                if final_volume < restriction {
+                    break;
+                }
             }
             final_volume
         } else {
             let mut final_volume = expected_volume.ceil() as u32;
+            let restriction = final_volume * 3;
             // adjust volume to make profit positive
             while (rival_current_price - rival_last_price) * (rival_volume as f32)
                 + (current_price - last_price) * (final_volume as f32)
                 < 0.0
             {
                 final_volume += 1;
+                if final_volume > restriction {
+                    break;
+                }
             }
             final_volume
         }
@@ -367,7 +397,7 @@ fn recognize_loss(
     let margin_rate = match order.audit {
         AuditState::Flash => config.trade.flash.loss_margin_rate,
         AuditState::Slug => config.trade.slug.loss_margin_rate,
-        _ => 100.0, // TODO
+        _ => 0.006, // not affected
     };
     let price = trade.price;
     // FIXME : use accepted price
