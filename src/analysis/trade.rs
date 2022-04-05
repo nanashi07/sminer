@@ -250,6 +250,35 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
         // total_change_amount = (current_price - last_price) * volume;
         let expected_volume = total_change_amount / (current_price - last_price);
 
+        // for debug only
+        if false {
+            info!("rival_volume = {}", rival_volume);
+            info!("rival_last_price = {}", rival_last_price);
+            info!("rival_current_price = {}", rival_current_price);
+
+            info!("current_price = {}", current_price);
+            info!("last_price = {}", last_price);
+
+            info!("rival_total_change_amount = (rival_current_price - rival_last_price) * rival_volume >> {} = ({} - {}) * {}",
+                rival_total_change_amount,
+                rival_current_price,
+                rival_last_price,
+                rival_volume as f32
+            );
+
+            info!(
+                "total_change_amount = rival_total_change_amount * -1.0 >> {} = {} * -1.0",
+                total_change_amount, rival_total_change_amount
+            );
+            info!(
+                "expected_volume = total_change_amount / (current_price - last_price) >> {} = {} / ({} - {})",
+                expected_volume,
+                total_change_amount,
+                current_price,
+                last_price
+            );
+        }
+
         // test profit
         if (rival_current_price - rival_last_price) * (rival_volume as f32)
             + (current_price - last_price) * expected_volume.floor()
