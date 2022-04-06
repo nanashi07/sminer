@@ -231,15 +231,23 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             return 0;
         }
 
-        // when both bull/bear upward or bull/bear downward, result valume is negative
+        let rival_price_change_rate = (rival_current_price - rival_last_price) / rival_last_price;
+        let mut price_change_ratee = (current_price - last_price) / last_price;
+
+        // 1. when both bull/bear upward or bull/bear downward, result volume is negative
+        // 2. when change rate between bulk and bear is too high/low, result volume is too large (allow max to 3x)
         // use estimated last price for calculation
-        if (rival_current_price - rival_last_price) * (current_price - last_price) > 0.0 {
+        if rival_price_change_rate * price_change_ratee > 0.0
+            || (rival_price_change_rate / price_change_ratee).abs() > 3.0
+            || (rival_price_change_rate / price_change_ratee).abs() > 3.0
+        {
             let rival_change_rate = (rival_current_price - rival_last_price) / rival_last_price;
             let change_rate = rival_change_rate * -1.0;
             // change_rate = (current_price - estimated_last_price) / estimated_last_price
             // => estimated_last_price + change_rate * estimated_last_price = current_price
             // => estimated_last_price = current_price / (1.0 + change_rate)
             last_price = current_price / (1.0 + change_rate);
+            price_change_ratee = (current_price - last_price) / last_price;
         }
 
         let rival_total_change_amount =
@@ -255,9 +263,21 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             info!("rival_volume = {}", rival_volume);
             info!("rival_last_price = {}", rival_last_price);
             info!("rival_current_price = {}", rival_current_price);
+            info!("rival_price_change_rate = {}", rival_price_change_rate);
 
             info!("current_price = {}", current_price);
             info!("last_price = {}", last_price);
+            info!("price_change_ratee = {}", price_change_ratee);
+
+            info!(
+                "chagne rate diff: {} / {} = {}, {} / {} = {}",
+                rival_price_change_rate,
+                price_change_ratee,
+                rival_price_change_rate / price_change_ratee,
+                price_change_ratee,
+                rival_price_change_rate,
+                price_change_ratee / rival_price_change_rate
+            );
 
             info!("rival_total_change_amount = (rival_current_price - rival_last_price) * rival_volume >> {} = ({} - {}) * {}",
                 rival_total_change_amount,
