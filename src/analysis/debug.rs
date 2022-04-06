@@ -126,7 +126,15 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         total_amount,
         total_profit / total_amount * 100.0
     );
-
+    info!(
+        "#REPORT | {order_count} | {loss_order_count} | {loss_order_rate} | {total_profit} | {total_amount} | {profit_rate:.5}% |",
+        order_count = readers.len(),
+        loss_order_count = loss_order,
+        loss_order_rate = 100.0 * loss_order as f64 / readers.len() as f64,
+        total_profit = total_profit,
+        total_amount = total_amount,
+        profit_rate = total_profit / total_amount * 100.0
+    );
     info!("####################################################################################################");
 
     print_config("flash", &config.trade.flash);
