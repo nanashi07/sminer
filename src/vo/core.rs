@@ -376,11 +376,7 @@ impl AssetContext {
             debug!("find exists order {:?}", exists_order);
             false
         } else {
-            if matches!(order.audit, AuditState::Loss) {
-                warn!("add new order: {:?}", &order);
-            } else {
-                info!("add new order: {:?}", &order);
-            }
+            debug!("add new order: {:?}", &order);
             writer.push_front(order);
             true
         }

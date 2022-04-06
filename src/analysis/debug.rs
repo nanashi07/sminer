@@ -117,17 +117,22 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
                     * another.created_volume as f32
         );
     }
+    let time = Utc.timestamp_millis(readers.front().unwrap().created_time);
+
     info!("closed prices {:?}", close_prices,);
     info!(
-        "order count: {}, loss order: {}, total profit: {}, total amount: {}, rate: {:.5}%",
+        "date: {}, order count: {}, loss order: {}, total profit: {}, total amount: {}, rate: {:.5}%",
+        time.format("%Y-%m-%d"),
         readers.len(),
         loss_order,
         total_profit,
         total_amount,
         total_profit / total_amount * 100.0
     );
+
     info!(
-        "#REPORT | {order_count} | {loss_order_count} | {loss_order_rate} | {total_profit} | {total_amount} | {profit_rate:.5}% |",
+        "#REPORT | {date} | {order_count} | {loss_order_count} | {loss_order_rate} | {total_profit} | {total_amount} | {profit_rate:.5}% |",
+        date = time.format("%Y-%m-%d"),
         order_count = readers.len(),
         loss_order_count = loss_order,
         loss_order_rate = 100.0 * loss_order as f64 / readers.len() as f64,
