@@ -241,21 +241,21 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             || (rival_price_change_rate / price_change_rate).abs() > 3.0
             || (price_change_rate / rival_price_change_rate).abs() > 3.0
         {
-            warn!(
+            debug!(
                 "rival_price_change_rate * price_change_rate = {} * {} = {} > 0.0 : {}",
                 rival_price_change_rate,
                 price_change_rate,
                 rival_price_change_rate * price_change_rate,
                 rival_price_change_rate * price_change_rate > 0.0
             );
-            warn!(
+            debug!(
                 "(rival_price_change_rate / price_change_rate).abs() = abs({} / {}) = {} > 3.0 : {}",
                 rival_price_change_rate,
                 price_change_rate,
                 (rival_price_change_rate / price_change_rate).abs(),
                 (rival_price_change_rate / price_change_rate).abs() > 3.0
             );
-            warn!(
+            debug!(
                 "(price_change_rate / rival_price_change_rate).abs() = abs({} / {}) = {} > 3.0 : {}",
                 price_change_rate,
                 rival_price_change_rate,
@@ -326,7 +326,8 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             > (rival_current_price - rival_last_price) * (rival_volume as f32)
                 + (current_price - last_price) * expected_volume.ceil()
         {
-            let mut final_volume = expected_volume.floor() as u32;
+            expected_volume.floor() as u32
+            // let mut final_volume = expected_volume.floor() as u32;
             // let restriction = final_volume / 2;
             // // adjust volume to make profit positive
             // while (rival_current_price - rival_last_price) * (rival_volume as f32)
@@ -338,9 +339,10 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             //         break;
             //     }
             // }
-            final_volume
+            // final_volume
         } else {
-            let mut final_volume = expected_volume.ceil() as u32;
+            expected_volume.ceil() as u32
+            // let mut final_volume = expected_volume.ceil() as u32;
             // let restriction = final_volume * 3;
             // // adjust volume to make profit positive
             // while (rival_current_price - rival_last_price) * (rival_volume as f32)
@@ -352,7 +354,7 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             //         break;
             //     }
             // }
-            final_volume
+            // final_volume
         }
     } else {
         let suspect_volumn = (max_amount as f32) / trade.price;
@@ -423,6 +425,7 @@ pub fn audit_trade(
                 } else {
                     // early sell even if there is no match rule found
                     if rate > 0.005 {
+                        // TODO: greedy mode, check 10s trend
                         info!("profit taking, profit = {} ({:.04}%)", profit, rate * 100.0);
                         result = AuditState::ProfitTaking;
                     }
