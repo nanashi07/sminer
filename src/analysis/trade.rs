@@ -241,6 +241,24 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             || (rival_price_change_rate / price_change_ratee).abs() > 3.0
             || (rival_price_change_rate / price_change_ratee).abs() > 3.0
         {
+            warn!(
+                "rival_price_change_rate * price_change_ratee = {} * {} > 0.0 : {}",
+                rival_price_change_rate,
+                price_change_ratee,
+                rival_price_change_rate * price_change_ratee
+            );
+            warn!(
+                "(rival_price_change_rate / price_change_ratee).abs() = abs({} / {}) > 3.0 : {}",
+                rival_price_change_rate,
+                price_change_ratee,
+                (rival_price_change_rate / price_change_ratee).abs()
+            );
+            warn!(
+                "(rival_price_change_rate / price_change_ratee).abs() = abs({} / {}) > 3.0 : {}",
+                rival_price_change_rate,
+                price_change_ratee,
+                (rival_price_change_rate / price_change_ratee).abs()
+            );
             let rival_change_rate = (rival_current_price - rival_last_price) / rival_last_price;
             let change_rate = rival_change_rate * -1.0;
             // change_rate = (current_price - estimated_last_price) / estimated_last_price
