@@ -498,6 +498,13 @@ pub fn audit_trade(
     if let Some(exists_order) = asset.find_running_order(&trade.id) {
         // exists order, check PnL
         if recognize_loss(asset, config, trade, &exists_order) {
+            info!(
+                "loss sell, lost = ({} - {}) * {} = {}",
+                trade.price,
+                &exists_order.created_price,
+                &exists_order.created_volume,
+                (trade.price - exists_order.created_price) * exists_order.created_volume as f32,
+            );
             return AuditState::Loss;
         }
         result = AuditState::Decline;

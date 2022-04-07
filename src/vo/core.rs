@@ -421,16 +421,39 @@ impl AssetContext {
             let constraint_id = format!("P{}", self.next_message_id());
             let lock = Arc::clone(&self.orders);
             let mut writer = lock.write().unwrap();
-            for o in writer
-                .iter_mut()
-                .filter(|o| o.id == rival_order.id || o.id == order.id)
-            {
-                o.write_off_time = order.accepted_time;
-                o.status = status.clone();
-                o.constraint_id = Some(constraint_id.clone());
 
-                debug!("write off order: {}", &o.id);
+            let count = writer
+                .iter()
+                .filter(|o| o.id == rival_order.id || o.id == order.id)
+                .count();
+
+            if count == 2 {
+                {
+                    for o in writer.iter_mut().filter(|o| o.id == rival_order.id) {
+                        o.write_off_time = order.accepted_time; // FIXME: accepted time to current time
+                        o.status = status.clone();
+                        o.constraint_id = Some(constraint_id.clone());
+                    }
+                }
+                {
+                    for o in writer.iter_mut().filter(|o| o.id == order.id) {
+                        o.write_off_time = order.accepted_time; // FIXME: accepted time to current time
+                        o.status = status.clone();
+                        o.constraint_id = Some(constraint_id.clone());
+                    }
+                }
             }
+
+            // for o in writer
+            //     .iter_mut()
+            //     .filter(|o| o.id == rival_order.id || o.id == order.id)
+            // {
+            //     o.write_off_time = order.accepted_time;
+            //     o.status = status.clone();
+            //     o.constraint_id = Some(constraint_id.clone());
+
+            //     debug!("write off order: {}", &o.id);
+            // }
         }
     }
 

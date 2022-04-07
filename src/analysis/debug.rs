@@ -85,7 +85,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("####################################################################################################");
 
     info!(
-        "| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<32} | {profit_b:<32} | {total_profit:<18} |",
+        "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
         constraint = "Pair",
         status = "Status",
         audit = "Audit",
@@ -93,7 +93,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         profit_b = "Profit",
         total_profit = "Total profit"
     );
-    info!("|------------|--------------|---------------------------|----------------------------------|----------------------------------|--------------|");
+    info!("OR|------------|--------------|---------------------------|--------------------------------------------|--------------------------------------------|--------------|");
 
     for (constraint, orders) in pairs {
         let one = orders.first().unwrap();
@@ -110,12 +110,12 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         // FIXME: use accepted instead
         log::log!(
             level,
-            "| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<32} | {profit_b:<32} | {total_profit:<18} |",
+            "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
             constraint = constraint,
             status = format!("{:?}", one.status),
             audit = format!("{:?}/{:?}", one.audit, another.audit),
-            profit_a = format!("[{}] ({} - {}) x {}", one.symbol, one_post_market_price, one.created_price, one.created_volume),
-            profit_b = format!("[{}] ({} - {}) x {}", another.symbol, another_post_market_price, another.created_price, another.created_volume),
+            profit_a = format!("[{}] ({} - {}) x {}", one.id, one_post_market_price, one.created_price, one.created_volume),
+            profit_b = format!("[{}] ({} - {}) x {}", another.id, another_post_market_price, another.created_price, another.created_volume),
             total_profit = (one_post_market_price - one.created_price) * one.created_volume as f32
                 + (another_post_market_price - another.created_price)
                     * another.created_volume as f32
@@ -125,7 +125,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     info!("closed prices {:?}", close_prices,);
     info!(
-        "| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10} |",
+        "PR| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10} |",
         date = "Date",
         order_count = "Order count",
         loss_order_count = "Loss orders",
@@ -134,9 +134,9 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         total_profit = "PnL",
         profit_rate = "PnL (%s)"
     );
-    info!("|------------|-------------|-------------|------------------|--------------|--------------|------------|");
+    info!("PR|------------|-------------|-------------|------------------|--------------|--------------|------------|");
     info!(
-        "| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16.5} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10.5} |",
+        "PR| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16.5} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10.5} |",
         date = time.format("%Y-%m-%d"),
         order_count = readers.len(),
         loss_order_count = loss_order,
