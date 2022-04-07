@@ -1,5 +1,6 @@
 use crate::proto::{biz::TickerEvent, yahoo::YahooTicker};
 use chrono::Utc;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Display};
 
@@ -295,7 +296,12 @@ impl Order {
         audit: AuditState,
     ) -> Self {
         Self {
-            id: format!("{}{}", symbol, Utc::now().timestamp_millis()),
+            id: format!(
+                "{}{}{}",
+                symbol,
+                Utc::now().timestamp_millis() % 31536000000,
+                random_suffix()
+            ),
             symbol: symbol.to_string(),
             created_time: time,
             created_price: price,
@@ -310,6 +316,14 @@ impl Order {
             write_off_time: None,
         }
     }
+}
+
+fn random_suffix() -> char {
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let mut cc = chars.chars();
+    let len = chars.len();
+    let mut rng = rand::thread_rng();
+    cc.nth(rng.gen_range(0..len)).unwrap()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
