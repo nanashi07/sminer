@@ -417,9 +417,10 @@ pub fn audit_trade(
                 let estimated_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade) as f32;
                 let estimated_profit = price_change * estimated_volume;
+                let estimated_balanced_profit = rival_profit + estimated_profit;
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
-                    if rival_price_change < 0.0 || rival_profit + estimated_profit < 0.0 {
+                    if rival_price_change < 0.0 || estimated_balanced_profit < 0.0 {
                         warn!(
                             "block write off due to profit is negative: [{}] ({} - {}) x {} = {}",
                             rival_symbol,
@@ -443,12 +444,12 @@ pub fn audit_trade(
                     );
 
                     let rate = rival_price_change_rate * price_change_rate;
-                    if rival_profit > 0.0 && rate > -0.00020 {
+                    if rival_price_change_rate > 0.0 {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
-                        if rate > 0.00010 {
+                        if rival_price_change_rate > 0.005 {
                             info!(
-                                "profit taking, profit = {} ({:.04}%)",
+                                "profit taking, profit = {} ({:.4}%)",
                                 rival_profit,
                                 rival_price_change_rate * 100.0
                             );
@@ -467,7 +468,7 @@ pub fn audit_trade(
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
                             info!(
-                                "early sell, profit = {} ({}%)",
+                                "early sell, profit = {} ({:.4}%)",
                                 rival_profit,
                                 rival_price_change_rate * 100.0
                             );
@@ -484,27 +485,12 @@ pub fn audit_trade(
                             result = AuditState::EarlySell;
                         }
                     }
-
-                    // // early sell even if there is no match rule found
-                    // if rival_price_change_rate > 0.005 {
-                    //     info!("@@@rate = {}", rate);
-                    // }
-                    // // early sell when the trend is starting to go down
-                    // else if rival_price_change_rate > 0.0
-                    //     && rival_price_change_rate < 0.005 // TODO
-                    //     && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
-                    // {
-                    //     info!(
-                    //         "early sell, profit = {} ({}%)",
-                    //         rival_profit,
-                    //         rival_price_change_rate * 100.0
-                    //     );
-                    //     result = AuditState::EarlySell;
-                    // }
                 }
             }
         }
     }
+
+    // TODO: consider calculate diff between bear change rate / bulk change rate
 
     // TODO: reutrn if decline, unnecessary to check following
 

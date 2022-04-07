@@ -1,5 +1,5 @@
 use super::biz::{
-    AuditState, MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo, Trend,
+    MarketHoursType, Order, OrderStatus, Protfolio, Ticker, TimeUnit, TradeInfo, Trend,
 };
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
