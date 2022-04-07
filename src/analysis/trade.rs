@@ -405,38 +405,102 @@ pub fn audit_trade(
         if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
             // get latest trade of rival ticker
             if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
+                // rival symbol is the one has been placed order
                 // FIXME : use accepted price
-                let price_diff = rival_trade.price - rival_order.created_price;
-                let profit = price_diff * rival_order.created_volume as f32;
-                let rate = price_diff / rival_order.created_price;
+                let rival_price_change = rival_trade.price - rival_order.created_price;
+                let rival_price_change_rate = rival_price_change / rival_order.created_price;
+                let rival_volume = rival_order.created_volume as f32;
+                let rival_profit = rival_price_change * rival_volume;
+
+                let price_change = trade.price - rival_order.created_rival_price;
+                let price_change_rate = price_change / rival_order.created_rival_price;
+                let estimated_volume =
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade) as f32;
+                let estimated_profit = price_change * estimated_volume;
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
-                    if profit < 0.0 {
+                    if rival_price_change < 0.0 || rival_profit + estimated_profit < 0.0 {
                         warn!(
                             "block write off due to profit is negative: [{}] ({} - {}) x {} = {}",
                             rival_symbol,
                             rival_trade.price,
                             rival_order.created_price,
                             rival_order.created_volume,
-                            profit
+                            rival_profit
                         );
                         result = AuditState::Decline;
                     }
                 } else {
-                    // early sell even if there is no match rule found
-                    if rate > 0.005 {
-                        // TODO: greedy mode, check 10s trend
-                        info!("profit taking, profit = {} ({:.04}%)", profit, rate * 100.0);
-                        result = AuditState::ProfitTaking;
+                    debug!(
+                        "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
+                        rival_price_change_rate = rival_price_change_rate * 100.0,
+                        price_change_rate = price_change_rate * 100.0,
+                        change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
+                        rival_profit = rival_profit,
+                        estimated_profit = estimated_profit,
+                        estimated_volume = estimated_volume,
+                        total_profit = rival_profit + estimated_profit
+                    );
+
+                    let rate = rival_price_change_rate * price_change_rate;
+                    if rival_profit > 0.0 && rate > -0.00020 {
+                        // TODO: find the best rate number
+                        // early sell even if there is no match rule found
+                        if rate > 0.00010 {
+                            info!(
+                                "profit taking, profit = {} ({:.04}%)",
+                                rival_profit,
+                                rival_price_change_rate * 100.0
+                            );
+                            info!(
+                                "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
+                                rival_price_change_rate = rival_price_change_rate * 100.0,
+                                price_change_rate = price_change_rate * 100.0,
+                                change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
+                                rival_profit = rival_profit,
+                                estimated_profit = estimated_profit,
+                                estimated_volume = estimated_volume,
+                                total_profit = rival_profit + estimated_profit
+                            );
+                            result = AuditState::ProfitTaking;
+                        }
+                        // early sell when the trend is starting to go down
+                        else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
+                            info!(
+                                "early sell, profit = {} ({}%)",
+                                rival_profit,
+                                rival_price_change_rate * 100.0
+                            );
+                            info!(
+                                "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
+                                rival_price_change_rate = rival_price_change_rate * 100.0,
+                                price_change_rate = price_change_rate * 100.0,
+                                change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
+                                rival_profit = rival_profit,
+                                estimated_profit = estimated_profit,
+                                estimated_volume = estimated_volume,
+                                total_profit = rival_profit + estimated_profit
+                            );
+                            result = AuditState::EarlySell;
+                        }
                     }
-                    // early sell when the trend is starting to go down
-                    else if rate > 0.0
-                        && rate < 0.005 // TODO
-                        && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
-                    {
-                        info!("early sell, profit = {} ({}%)", profit, rate * 100.0);
-                        result = AuditState::EarlySell;
-                    }
+
+                    // // early sell even if there is no match rule found
+                    // if rival_price_change_rate > 0.005 {
+                    //     info!("@@@rate = {}", rate);
+                    // }
+                    // // early sell when the trend is starting to go down
+                    // else if rival_price_change_rate > 0.0
+                    //     && rival_price_change_rate < 0.005 // TODO
+                    //     && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
+                    // {
+                    //     info!(
+                    //         "early sell, profit = {} ({}%)",
+                    //         rival_profit,
+                    //         rival_price_change_rate * 100.0
+                    //     );
+                    //     result = AuditState::EarlySell;
+                    // }
                 }
             }
         }
