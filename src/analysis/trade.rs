@@ -415,14 +415,21 @@ pub fn audit_trade(
                 let price_change = trade.price - rival_order.created_rival_price;
                 let price_change_rate = price_change / rival_order.created_rival_price;
                 let estimated_volume =
-                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade) as f32;
-                let estimated_profit = price_change * estimated_volume;
-                let estimated_balanced_profit = rival_profit + estimated_profit;
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
+                let estimated_profit = price_change * estimated_volume as f32;
+
+                let positive_total_profit = validate_total_profit(
+                    Arc::clone(&asset),
+                    Arc::clone(&config),
+                    trade,
+                    &rival_trade,
+                    estimated_volume,
+                );
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
-                    if rival_price_change < 0.0 || estimated_balanced_profit < 0.0 {
+                    if !positive_total_profit {
                         warn!(
-                            "block write off due to profit is negative: [{}] ({} - {}) x {} = {}",
+                            "[{}] block write off due to profit is negative: ({} - {}) x {} = {}",
                             rival_symbol,
                             rival_trade.price,
                             rival_order.created_price,
@@ -432,28 +439,17 @@ pub fn audit_trade(
                         result = AuditState::Decline;
                     }
                 } else {
-                    debug!(
-                        "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
-                        rival_price_change_rate = rival_price_change_rate * 100.0,
-                        price_change_rate = price_change_rate * 100.0,
-                        change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
-                        rival_profit = rival_profit,
-                        estimated_profit = estimated_profit,
-                        estimated_volume = estimated_volume,
-                        total_profit = rival_profit + estimated_profit
-                    );
-
-                    let rate = rival_price_change_rate * price_change_rate;
-                    if rival_price_change_rate > 0.0 {
+                    if rival_price_change_rate > 0.0 && positive_total_profit {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
-                        if rival_price_change_rate > 0.005 || rate > 0.0 {
+                        if rival_price_change_rate > 0.005 {
                             info!(
-                                "profit taking, profit = {} ({:.4}%)",
+                                "[{}] profit taking, profit = {} ({:.4}%)",
+                                &rival_order.symbol,
                                 rival_profit,
                                 rival_price_change_rate * 100.0
                             );
-                            info!(
+                            trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
                                 price_change_rate = price_change_rate * 100.0,
@@ -468,11 +464,12 @@ pub fn audit_trade(
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
                             info!(
-                                "early sell, profit = {} ({:.4}%)",
+                                "[{}] early sell, profit = {} ({:.4}%)",
+                                &rival_order.symbol,
                                 rival_profit,
                                 rival_price_change_rate * 100.0
                             );
-                            info!(
+                            trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
                                 price_change_rate = price_change_rate * 100.0,
@@ -499,7 +496,8 @@ pub fn audit_trade(
         // exists order, check PnL
         if recognize_loss(asset, config, trade, &exists_order) {
             warn!(
-                "loss sell, lost = ({} - {}) * {} = {}",
+                "[{}] loss sell, lost = ({} - {}) * {} = {}",
+                &exists_order.symbol,
                 trade.price,
                 &exists_order.created_price,
                 &exists_order.created_volume,
@@ -518,17 +516,22 @@ pub fn audit_trade(
     result
 }
 
-fn dfd(
+fn validate_total_profit(
     asset: Arc<AssetContext>,
-    config: Arc<AppConfig>,
+    _config: Arc<AppConfig>,
     trade: &TradeInfo,
     rival_trade: &TradeInfo,
-) {
+    estimated_volume: u32,
+) -> bool {
     // pair orders
     let symbol = &trade.id;
     let rival_symbol = &rival_trade.id;
 
     let orders = asset.find_orders_by_symbol(&vec![symbol.to_owned(), rival_symbol.to_owned()]);
+
+    if orders.is_empty() {
+        return true;
+    }
 
     // group orders
     let mut pairs: BTreeMap<String, Vec<Order>> = BTreeMap::new();
@@ -541,8 +544,12 @@ fn dfd(
             } else {
                 pairs.insert(constraint_id, vec![order.clone()]);
             }
+        } else {
+            pairs.insert("NO_CONSTRAINT".to_owned(), vec![order.clone()]);
         }
     }
+
+    let pair_len = pairs.len();
 
     let mut formula: Vec<String> = Vec::new();
     for (_, groups) in pairs {
@@ -563,9 +570,6 @@ fn dfd(
             }
             1 => {
                 // unpaired order, should be the last one and be able to pair with current trade
-                let estimated_volume =
-                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
-
                 let one = groups.first().unwrap();
 
                 // formula
@@ -580,9 +584,18 @@ fn dfd(
             }
             _ => {
                 error!("Unexpected count of grouped order: {:?}", groups);
-                // TODO: return
+                return false;
             }
         }
+    }
+
+    if formula.is_empty() {
+        info!(
+            "formula is empty, pairs = {}, order size = {}",
+            pair_len,
+            orders.len()
+        );
+        return true;
     }
 
     // calculate formula
@@ -614,8 +627,40 @@ fn dfd(
             );
 
             let value = computer.compute(&ast).unwrap();
+            if value < 0.0 {
+                return false;
+            }
         }
     }
+
+    {
+        let mut price = trade.price;
+        let mut rival_price = rival_trade.price;
+        for _ in 1..=50 {
+            let mut ast = ast.clone();
+
+            price = price - price * 0.003;
+            rival_price = rival_price + rival_price * 0.003;
+
+            ast.replace(
+                &rsc::parser::Expr::Identifier(symbol.to_owned()),
+                &rsc::parser::Expr::Constant(price as f64),
+                false,
+            );
+            ast.replace(
+                &rsc::parser::Expr::Identifier(rival_symbol.to_owned()),
+                &rsc::parser::Expr::Constant(rival_price as f64),
+                false,
+            );
+
+            let value = computer.compute(&ast).unwrap();
+            if value < 0.0 {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 fn recognize_loss(

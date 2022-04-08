@@ -143,68 +143,68 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     info!("formula = {}", formula.join(" + "));
 
-    // calculate formula
-    let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
-    let ast = rsc::parser::parse(&tokens).unwrap();
-    let mut computer = rsc::computer::Computer::<f64>::default();
+    // // calculate formula
+    // let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
+    // let ast = rsc::parser::parse(&tokens).unwrap();
+    // let mut computer = rsc::computer::Computer::<f64>::default();
 
-    {
-        let mut tqqq = *close_prices.get("TQQQ").unwrap();
-        let mut sqqq = *close_prices.get("SQQQ").unwrap();
-        for _ in 0..=50 {
-            let mut ast = ast.clone();
+    // {
+    //     let mut tqqq = *close_prices.get("TQQQ").unwrap();
+    //     let mut sqqq = *close_prices.get("SQQQ").unwrap();
+    //     for _ in 0..=50 {
+    //         let mut ast = ast.clone();
 
-            tqqq = tqqq + tqqq * 0.003;
-            sqqq = sqqq - sqqq * 0.003;
+    //         tqqq = tqqq + tqqq * 0.003;
+    //         sqqq = sqqq - sqqq * 0.003;
 
-            ast.replace(
-                &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
-                &rsc::parser::Expr::Constant(tqqq as f64),
-                false,
-            );
-            ast.replace(
-                &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
-                &rsc::parser::Expr::Constant(sqqq as f64),
-                false,
-            );
+    //         ast.replace(
+    //             &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
+    //             &rsc::parser::Expr::Constant(tqqq as f64),
+    //             false,
+    //         );
+    //         ast.replace(
+    //             &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
+    //             &rsc::parser::Expr::Constant(sqqq as f64),
+    //             false,
+    //         );
 
-            info!(
-                "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
-                tqqq,
-                sqqq,
-                computer.compute(&ast).unwrap()
-            );
-        }
-    }
+    //         // info!(
+    //         //     "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
+    //         //     tqqq,
+    //         //     sqqq,
+    //         //     computer.compute(&ast).unwrap()
+    //         // );
+    //     }
+    // }
 
-    {
-        let mut tqqq = *close_prices.get("TQQQ").unwrap();
-        let mut sqqq = *close_prices.get("SQQQ").unwrap();
-        for _ in 0..=50 {
-            let mut ast = ast.clone();
+    // {
+    //     let mut tqqq = *close_prices.get("TQQQ").unwrap();
+    //     let mut sqqq = *close_prices.get("SQQQ").unwrap();
+    //     for _ in 0..=50 {
+    //         let mut ast = ast.clone();
 
-            tqqq = tqqq - tqqq * 0.003;
-            sqqq = sqqq + sqqq * 0.003;
+    //         tqqq = tqqq - tqqq * 0.003;
+    //         sqqq = sqqq + sqqq * 0.003;
 
-            ast.replace(
-                &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
-                &rsc::parser::Expr::Constant(tqqq as f64),
-                false,
-            );
-            ast.replace(
-                &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
-                &rsc::parser::Expr::Constant(sqqq as f64),
-                false,
-            );
+    //         ast.replace(
+    //             &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
+    //             &rsc::parser::Expr::Constant(tqqq as f64),
+    //             false,
+    //         );
+    //         ast.replace(
+    //             &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
+    //             &rsc::parser::Expr::Constant(sqqq as f64),
+    //             false,
+    //         );
 
-            info!(
-                "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
-                tqqq,
-                sqqq,
-                computer.compute(&ast).unwrap()
-            );
-        }
-    }
+    //         // info!(
+    //         //     "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
+    //         //     tqqq,
+    //         //     sqqq,
+    //         //     computer.compute(&ast).unwrap()
+    //         // );
+    //     }
+    // }
 
     let time = Utc.timestamp_millis(readers.front().unwrap().created_time);
 
