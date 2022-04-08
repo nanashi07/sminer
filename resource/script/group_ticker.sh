@@ -11,9 +11,9 @@ do
     then
       echo splitting $SYMBOL from $FILE
       FILENAME=`basename $FILE`
-      mkdir -p json/$FILENAME
+      mkdir -p $FILENAME
       SYMBOL_PATTERN=`echo $SYMBOL | sed 's/|/-/g'`
-      grep -E $SYMBOL $FILE > json/$FILENAME/split.$FILENAME.$SYMBOL_PATTERN.json
+      grep -E $SYMBOL $FILE > $FILENAME/group.$FILENAME.$SYMBOL_PATTERN.json
     fi
   done
 done
