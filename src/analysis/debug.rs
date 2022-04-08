@@ -73,7 +73,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         // FIXME: use accepted
         total_amount += order.created_price * order.created_volume as f32;
         total_profit += profit;
-        if matches!(order.audit, AuditState::Loss) {
+        if matches!(order.audit, AuditState::LossClear) {
             loss_order += 1;
         }
 

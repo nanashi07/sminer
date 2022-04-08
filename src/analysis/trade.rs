@@ -25,6 +25,8 @@ pub fn prepare_trade(
 
         // only accept regular market
         if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
+            // update time of pre-market for getting regular market start time
+            asset.update_regular_start_time(trade.time);
             return Ok(());
         }
 
@@ -38,7 +40,7 @@ pub fn prepare_trade(
             AuditState::Flash
             | AuditState::Slug
             | AuditState::ProfitTaking
-            | AuditState::EarlySell => {
+            | AuditState::EarlyClear => {
                 // calculate volume
                 let suspected_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
@@ -94,7 +96,7 @@ pub fn prepare_trade(
                     add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
                 }
             }
-            AuditState::Loss => {
+            AuditState::LossClear | AuditState::CloseTrade => {
                 // get latest rival ticker
                 let symbol = &trade.id;
                 let rival_symbol = asset.find_rival_symbol(symbol).unwrap();
@@ -464,7 +466,7 @@ pub fn audit_trade(
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
                             info!(
-                                "[{}] early sell, profit = {} ({:.4}%)",
+                                "[{}] early clear, profit = {} ({:.4}%)",
                                 &rival_order.symbol,
                                 rival_profit,
                                 rival_price_change_rate * 100.0
@@ -479,7 +481,7 @@ pub fn audit_trade(
                                 estimated_volume = estimated_volume,
                                 total_profit = rival_profit + estimated_profit
                             );
-                            result = AuditState::EarlySell;
+                            result = AuditState::EarlyClear;
                         }
                     }
                 }
@@ -494,21 +496,43 @@ pub fn audit_trade(
     // FIXME: check previous order status
     if let Some(exists_order) = asset.find_running_order(&trade.id) {
         // exists order, check PnL
-        if recognize_loss(asset, config, trade, &exists_order) {
+        if recognize_loss(
+            Arc::clone(&asset),
+            Arc::clone(&config),
+            trade,
+            &exists_order,
+        ) {
             warn!(
-                "[{}] loss sell, lost = ({} - {}) * {} = {}",
+                "[{}] loss clear, lost = ({} - {}) * {} = {}",
                 &exists_order.symbol,
                 trade.price,
                 &exists_order.created_price,
                 &exists_order.created_volume,
                 (trade.price - exists_order.created_price) * exists_order.created_volume as f32,
             );
-            return AuditState::Loss;
+            return AuditState::LossClear;
         }
         result = AuditState::Decline;
     }
 
-    // TODO: real time calculate PnL and avoid get loss finally
+    // check close time and buy last one if unpair order exists
+    if asset.regular_marketing_closing(trade.action_time()) {
+        let symbol = &trade.id;
+        if let Some(rival_symbol) = asset.find_rival_symbol(&symbol) {
+            if let Some(target_symbol) =
+                asset.has_running_orders(&vec![symbol.clone(), rival_symbol.clone()])
+            {
+                // only close same side symbol, rival symbol must wait for their trade
+                if symbol == &target_symbol {
+                    info!("[{}] close clear, it's time to take rest", &symbol);
+                    return AuditState::CloseTrade;
+                }
+            } else {
+                // no running orders, decline all incoming orders when marketing is closing
+                return AuditState::Decline;
+            }
+        }
+    }
 
     // 區間內與最大值的價差（比率）
     // 與反向 eft 的利差（數值）
@@ -609,7 +633,7 @@ fn validate_total_profit(
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
-        for _ in 0..=50 {
+        for _ in 0..=100 {
             let mut ast = ast.clone();
 
             price = price + price * 0.003;
@@ -636,7 +660,7 @@ fn validate_total_profit(
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
-        for _ in 1..=50 {
+        for _ in 1..=100 {
             let mut ast = ast.clone();
 
             price = price - price * 0.003;

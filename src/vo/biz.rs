@@ -344,9 +344,10 @@ pub enum OrderStatus {
 pub enum AuditState {
     Flash,
     Slug,
-    Loss,
+    LossClear,
     ProfitTaking,
-    EarlySell,
+    EarlyClear,
+    CloseTrade,
     Decline,
 }
 

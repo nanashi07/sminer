@@ -14,7 +14,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::max,
-    collections::{BTreeMap, HashMap, LinkedList},
+    collections::{BTreeMap, HashMap, HashSet, LinkedList},
     sync::{Arc, Mutex, RwLock},
 };
 use tokio::sync::broadcast::{channel, Receiver, Sender};
@@ -167,6 +167,7 @@ pub struct AssetContext {
     trades: Arc<LockListMap<LockTradeInfo>>,
     orders: Arc<RwLock<LinkedList<Order>>>,
     sequence: Arc<Mutex<i64>>,
+    regular_start_time: Arc<Mutex<i64>>,
 }
 
 impl AssetContext {
@@ -184,6 +185,7 @@ impl AssetContext {
             sequence: Arc::new(Mutex::new(
                 Utc::now().timestamp_millis() % Duration::days(3).num_milliseconds(),
             )),
+            regular_start_time: Arc::new(Mutex::new(0)),
         }
     }
 
@@ -298,10 +300,30 @@ impl AssetContext {
     }
 
     pub fn next_message_id(&self) -> i64 {
-        let mut seq = self.sequence.lock().unwrap();
-        *seq += 1;
-        let v = *seq;
-        v
+        let mut guard = self.sequence.lock().unwrap();
+        *guard += 1;
+        let value = *guard;
+        value
+    }
+
+    pub fn update_regular_start_time(&self, time: i64) {
+        let mut start_time = self.regular_start_time.lock().unwrap();
+        *start_time = time;
+    }
+
+    pub fn get_regular_start_time(&self) -> i64 {
+        if let Ok(guard) = self.regular_start_time.lock() {
+            let value = *guard;
+            return value;
+        }
+        0
+    }
+
+    pub fn regular_marketing_closing(&self, time: i64) -> bool {
+        // regular market duration: 390 min, 2 min to prepare closing
+        let duration = Duration::minutes(390 - 2).num_milliseconds();
+        let start_time = self.get_regular_start_time();
+        time > start_time + duration
     }
 
     pub fn add_trade(&self, symbol: &str, trade: TradeInfo) {
@@ -443,17 +465,6 @@ impl AssetContext {
                     }
                 }
             }
-
-            // for o in writer
-            //     .iter_mut()
-            //     .filter(|o| o.id == rival_order.id || o.id == order.id)
-            // {
-            //     o.write_off_time = order.accepted_time;
-            //     o.status = status.clone();
-            //     o.constraint_id = Some(constraint_id.clone());
-
-            //     debug!("write off order: {}", &o.id);
-            // }
         }
     }
 
@@ -502,6 +513,21 @@ impl AssetContext {
             .filter(|o| symbols.contains(&o.symbol))
             .map(|o| o.clone())
             .collect()
+    }
+
+    pub fn has_running_orders(&self, symbols: &Vec<String>) -> Option<String> {
+        let running_symbols: HashSet<String> = self
+            .find_orders_by_symbol(symbols)
+            .iter()
+            .filter(|o| matches!(o.constraint_id, None))
+            .map(|o| o.symbol.clone())
+            .collect();
+
+        // assume that there must be only one symbols, not possible both bear and bulk exists
+        match running_symbols.len() {
+            0 => None,
+            _ => Some(running_symbols.into_iter().next().unwrap()),
+        }
     }
 
     pub fn clean(&self) -> Result<()> {
