@@ -52,6 +52,12 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     let lock = asset.orders();
     let readers = lock.read().unwrap();
+
+    if readers.is_empty() {
+        info!("No available order listed");
+        return Ok(true);
+    }
+
     for order in readers.iter().rev() {
         let post_market_price = *close_prices.get(&order.symbol).unwrap();
         // FIXME: use accepted
