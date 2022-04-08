@@ -84,6 +84,8 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
 
     info!("####################################################################################################");
 
+    let mut formula: Vec<String> = Vec::new();
+
     info!(
         "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
         constraint = "Pair",
@@ -93,7 +95,8 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         profit_b = "Profit",
         total_profit = "Total profit"
     );
-    info!("OR|------------|--------------|---------------------------|--------------------------------------------|--------------------------------------------|--------------|");
+
+    info!("OR|------------|--------------|---------------------------|--------------------------------------------|--------------------------------------------|--------------------|");
 
     for (constraint, orders) in pairs {
         let one = orders.first().unwrap();
@@ -120,7 +123,83 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
                 + (another_post_market_price - another.created_price)
                     * another.created_volume as f32
         );
+
+        // formula
+        formula.push(format!(
+            "({} - {}) * {}",
+            one.symbol, one.created_price, one.created_volume
+        ));
+        formula.push(format!(
+            "({} - {}) * {}",
+            another.symbol, another.created_price, another.created_volume
+        ));
     }
+
+    info!("formula = {}", formula.join(" + "));
+
+    // calculate formula
+    let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
+    let ast = rsc::parser::parse(&tokens).unwrap();
+    let mut computer = rsc::computer::Computer::<f64>::default();
+
+    {
+        let mut tqqq = *close_prices.get("TQQQ").unwrap();
+        let mut sqqq = *close_prices.get("SQQQ").unwrap();
+        for _ in 0..=50 {
+            let mut ast = ast.clone();
+
+            tqqq = tqqq + tqqq * 0.003;
+            sqqq = sqqq - sqqq * 0.003;
+
+            ast.replace(
+                &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
+                &rsc::parser::Expr::Constant(tqqq as f64),
+                false,
+            );
+            ast.replace(
+                &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
+                &rsc::parser::Expr::Constant(sqqq as f64),
+                false,
+            );
+
+            info!(
+                "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
+                tqqq,
+                sqqq,
+                computer.compute(&ast).unwrap()
+            );
+        }
+    }
+
+    {
+        let mut tqqq = *close_prices.get("TQQQ").unwrap();
+        let mut sqqq = *close_prices.get("SQQQ").unwrap();
+        for _ in 0..=50 {
+            let mut ast = ast.clone();
+
+            tqqq = tqqq - tqqq * 0.003;
+            sqqq = sqqq + sqqq * 0.003;
+
+            ast.replace(
+                &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
+                &rsc::parser::Expr::Constant(tqqq as f64),
+                false,
+            );
+            ast.replace(
+                &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
+                &rsc::parser::Expr::Constant(sqqq as f64),
+                false,
+            );
+
+            info!(
+                "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
+                tqqq,
+                sqqq,
+                computer.compute(&ast).unwrap()
+            );
+        }
+    }
+
     let time = Utc.timestamp_millis(readers.front().unwrap().created_time);
 
     info!("closed prices {:?}", close_prices,);

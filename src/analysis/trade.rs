@@ -13,7 +13,7 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::*;
-use std::{f64::NAN, sync::Arc};
+use std::{collections::BTreeMap, f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -97,7 +97,7 @@ pub fn prepare_trade(
             AuditState::Loss => {
                 // get latest rival ticker
                 let symbol = &trade.id;
-                let rival_symbol = asset.find_pair_symbol(symbol).unwrap();
+                let rival_symbol = asset.find_rival_symbol(symbol).unwrap();
                 let time = trade.time;
 
                 // replace with rival latest trade
@@ -172,7 +172,7 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
     // restricted amount
     let max_amount = config.trade.max_order_amount;
     // get opposite
-    let rival_symbol = asset.find_pair_symbol(&trade.id).unwrap();
+    let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
     if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
         // calculation concept:
         // * price change rate / total price change amount, should be the same
@@ -221,7 +221,7 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
 
         // get rival price, ex: SQQQ current price
         let mut rival_current_price = f32::NAN;
-        if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+        if let Some(rival_symbol) = asset.find_rival_symbol(&trade.id) {
             if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
                 rival_current_price = rival_trade.price;
             }
@@ -401,7 +401,7 @@ pub fn audit_trade(
     }
 
     // check last pair order if exists, make sure make off gain profit
-    if let Some(rival_symbol) = asset.find_pair_symbol(&trade.id) {
+    if let Some(rival_symbol) = asset.find_rival_symbol(&trade.id) {
         if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
             // get latest trade of rival ticker
             if let Some(rival_trade) = asset.get_latest_trade(&rival_symbol) {
@@ -447,7 +447,7 @@ pub fn audit_trade(
                     if rival_price_change_rate > 0.0 {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
-                        if rival_price_change_rate > 0.005 {
+                        if rival_price_change_rate > 0.005 || rate > 0.0 {
                             info!(
                                 "profit taking, profit = {} ({:.4}%)",
                                 rival_profit,
@@ -498,7 +498,7 @@ pub fn audit_trade(
     if let Some(exists_order) = asset.find_running_order(&trade.id) {
         // exists order, check PnL
         if recognize_loss(asset, config, trade, &exists_order) {
-            info!(
+            warn!(
                 "loss sell, lost = ({} - {}) * {} = {}",
                 trade.price,
                 &exists_order.created_price,
@@ -516,6 +516,106 @@ pub fn audit_trade(
     // 與反向 eft 的利差（數值）
 
     result
+}
+
+fn dfd(
+    asset: Arc<AssetContext>,
+    config: Arc<AppConfig>,
+    trade: &TradeInfo,
+    rival_trade: &TradeInfo,
+) {
+    // pair orders
+    let symbol = &trade.id;
+    let rival_symbol = &rival_trade.id;
+
+    let orders = asset.find_orders_by_symbol(&vec![symbol.to_owned(), rival_symbol.to_owned()]);
+
+    // group orders
+    let mut pairs: BTreeMap<String, Vec<Order>> = BTreeMap::new();
+    for order in orders.iter() {
+        if let Some(constraint) = &order.constraint_id {
+            let constraint_id = constraint.to_string();
+            if pairs.contains_key(&constraint_id) {
+                let list = pairs.get_mut(&constraint_id).unwrap();
+                list.push(order.clone());
+            } else {
+                pairs.insert(constraint_id, vec![order.clone()]);
+            }
+        }
+    }
+
+    let mut formula: Vec<String> = Vec::new();
+    for (_, groups) in pairs {
+        match groups.len() {
+            2 => {
+                let one = groups.first().unwrap();
+                let another = groups.last().unwrap();
+
+                // formula
+                formula.push(format!(
+                    "({} - {}) * {}",
+                    one.symbol, one.created_price, one.created_volume
+                ));
+                formula.push(format!(
+                    "({} - {}) * {}",
+                    another.symbol, another.created_price, another.created_volume
+                ));
+            }
+            1 => {
+                // unpaired order, should be the last one and be able to pair with current trade
+                let estimated_volume =
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
+
+                let one = groups.first().unwrap();
+
+                // formula
+                formula.push(format!(
+                    "({} - {}) * {}",
+                    one.symbol, one.created_price, one.created_volume
+                ));
+                formula.push(format!(
+                    "({} - {}) * {}",
+                    symbol, trade.price, estimated_volume
+                ));
+            }
+            _ => {
+                error!("Unexpected count of grouped order: {:?}", groups);
+                // TODO: return
+            }
+        }
+    }
+
+    // calculate formula
+    let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
+    let ast = rsc::parser::parse(&tokens).unwrap();
+    let mut computer = rsc::computer::Computer::<f64>::default();
+
+    // TODO: find lowest
+    // TODO: find boundary if exists
+
+    {
+        let mut price = trade.price;
+        let mut rival_price = rival_trade.price;
+        for _ in 0..=50 {
+            let mut ast = ast.clone();
+
+            price = price + price * 0.003;
+            rival_price = rival_price - rival_price * 0.003;
+
+            ast.replace(
+                &rsc::parser::Expr::Identifier(symbol.to_owned()),
+                &rsc::parser::Expr::Constant(price as f64),
+                false,
+            );
+            ast.replace(
+                &rsc::parser::Expr::Identifier(rival_symbol.to_owned()),
+                &rsc::parser::Expr::Constant(rival_price as f64),
+                false,
+            );
+
+            let value = computer.compute(&ast).unwrap();
+        }
+    }
 }
 
 fn recognize_loss(

@@ -2,7 +2,8 @@
 
 function get_name()
 {
-    echo $1 | sed -e 's/.\+\.\(.\+\).json/\1/g'
+    #echo $1 | sed -e 's/.\+\.\(.\+\).json/\1/g'
+    echo $1 | sed -r 's/.+\.(.+)\.json/\1/g' # mac
 }
 export -f get_name
 

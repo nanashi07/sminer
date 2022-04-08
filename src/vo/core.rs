@@ -274,7 +274,7 @@ impl AssetContext {
     }
 
     pub fn get_latest_rival_ticker(&self, symbol: &str) -> Option<Ticker> {
-        if let Some(rival_symbol) = self.find_pair_symbol(symbol) {
+        if let Some(rival_symbol) = self.find_rival_symbol(symbol) {
             self.get_latest_ticker(&rival_symbol)
         } else {
             None
@@ -382,7 +382,7 @@ impl AssetContext {
         }
     }
 
-    pub fn find_pair_symbol(&self, symbol: &str) -> Option<String> {
+    pub fn find_rival_symbol(&self, symbol: &str) -> Option<String> {
         let config = Arc::clone(&self.config);
         if let Some(ticker_group) = config
             .tickers
@@ -415,7 +415,7 @@ impl AssetContext {
 
     fn finalize_order(&self, order: &Order, status: OrderStatus) {
         let symbol = &order.symbol;
-        let rival_symbol = self.find_pair_symbol(symbol).unwrap();
+        let rival_symbol = self.find_rival_symbol(symbol).unwrap();
 
         if let Some(rival_order) = self.find_running_order(&rival_symbol) {
             let constraint_id = format!("P{}", self.next_message_id());
@@ -493,6 +493,15 @@ impl AssetContext {
         } else {
             None
         }
+    }
+
+    pub fn find_orders_by_symbol(&self, symbols: &Vec<String>) -> Vec<Order> {
+        let reader = self.orders.read().unwrap();
+        reader
+            .iter()
+            .filter(|o| symbols.contains(&o.symbol))
+            .map(|o| o.clone())
+            .collect()
     }
 
     pub fn clean(&self) -> Result<()> {

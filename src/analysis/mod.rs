@@ -288,7 +288,7 @@ pub async fn replay(context: &AppContext, file: &str, mode: ReplayMode) -> Resul
         handl_count = handl_count + 1;
 
         if seconds < Utc::now().timestamp() / 60 {
-            info!("Handled items {}/{} for {}", handl_count, total, file);
+            debug!("Handled items {}/{} for {}", handl_count, total, file);
             seconds = seconds + 1;
         }
 
