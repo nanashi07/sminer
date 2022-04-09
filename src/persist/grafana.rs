@@ -101,6 +101,11 @@ pub async fn add_annotation(
     dashboard_id: i64,
     panel_id: i64,
 ) -> Result<()> {
+    if !config.data_source.grafana.enabled {
+        debug!("grafana is disabled");
+        return Ok(());
+    }
+
     let value: Value = json!({
         "dashboardId": dashboard_id,
         "panelId": panel_id,

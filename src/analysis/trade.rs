@@ -558,6 +558,7 @@ pub fn audit_trade(
     result
 }
 
+// see 'rate_calc.xlsx' in doc
 fn validate_total_profit(
     asset: Arc<AssetContext>,
     _config: Arc<AppConfig>,
@@ -648,7 +649,7 @@ fn validate_total_profit(
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
-        // let mut last_value = f64::NAN;
+        let mut last_value = f64::NAN;
         for _ in 0..=100 {
             let mut ast = ast.clone();
 
@@ -671,19 +672,20 @@ fn validate_total_profit(
                 return false;
             }
 
+            // assume values should be upward on both side
             // when value if increasing, break check
-            // if !last_value.is_nan() && last_value < value {
-            //     break;
-            // }
+            if !last_value.is_nan() && last_value < value {
+                break;
+            }
 
-            // last_value = value;
+            last_value = value;
         }
     }
 
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
-        // let mut last_value = f64::NAN;
+        let mut last_value = f64::NAN;
         for _ in 1..=100 {
             let mut ast = ast.clone();
 
@@ -706,12 +708,13 @@ fn validate_total_profit(
                 return false;
             }
 
+            // assume values should be upward on both side
             // when value if increasing, break check
-            // if !last_value.is_nan() && last_value < value {
-            //     break;
-            // }
+            if !last_value.is_nan() && last_value < value {
+                break;
+            }
 
-            // last_value = value;
+            last_value = value;
         }
     }
 
