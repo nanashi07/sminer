@@ -98,7 +98,14 @@ pub fn prepare_trade(
                     asset.write_off(&order);
 
                     // add grafana annotation
-                    add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+                    add_order_annotation(
+                        Arc::clone(&config),
+                        symbol,
+                        time,
+                        "Place order".to_owned(),
+                        tags,
+                    )
+                    .unwrap();
                 }
             }
             AuditState::LossClear | AuditState::CloseTrade => {
@@ -163,7 +170,14 @@ pub fn prepare_trade(
                     asset.realized_loss(&order);
 
                     // add grafana annotation
-                    add_order_annotation(symbol, time, "Place order".to_owned(), tags).unwrap();
+                    add_order_annotation(
+                        Arc::clone(&config),
+                        symbol,
+                        time,
+                        "Place order".to_owned(),
+                        tags,
+                    )
+                    .unwrap();
                 }
             }
             AuditState::Decline => {}
@@ -634,6 +648,7 @@ fn validate_total_profit(
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
+        // let mut last_value = f64::NAN;
         for _ in 0..=100 {
             let mut ast = ast.clone();
 
@@ -656,13 +671,19 @@ fn validate_total_profit(
                 return false;
             }
 
-            // TODO: when value if increasing, break check
+            // when value if increasing, break check
+            // if !last_value.is_nan() && last_value < value {
+            //     break;
+            // }
+
+            // last_value = value;
         }
     }
 
     {
         let mut price = trade.price;
         let mut rival_price = rival_trade.price;
+        // let mut last_value = f64::NAN;
         for _ in 1..=100 {
             let mut ast = ast.clone();
 
@@ -685,7 +706,12 @@ fn validate_total_profit(
                 return false;
             }
 
-            // TODO: when value if increasing, break check
+            // when value if increasing, break check
+            // if !last_value.is_nan() && last_value < value {
+            //     break;
+            // }
+
+            // last_value = value;
         }
     }
 

@@ -18,7 +18,7 @@ use sminer::{
     },
     Result,
 };
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -226,7 +226,7 @@ async fn perform_index(config: &mut AppConfig, sub_matches: &ArgMatches) -> Resu
     Ok(())
 }
 
-async fn perform_annotate(_config: &mut AppConfig, sub_matches: &ArgMatches) -> Result<()> {
+async fn perform_annotate(config: &mut AppConfig, sub_matches: &ArgMatches) -> Result<()> {
     let mut from: Option<DateTime<Utc>> = None;
     let mut to: Option<DateTime<Utc>> = None;
 
@@ -259,7 +259,10 @@ async fn perform_annotate(_config: &mut AppConfig, sub_matches: &ArgMatches) -> 
         from, to, &tags
     );
 
-    clear_annotations(from, to, &tags).await?;
+    let context = AppContext::new(config.to_owned()).init().await?;
+    let config = context.config();
+
+    clear_annotations(Arc::clone(&config), from, to, &tags).await?;
 
     Ok(())
 }

@@ -1,21 +1,42 @@
-use std::{collections::HashMap, thread};
-
-use crate::Result;
+use crate::{vo::core::AppConfig, Result};
 use chrono::{DateTime, Utc};
 use hyper::{Body, Client, Method};
 use hyper_tls::HttpsConnector;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::{collections::HashMap, sync::Arc, thread};
 
 // https://grafana.com/docs/grafana/latest/http_api/annotations/
 
-const DASHBOARD_ID: i64 = 1;
-const URI_GRAFANA: &str = "http://localhost:8091/api/annotations";
-const TOKEN_GRAFANA: &str = "Basic YWRtaW46cGFzc3dvcmQ=";
-// .uri("http://admin:password@localhost:8091/api/annotations")
+pub async fn get_dashboard(config: Arc<AppConfig>, uid: &str) -> Result<Dashboard> {
+    let request = hyper::Request::builder()
+        .uri(format!(
+            "{}/api/dashboards/uid/{}",
+            config.data_source.grafana.uri, uid
+        ))
+        .method(Method::GET)
+        .header(
+            "Authorization",
+            config.data_source.grafana.auth.as_ref().unwrap(),
+        )
+        .body(Body::empty())?;
+
+    let client = Client::new();
+    let response = client.request(request).await?;
+
+    debug!("response = {:?}", &response);
+
+    let buf = hyper::body::to_bytes(response.into_body()).await?;
+    let response: DashboardResponse = serde_json::from_slice(&buf)?;
+
+    debug!("body = {:?}", &response);
+
+    Ok(response.dashboard)
+}
 
 pub async fn list_annotations(
+    config: Arc<AppConfig>,
     from: Option<DateTime<Utc>>,
     to: Option<DateTime<Utc>>,
     dashboard_id: Option<i64>,
@@ -48,9 +69,15 @@ pub async fn list_annotations(
     debug!("query: {}", &query);
 
     let request = hyper::Request::builder()
-        .uri(format!("{}?{}", URI_GRAFANA, &query))
+        .uri(format!(
+            "{}/api/annotations?{}",
+            config.data_source.grafana.uri, &query
+        ))
         .method(Method::GET)
-        .header("Authorization", TOKEN_GRAFANA)
+        .header(
+            "Authorization",
+            config.data_source.grafana.auth.as_ref().unwrap(),
+        )
         .body(Body::empty())?;
 
     let client = Client::new();
@@ -67,6 +94,7 @@ pub async fn list_annotations(
 }
 
 pub async fn add_annotation(
+    config: Arc<AppConfig>,
     time: &DateTime<Utc>,
     text: &str,
     tags: &Vec<String>,
@@ -83,9 +111,15 @@ pub async fn add_annotation(
     debug!("add annotation body = {:?}", value);
 
     let request = hyper::Request::builder()
-        .uri(URI_GRAFANA)
+        .uri(format!(
+            "{}/api/annotations",
+            config.data_source.grafana.uri
+        ))
         .method(Method::POST)
-        .header("Authorization", TOKEN_GRAFANA)
+        .header(
+            "Authorization",
+            config.data_source.grafana.auth.as_ref().unwrap(),
+        )
         .header("Content-Type", "application/json")
         .body(Body::from(value.to_string()))?;
 
@@ -100,11 +134,17 @@ pub async fn add_annotation(
     Ok(())
 }
 
-pub async fn remove_annotation(id: i32) -> Result<()> {
+pub async fn remove_annotation(config: Arc<AppConfig>, id: i32) -> Result<()> {
     let request = hyper::Request::builder()
-        .uri(format!("{}/{}", URI_GRAFANA, &id))
+        .uri(format!(
+            "{}/api/annotations/{}",
+            config.data_source.grafana.uri, &id
+        ))
         .method(Method::DELETE)
-        .header("Authorization", TOKEN_GRAFANA)
+        .header(
+            "Authorization",
+            config.data_source.grafana.auth.as_ref().unwrap(),
+        )
         .body(Body::empty())?;
 
     let client = Client::new();
@@ -116,6 +156,7 @@ pub async fn remove_annotation(id: i32) -> Result<()> {
 }
 
 pub fn add_order_annotation(
+    config: Arc<AppConfig>,
     symbol: String,
     time: DateTime<Utc>,
     text: String,
@@ -164,8 +205,31 @@ pub fn add_order_annotation(
             .enable_io()
             .build()
             .unwrap();
-        rt.block_on(add_annotation(&time, &text, &tags, DASHBOARD_ID, panel_id))
+        rt.block_on(async {
+            let c = Arc::clone(&config);
+            let uid = c.data_source.grafana.target.as_ref().unwrap();
+            if !c.extra_present("grafana_dashboard_id") {
+                let dashboard = get_dashboard(Arc::clone(&config), &uid).await.unwrap();
+                c.extra_put("grafana_dashboard_id", &format!("{}", dashboard.id));
+            }
+
+            let dashboard_id: i64 = c
+                .extra_get("grafana_dashboard_id")
+                .unwrap()
+                .parse()
+                .unwrap();
+
+            add_annotation(
+                Arc::clone(&config),
+                &time,
+                &text,
+                &tags,
+                dashboard_id,
+                panel_id,
+            )
+            .await
             .unwrap();
+        });
     });
 
     handler.join().unwrap();
@@ -174,22 +238,39 @@ pub fn add_order_annotation(
 }
 
 pub async fn clear_annotations(
+    config: Arc<AppConfig>,
     from: Option<DateTime<Utc>>,
     to: Option<DateTime<Utc>>,
     tags: &Vec<String>,
 ) -> Result<()> {
     let mut count = 1;
     while count > 0 {
-        let annotations = list_annotations(from, to, None, None, tags).await?;
+        let annotations = list_annotations(Arc::clone(&config), from, to, None, None, tags).await?;
         count = annotations.len();
         for annotation in annotations {
             info!("Remove annotation: {}", &annotation.id);
-            remove_annotation(annotation.id).await?;
+            remove_annotation(Arc::clone(&config), annotation.id).await?;
         }
     }
 
     Ok(())
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Dashboard {
+    pub id: i64,
+    pub uid: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DashboardResponse {
+    pub dashboard: Dashboard,
+    pub meta: DashboardMeta,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DashboardMeta {}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Annotation {
     pub id: i32,

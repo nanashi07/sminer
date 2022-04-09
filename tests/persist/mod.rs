@@ -322,8 +322,10 @@ mod grafana {
     use sminer::{
         init_log,
         persist::grafana::{add_annotation, list_annotations, remove_annotation},
+        vo::core::AppConfig,
         Result,
     };
+    use std::sync::Arc;
 
     #[test]
     fn test_json_string() -> Result<()> {
@@ -344,6 +346,7 @@ mod grafana {
     #[ignore = "manually test"]
     async fn test_add_annotation() -> Result<()> {
         init_log("Trace").await?;
+        let config = Arc::new(AppConfig::load("config.yaml").unwrap());
         let time = DateTime::parse_from_rfc3339("2022-03-09T19:11:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -351,6 +354,7 @@ mod grafana {
             .unwrap()
             .with_timezone(&Utc);
         add_annotation(
+            Arc::clone(&config),
             &time,
             "my test",
             &vec!["aaa".to_owned(), "bbb".to_owned(), "ccc".to_owned()],
@@ -360,6 +364,7 @@ mod grafana {
         .await?;
 
         add_annotation(
+            Arc::clone(&config),
             &time2,
             "my test2",
             &vec!["111".to_owned(), "222".to_owned(), "333".to_owned()],
@@ -375,13 +380,22 @@ mod grafana {
     #[ignore = "manually test"]
     async fn test_list_annotation() -> Result<()> {
         init_log("Trace").await?;
+        let config = Arc::new(AppConfig::load("config.yaml").unwrap());
         let from = DateTime::parse_from_rfc3339("2022-03-09T12:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
         let to = DateTime::parse_from_rfc3339("2022-03-09T22:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
-        let annotations = list_annotations(Some(from), Some(to), None, None, &Vec::new()).await?;
+        let annotations = list_annotations(
+            Arc::clone(&config),
+            Some(from),
+            Some(to),
+            None,
+            None,
+            &Vec::new(),
+        )
+        .await?;
 
         for annotation in annotations {
             info!("{:?}", &annotation);
@@ -394,6 +408,7 @@ mod grafana {
     #[ignore = "manually test"]
     async fn test_delete_annotation() -> Result<()> {
         init_log("Trace").await?;
+        let config = Arc::new(AppConfig::load("config.yaml").unwrap());
         let from = DateTime::parse_from_rfc3339("2022-03-09T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -403,12 +418,19 @@ mod grafana {
 
         let mut count = 1;
         while count > 0 {
-            let annotations =
-                list_annotations(Some(from), Some(to), None, None, &Vec::new()).await?;
+            let annotations = list_annotations(
+                Arc::clone(&config),
+                Some(from),
+                Some(to),
+                None,
+                None,
+                &Vec::new(),
+            )
+            .await?;
             count = annotations.len();
             for annotation in annotations {
                 info!("delete annotation: {}", &annotation.id);
-                remove_annotation(annotation.id).await?;
+                remove_annotation(Arc::clone(&config), annotation.id).await?;
             }
         }
 

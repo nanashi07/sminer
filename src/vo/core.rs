@@ -646,12 +646,12 @@ pub struct AppConfig {
     pub replay: ReplayBehavior,
     pub units: Vec<TimeUnit>,
     pub tickers: TickerList,
-    #[serde(default = "empty_map")]
-    runtime: HashMap<String, String>,
+    #[serde(default = "empty_map", skip_serializing, skip_deserializing)]
+    runtime: Arc<RwLock<HashMap<String, String>>>,
 }
 
-fn empty_map() -> HashMap<String, String> {
-    HashMap::new()
+fn empty_map() -> Arc<RwLock<HashMap<String, String>>> {
+    Arc::new(RwLock::new(HashMap::new()))
 }
 
 impl AppConfig {
@@ -666,16 +666,24 @@ impl AppConfig {
         Ok(config)
     }
 
-    pub fn extra_put(&mut self, key: &str, value: &str) {
-        self.runtime.insert(key.to_string(), value.to_string());
+    pub fn extra_put(&self, key: &str, value: &str) {
+        if let Ok(mut lock) = self.runtime.write() {
+            lock.insert(key.to_string(), value.to_string());
+        }
     }
 
-    pub fn extra_get(&self, key: &str) -> Option<&String> {
-        self.runtime.get(key)
+    pub fn extra_get(&self, key: &str) -> Option<String> {
+        let lock = self.runtime.read().unwrap();
+        if let Some(value) = lock.get(key) {
+            Some(value.to_string())
+        } else {
+            None
+        }
     }
 
     pub fn extra_present(&self, key: &str) -> bool {
-        self.runtime.contains_key(key)
+        let lock = self.runtime.read().unwrap();
+        lock.contains_key(key)
     }
 
     pub fn symbols(&self) -> Vec<String> {
@@ -719,6 +727,7 @@ impl AppConfig {
 pub struct DataSource {
     pub mongodb: DataSourceInfo,
     pub elasticsearch: DataSourceInfo,
+    pub grafana: DataSourceInfo,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -726,6 +735,7 @@ pub struct DataSourceInfo {
     pub uri: String,
     pub enabled: bool,
     pub target: Option<String>,
+    pub auth: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
