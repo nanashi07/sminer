@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 // https://grafana.com/docs/grafana/latest/http_api/annotations/
 
-const DASHBOARD_ID: i64 = 4;
+const DASHBOARD_ID: i64 = 1;
 const URI_GRAFANA: &str = "http://localhost:8091/api/annotations";
 const TOKEN_GRAFANA: &str = "Basic YWRtaW46cGFzc3dvcmQ=";
 // .uri("http://admin:password@localhost:8091/api/annotations")

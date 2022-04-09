@@ -13,6 +13,11 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::*;
+use rsc::{
+    computer::Computer,
+    lexer,
+    parser::{self, Expr},
+};
 use std::{collections::BTreeMap, f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
@@ -394,11 +399,19 @@ pub fn audit_trade(
 
     // flash check
     if flash::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
+        debug!(
+            "[{}] flash in, price = {}, profit check off",
+            &trade.id, &trade.price
+        );
         result = AuditState::Flash;
     }
 
     // slug check
     if slug::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
+        debug!(
+            "[{}] slug in, price = {}, profit check off",
+            &trade.id, &trade.price
+        );
         result = AuditState::Slug;
     }
 
@@ -430,13 +443,9 @@ pub fn audit_trade(
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
                     if !positive_total_profit {
-                        warn!(
-                            "[{}] block write off due to profit is negative: ({} - {}) x {} = {}",
-                            rival_symbol,
-                            rival_trade.price,
-                            rival_order.created_price,
-                            rival_order.created_volume,
-                            rival_profit
+                        debug!(
+                            "[{}] block write off, price = {}, profit check on",
+                            &trade.id, &trade.price
                         );
                         result = AuditState::Decline;
                     }
@@ -446,10 +455,8 @@ pub fn audit_trade(
                         // early sell even if there is no match rule found
                         if rival_price_change_rate > 0.005 {
                             info!(
-                                "[{}] profit taking, profit = {} ({:.4}%)",
-                                &rival_order.symbol,
-                                rival_profit,
-                                rival_price_change_rate * 100.0
+                                "[{}] take profit, price = {}, profit check on",
+                                &trade.id, &trade.price
                             );
                             trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
@@ -466,10 +473,8 @@ pub fn audit_trade(
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
                             info!(
-                                "[{}] early clear, profit = {} ({:.4}%)",
-                                &rival_order.symbol,
-                                rival_profit,
-                                rival_price_change_rate * 100.0
+                                "[{}] early clear, price = {}, profit check on",
+                                &trade.id, &trade.price
                             );
                             trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
@@ -503,12 +508,8 @@ pub fn audit_trade(
             &exists_order,
         ) {
             warn!(
-                "[{}] loss clear, lost = ({} - {}) * {} = {}",
-                &exists_order.symbol,
-                trade.price,
-                &exists_order.created_price,
-                &exists_order.created_volume,
-                (trade.price - exists_order.created_price) * exists_order.created_volume as f32,
+                "[{}] loss clear, price = {}, profit check off",
+                &trade.id, &trade.price
             );
             return AuditState::LossClear;
         }
@@ -524,7 +525,10 @@ pub fn audit_trade(
             {
                 // only close same side symbol, rival symbol must wait for their trade
                 if symbol == &target_symbol {
-                    info!("[{}] close clear, it's time to take rest", &symbol);
+                    info!(
+                        "[{}] close clear, price = {}, profit check off, it's time to take rest",
+                        &trade.id, &trade.price
+                    );
                     return AuditState::CloseTrade;
                 }
             } else {
@@ -623,12 +627,9 @@ fn validate_total_profit(
     }
 
     // calculate formula
-    let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
-    let ast = rsc::parser::parse(&tokens).unwrap();
-    let mut computer = rsc::computer::Computer::<f64>::default();
-
-    // TODO: find lowest
-    // TODO: find boundary if exists
+    let tokens = lexer::tokenize(&formula.join(" + "), true).unwrap();
+    let ast = parser::parse(&tokens).unwrap();
+    let mut computer = Computer::<f64>::default();
 
     {
         let mut price = trade.price;
@@ -640,13 +641,13 @@ fn validate_total_profit(
             rival_price = rival_price - rival_price * 0.003;
 
             ast.replace(
-                &rsc::parser::Expr::Identifier(symbol.to_owned()),
-                &rsc::parser::Expr::Constant(price as f64),
+                &Expr::Identifier(symbol.to_owned()),
+                &Expr::Constant(price as f64),
                 false,
             );
             ast.replace(
-                &rsc::parser::Expr::Identifier(rival_symbol.to_owned()),
-                &rsc::parser::Expr::Constant(rival_price as f64),
+                &Expr::Identifier(rival_symbol.to_owned()),
+                &Expr::Constant(rival_price as f64),
                 false,
             );
 
@@ -654,6 +655,8 @@ fn validate_total_profit(
             if value < 0.0 {
                 return false;
             }
+
+            // TODO: when value if increasing, break check
         }
     }
 
@@ -667,13 +670,13 @@ fn validate_total_profit(
             rival_price = rival_price + rival_price * 0.003;
 
             ast.replace(
-                &rsc::parser::Expr::Identifier(symbol.to_owned()),
-                &rsc::parser::Expr::Constant(price as f64),
+                &Expr::Identifier(symbol.to_owned()),
+                &Expr::Constant(price as f64),
                 false,
             );
             ast.replace(
-                &rsc::parser::Expr::Identifier(rival_symbol.to_owned()),
-                &rsc::parser::Expr::Constant(rival_price as f64),
+                &Expr::Identifier(rival_symbol.to_owned()),
+                &Expr::Constant(rival_price as f64),
                 false,
             );
 
@@ -681,6 +684,8 @@ fn validate_total_profit(
             if value < 0.0 {
                 return false;
             }
+
+            // TODO: when value if increasing, break check
         }
     }
 

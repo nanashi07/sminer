@@ -314,6 +314,9 @@ impl AssetContext {
     pub fn get_regular_start_time(&self) -> i64 {
         if let Ok(guard) = self.regular_start_time.lock() {
             let value = *guard;
+            if value == 0 {
+                // TODO: get data from mongo and update value
+            }
             return value;
         }
         0

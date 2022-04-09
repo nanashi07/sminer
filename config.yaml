@@ -103,7 +103,7 @@ trade:
         # up: '1+'
       deviations:
       - to: m0120
-        value: 0.002
+        value: 0.003
 replay:
   exports:
     - name: protfolio
