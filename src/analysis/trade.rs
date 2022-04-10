@@ -2,7 +2,10 @@ use crate::{
     analysis::debug::print_meta,
     persist::grafana::add_order_annotation,
     vo::{
-        biz::{AuditState, MarketHoursType, Order, Protfolio, TradeInfo, TradeTrend, Trend},
+        biz::{
+            AuditState, MarketHoursType, Order, PricePair, Protfolio, TotalProfit, TradeInfo,
+            TradeTrend, Trend,
+        },
         core::{
             AppConfig, AssetContext, AuditRule, DeviationCriteria, LowerCriteria,
             OscillationCriteria, TrendCriteria, KEY_EXTRA_PRINT_TRADE_META_END_TIME,
@@ -32,12 +35,6 @@ pub fn prepare_trade(
         if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
             return Ok(());
         }
-        // runtime broken and restarted while regular market period
-        if asset.get_regular_start_time() == 0
-            && matches!(trade.market_hours, MarketHoursType::RegularMarket)
-        {
-            // TODO:
-        }
 
         // TODO: ticker time check, drop if time difference too long
 
@@ -51,10 +48,10 @@ pub fn prepare_trade(
             | AuditState::ProfitTaking
             | AuditState::EarlyClear => {
                 // calculate volume
-                let suspected_volume =
+                let estimated_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
-                if suspected_volume == 0 {
+                if estimated_volume == 0 {
                     warn!("suspected order volume is zero, ignore order");
                     return Ok(());
                 }
@@ -70,7 +67,7 @@ pub fn prepare_trade(
                     &trade.id,
                     trade.price,
                     rival_price,
-                    suspected_volume,
+                    estimated_volume,
                     trade.action_time(),
                     state.clone(),
                 );
@@ -123,10 +120,10 @@ pub fn prepare_trade(
                 trade.time = time + 1;
 
                 // calculate volume
-                let suspected_volume =
+                let estimated_volume =
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
-                if suspected_volume == 0 {
+                if estimated_volume == 0 {
                     warn!("suspected order volume is zero, ignore order");
                     return Ok(());
                 }
@@ -142,7 +139,7 @@ pub fn prepare_trade(
                     &trade.id,
                     trade.price,
                     rival_price,
-                    suspected_volume,
+                    estimated_volume,
                     trade.action_time(),
                     state.clone(),
                 );
@@ -472,7 +469,7 @@ pub fn audit_trade(
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
                         if rival_price_change_rate > 0.005 {
-                            info!(
+                            debug!(
                                 "[{}] take profit, price = {}, profit check on",
                                 &trade.id, &trade.price
                             );
@@ -490,7 +487,7 @@ pub fn audit_trade(
                         }
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
-                            info!(
+                            debug!(
                                 "[{}] early clear, price = {}, profit check on",
                                 &trade.id, &trade.price
                             );
@@ -525,7 +522,7 @@ pub fn audit_trade(
             trade,
             &exists_order,
         ) {
-            warn!(
+            debug!(
                 "[{}] loss clear, price = {}, profit check off",
                 &trade.id, &trade.price
             );
@@ -543,7 +540,7 @@ pub fn audit_trade(
             {
                 // only close same side symbol, rival symbol must wait for their trade
                 if symbol == &target_symbol {
-                    info!(
+                    debug!(
                         "[{}] close clear, price = {}, profit check off, it's time to take rest",
                         &trade.id, &trade.price
                     );
@@ -581,6 +578,30 @@ fn validate_total_profit(
     }
 
     // group orders
+    let pairs = pair_orders(&orders);
+    let pair_len = pairs.len();
+    let formula = generate_formula(&pairs, symbol, trade.price, estimated_volume);
+
+    if formula.is_empty() {
+        info!(
+            "formula is empty, pairs = {}, order size = {}",
+            pair_len,
+            orders.len()
+        );
+        return true;
+    }
+
+    let results = spread_results(trade, rival_trade, symbol, rival_symbol, &formula);
+
+    log::info!(
+        "min bound value = {}",
+        results.iter().map(|v| v.result).reduce(f64::min).unwrap()
+    );
+
+    !results.iter().any(|v| v.result < 0.0)
+}
+
+fn pair_orders(orders: &Vec<Order>) -> BTreeMap<String, Vec<Order>> {
     let mut pairs: BTreeMap<String, Vec<Order>> = BTreeMap::new();
     for order in orders.iter() {
         if let Some(constraint) = &order.constraint_id {
@@ -595,9 +616,15 @@ fn validate_total_profit(
             pairs.insert("NO_CONSTRAINT".to_owned(), vec![order.clone()]);
         }
     }
+    pairs
+}
 
-    let pair_len = pairs.len();
-
+fn generate_formula(
+    pairs: &BTreeMap<String, Vec<Order>>,
+    symbol: &str,
+    price: f32,
+    volume: u32,
+) -> String {
     let mut formula: Vec<String> = Vec::new();
     for (_, groups) in pairs {
         match groups.len() {
@@ -624,105 +651,78 @@ fn validate_total_profit(
                     "({} - {}) * {}",
                     one.symbol, one.created_price, one.created_volume
                 ));
-                formula.push(format!(
-                    "({} - {}) * {}",
-                    symbol, trade.price, estimated_volume
-                ));
+                formula.push(format!("({} - {}) * {}", symbol, price, volume));
             }
             _ => {
                 error!("Unexpected count of grouped order: {:?}", groups);
-                return false;
             }
         }
     }
+    formula.join(" + ")
+}
 
-    if formula.is_empty() {
-        info!(
-            "formula is empty, pairs = {}, order size = {}",
-            pair_len,
-            orders.len()
-        );
-        return true;
-    }
-
+fn spread_results(
+    trade: &TradeInfo,
+    rival_trade: &TradeInfo,
+    symbol: &str,
+    rival_symbol: &str,
+    formula: &str,
+) -> Vec<TotalProfit> {
     // calculate formula
-    let tokens = lexer::tokenize(&formula.join(" + "), true).unwrap();
-    let ast = parser::parse(&tokens).unwrap();
+    let tokens = lexer::tokenize(&formula, true).unwrap();
+    let mut ast = parser::parse(&tokens).unwrap();
     let mut computer = Computer::<f64>::default();
 
-    {
-        let mut price = trade.price;
-        let mut rival_price = rival_trade.price;
-        let mut last_value = f64::NAN;
-        for _ in 0..=100 {
-            let mut ast = ast.clone();
+    let mut price_pairs: Vec<PricePair> = Vec::new();
 
-            price = price + price * 0.003;
-            rival_price = rival_price - rival_price * 0.003;
-
-            ast.replace(
-                &Expr::Identifier(symbol.to_owned()),
-                &Expr::Constant(price as f64),
-                false,
-            );
-            ast.replace(
-                &Expr::Identifier(rival_symbol.to_owned()),
-                &Expr::Constant(rival_price as f64),
-                false,
-            );
-
-            let value = computer.compute(&ast).unwrap();
-            if value < 0.0 {
-                return false;
-            }
-
-            // assume values should be upward on both side
-            // when value if increasing, break check
-            if !last_value.is_nan() && last_value < value {
-                break;
-            }
-
-            last_value = value;
-        }
+    let mut price = trade.price;
+    let mut rival_price = rival_trade.price;
+    for _ in 0..=100 {
+        price = price + price * 0.003;
+        rival_price = rival_price - rival_price * 0.003;
+        price_pairs.push(PricePair {
+            current: price,
+            rival: rival_price,
+        })
     }
 
-    {
-        let mut price = trade.price;
-        let mut rival_price = rival_trade.price;
-        let mut last_value = f64::NAN;
-        for _ in 1..=100 {
-            let mut ast = ast.clone();
-
-            price = price - price * 0.003;
-            rival_price = rival_price + rival_price * 0.003;
-
-            ast.replace(
-                &Expr::Identifier(symbol.to_owned()),
-                &Expr::Constant(price as f64),
-                false,
-            );
-            ast.replace(
-                &Expr::Identifier(rival_symbol.to_owned()),
-                &Expr::Constant(rival_price as f64),
-                false,
-            );
-
-            let value = computer.compute(&ast).unwrap();
-            if value < 0.0 {
-                return false;
-            }
-
-            // assume values should be upward on both side
-            // when value if increasing, break check
-            if !last_value.is_nan() && last_value < value {
-                break;
-            }
-
-            last_value = value;
-        }
+    let mut price = trade.price;
+    let mut rival_price = rival_trade.price;
+    for _ in 1..=100 {
+        price = price - price * 0.003;
+        rival_price = rival_price + rival_price * 0.003;
+        price_pairs.push(PricePair {
+            current: price,
+            rival: rival_price,
+        })
     }
 
-    true
+    let mut results: Vec<TotalProfit> = Vec::new();
+
+    for price_pair in price_pairs {
+        ast.replace(
+            &Expr::Identifier(symbol.to_owned()),
+            &Expr::Constant(price_pair.current as f64),
+            false,
+        );
+        ast.replace(
+            &Expr::Identifier(rival_symbol.to_owned()),
+            &Expr::Constant(price_pair.rival as f64),
+            false,
+        );
+
+        let value = computer.compute(&ast).unwrap();
+
+        results.push(TotalProfit::new(
+            symbol.to_owned(),
+            price_pair.current,
+            rival_symbol.to_owned(),
+            price_pair.rival,
+            value,
+        ));
+    }
+
+    results
 }
 
 fn recognize_loss(

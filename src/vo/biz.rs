@@ -365,3 +365,32 @@ pub struct TradeTrend {
     pub up_count: i32,
     pub down_count: i32,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TotalProfit {
+    pub home_name: String,
+    pub home: f32,
+    pub away_name: String,
+    pub away: f32,
+    pub result: f64,
+    pub negative: bool,
+}
+
+impl TotalProfit {
+    pub fn new(home_name: String, home: f32, away_name: String, away: f32, result: f64) -> Self {
+        Self {
+            home_name,
+            away_name,
+            home,
+            away,
+            result,
+            negative: result < 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PricePair {
+    pub current: f32,
+    pub rival: f32,
+}

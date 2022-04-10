@@ -106,7 +106,6 @@ impl AppContext {
 
         let asset = self.asset();
 
-        // only accept regular market
         match ticker.market_hours {
             MarketHoursType::PreMarket => {
                 // update time of pre-market for getting regular market start time
@@ -170,6 +169,14 @@ impl AppContext {
             // check all values finalized and push
             if asset.is_trade_finalized(&ticker.id, message_id) {
                 prepare_trade(self.asset(), self.config(), message_id).unwrap();
+            }
+
+            match ticker.market_hours {
+                MarketHoursType::PreMarket => {
+                    // update time of pre-market for getting regular market start time
+                    asset.update_regular_start_time(ticker.time);
+                }
+                _ => {}
             }
         });
 
@@ -429,7 +436,14 @@ impl AssetContext {
             debug!("find exists order {:?}", exists_order);
             false
         } else {
-            debug!("add new order: {:?}", &order);
+            info!(
+                "new order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}",
+                &order.symbol,
+                format!("{:?}", &order.audit),
+                order.created_price,
+                order.created_rival_price,
+                order.created_volume,
+            );
             writer.push_front(order);
             true
         }
