@@ -82,7 +82,7 @@ async fn perform_consume(config: &mut AppConfig, _sub_matches: &ArgMatches) -> R
         "Loaded time units: {:?}",
         &units.iter().map(|u| u.name.clone()).collect::<Vec<_>>()
     );
-    consume(&context, &uri, &symbols, Option::None).await?;
+    consume(&context, &uri, &symbols).await?;
 
     Ok(())
 }

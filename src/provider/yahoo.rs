@@ -61,16 +61,12 @@ pub async fn send_subscribe(
     Ok(())
 }
 
-pub async fn consume(
-    context: &Arc<AppContext>,
-    addr: &str,
-    symbols: &Vec<String>,
-    end_time: Option<i64>,
-) -> Result<()> {
+pub async fn consume(context: &Arc<AppContext>, addr: &str, symbols: &Vec<String>) -> Result<()> {
     let mut client = create_websocket_client(addr).await?;
     send_subscribe(symbols, &mut client).await?;
 
     let mut connected = true;
+    let asset = context.asset();
 
     // TODO: recover from previous process
 
@@ -99,14 +95,13 @@ pub async fn consume(
             send_subscribe(&symbols, &mut client).await?;
             connected = true;
         }
-        if let Some(time) = end_time {
-            if Utc::now().timestamp() > time {
-                info!(
-                    "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
-                    Utc.timestamp_millis(time)
-                );
-                break;
-            }
+
+        if asset.consumer_closable(Utc::now().timestamp_millis()) {
+            info!(
+                "Reach the expected end time {:?}, stop receiving message from Yahoo Finance!",
+                Utc::now().to_rfc3339()
+            );
+            break;
         }
     }
     Ok(())

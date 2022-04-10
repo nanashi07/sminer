@@ -38,7 +38,7 @@ fn test_consume_yahoo_tickers() -> Result<()> {
 
         info!("Loaded symbols: {:?}", &symbols);
 
-        consume(&context, &uri, &symbols, Option::None).await?;
+        consume(&context, &uri, &symbols).await?;
 
         Ok(())
     });
