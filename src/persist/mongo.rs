@@ -1,9 +1,12 @@
 use super::{DataSource, PersistenceContext};
 use crate::{
-    vo::{biz::Ticker, core::AppContext},
+    vo::{
+        biz::Ticker,
+        core::{AppConfig, AppContext},
+    },
     Result,
 };
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mongodb::{
@@ -82,6 +85,46 @@ impl Ticker {
         let _ = collection.insert_one(self, None).await?;
         context.close_connection(client)?;
         Ok(())
+    }
+}
+
+pub async fn get_start_time(context: Arc<PersistenceContext>, config: Arc<AppConfig>) -> i64 {
+    let db_name = config.data_source.mongodb.target.as_ref().unwrap();
+    let now = Utc::now().timestamp_millis();
+    get_reglar_market_start_time(&context.get_connection().unwrap(), db_name, now)
+        .await
+        .unwrap()
+}
+
+pub async fn get_reglar_market_start_time(
+    client: &Client,
+    db_name: &str,
+    time: i64,
+) -> Result<i64> {
+    let start_time = time % Duration::days(1).num_milliseconds();
+    let end_time = start_time + Duration::days(1).num_milliseconds();
+    let collection_name = format!("tickers{}", Utc.timestamp_millis(time).format("%Y%m%d"));
+    let db = client.database(db_name);
+    let collection = db.collection::<Ticker>(&collection_name);
+    let mut cursor = collection
+        .find(
+            doc! {
+                "market_hours" : "RegularMarket",
+                "$and" : [
+                    { "time": { "$gt": start_time } },
+                    { "time": { "$lt": end_time } }
+                ]
+            },
+            FindOptions::builder()
+                .sort(doc! { "time" : 1, "day_volume": 1 })
+                .build(),
+        )
+        .await?;
+
+    if let Some(ticker) = cursor.try_next().await? {
+        Ok(ticker.time)
+    } else {
+        Ok(0)
     }
 }
 

@@ -30,9 +30,13 @@ pub fn prepare_trade(
 
         // only accept regular market
         if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
-            // update time of pre-market for getting regular market start time
-            asset.update_regular_start_time(trade.time);
             return Ok(());
+        }
+        // runtime broken and restarted while regular market period
+        if asset.get_regular_start_time() == 0
+            && matches!(trade.market_hours, MarketHoursType::RegularMarket)
+        {
+            // TODO:
         }
 
         // TODO: ticker time check, drop if time difference too long

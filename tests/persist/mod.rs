@@ -19,7 +19,10 @@ mod mongo {
     use mongodb::{bson::Document, Client};
     use sminer::{
         init_log,
-        persist::{mongo::query_ticker, DataSource, PersistenceContext},
+        persist::{
+            mongo::{get_reglar_market_start_time, query_ticker},
+            DataSource, PersistenceContext,
+        },
         vo::{biz::Ticker, core::AppConfig},
         Result,
     };
@@ -91,6 +94,23 @@ mod mongo {
         let mut cursor = query_ticker(&client, db_name, "tickers20220311").await?;
         while let Some(ticker) = cursor.try_next().await? {
             info!("{:?}", ticker);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "used for test imported data"]
+    async fn test_query_market_start_time() -> Result<()> {
+        init_log("TRACE").await?;
+
+        let context = PersistenceContext::new(Arc::new(AppConfig::load("config.yaml")?));
+        context.init_mongo().await?;
+        let config = context.config();
+        let db_name = config.data_source.mongodb.target.as_ref().unwrap();
+        let client: Client = context.get_connection()?;
+
+        if let Ok(result) = get_reglar_market_start_time(&client, db_name, 1647271806000).await {
+            println!("time = {}", result);
         }
         Ok(())
     }

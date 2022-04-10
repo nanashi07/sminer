@@ -3,7 +3,7 @@ use super::biz::{
 };
 use crate::{
     analysis::{init_dispatcher, trade::prepare_trade},
-    persist::{es::ElasticTicker, PersistenceContext},
+    persist::{es::ElasticTicker, mongo::get_start_time, PersistenceContext},
     proto::biz::TickerEvent,
     Result,
 };
@@ -103,6 +103,24 @@ impl AppContext {
         let mut event: TickerEvent = ticker.into();
         event.volume = volume_diff;
         self.post_man().prepare(event)?;
+
+        let asset = self.asset();
+
+        // only accept regular market
+        match ticker.market_hours {
+            MarketHoursType::PreMarket => {
+                // update time of pre-market for getting regular market start time
+                asset.update_regular_start_time(ticker.time);
+            }
+            MarketHoursType::RegularMarket => {
+                // runtime broken and restarted while regular market period
+                if asset.get_regular_start_time() == 0 {
+                    let start_time = get_start_time(self.persistence(), self.config()).await;
+                    asset.set_regular_start_time(start_time);
+                }
+            }
+            _ => {}
+        }
 
         Ok(())
     }
@@ -311,12 +329,15 @@ impl AssetContext {
         *start_time = time;
     }
 
+    pub fn set_regular_start_time(&self, value: i64) {
+        if let Ok(mut guard) = self.regular_start_time.lock() {
+            *guard = value;
+        }
+    }
+
     pub fn get_regular_start_time(&self) -> i64 {
         if let Ok(guard) = self.regular_start_time.lock() {
             let value = *guard;
-            if value == 0 {
-                // TODO: get data from mongo and update value
-            }
             return value;
         }
         0

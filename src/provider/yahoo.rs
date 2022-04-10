@@ -6,7 +6,7 @@ use crate::{
     },
     Result,
 };
-use chrono::{TimeZone, Utc};
+use chrono::Utc;
 use log::{debug, error, info, warn};
 use std::{error::Error, fmt::Display, net::TcpStream, sync::Arc, time::Duration};
 use tokio::time::sleep;
