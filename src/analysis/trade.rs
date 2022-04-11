@@ -21,7 +21,7 @@ use rsc::{
     lexer,
     parser::{self, Expr},
 };
-use std::{collections::BTreeMap, f64::NAN, sync::Arc};
+use std::{f64::NAN, sync::Arc};
 
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
@@ -592,90 +592,35 @@ fn validate_total_profit(
     let rival_symbol = &rival_trade.id;
 
     let orders = asset.find_orders_by_symbol(&vec![symbol.to_owned(), rival_symbol.to_owned()]);
-
-    if orders.is_empty() {
-        return (true, -1.0);
-    }
-
-    // group orders
-    let pairs = pair_orders(&orders);
-    let formula = generate_formula(&pairs, symbol, trade.price, estimated_volume);
+    // formulat for calculate balance
+    let formula = generate_formula(&orders, symbol, trade.price, estimated_volume);
 
     if formula.is_empty() {
-        info!(
-            "formula is empty, pairs = {}, order size = {}",
-            &pairs.len(),
-            &orders.len()
-        );
+        info!("formula is empty, order size = {}", &orders.len());
         return (true, -1.0);
     }
 
     let results = spread_results(trade, rival_trade, symbol, rival_symbol, &formula);
-
     let valid = !results.iter().any(|v| v.result < 0.0);
     let estimated_min_balance = results.iter().map(|v| v.result).reduce(f64::min).unwrap();
 
     (valid, estimated_min_balance)
 }
 
-fn pair_orders(orders: &Vec<Order>) -> BTreeMap<String, Vec<Order>> {
-    let mut pairs: BTreeMap<String, Vec<Order>> = BTreeMap::new();
-    for order in orders.iter() {
-        if let Some(constraint) = &order.constraint_id {
-            let constraint_id = constraint.to_string();
-            if pairs.contains_key(&constraint_id) {
-                let list = pairs.get_mut(&constraint_id).unwrap();
-                list.push(order.clone());
-            } else {
-                pairs.insert(constraint_id, vec![order.clone()]);
-            }
-        } else {
-            pairs.insert("NO_CONSTRAINT".to_owned(), vec![order.clone()]);
-        }
-    }
-    pairs
-}
-
-fn generate_formula(
-    pairs: &BTreeMap<String, Vec<Order>>,
-    symbol: &str,
-    price: f32,
-    volume: u32,
-) -> String {
+fn generate_formula(orders: &Vec<Order>, symbol: &str, price: f32, volume: u32) -> String {
     let mut formula: Vec<String> = Vec::new();
-    for (_, groups) in pairs {
-        match groups.len() {
-            2 => {
-                let one = groups.first().unwrap();
-                let another = groups.last().unwrap();
 
-                // formula
-                formula.push(format!(
-                    "({} - {}) * {}",
-                    one.symbol, one.created_price, one.created_volume
-                ));
-                formula.push(format!(
-                    "({} - {}) * {}",
-                    another.symbol, another.created_price, another.created_volume
-                ));
-            }
-            1 => {
-                // unpaired order, should be the last one and be able to pair with current trade
-                let one = groups.first().unwrap();
-
-                // formula
-                formula.push(format!(
-                    "({} - {}) * {}",
-                    one.symbol, one.created_price, one.created_volume
-                ));
-                // coming order
-                formula.push(format!("({} - {}) * {}", symbol, price, volume));
-            }
-            _ => {
-                error!("Unexpected count of grouped order: {:?}", groups);
-            }
-        }
+    for order in orders {
+        // formula
+        formula.push(format!(
+            "({} - {}) * {}",
+            order.symbol, order.created_price, order.created_volume
+        ));
     }
+
+    // coming order
+    formula.push(format!("({} - {}) * {}", symbol, price, volume));
+
     formula.join(" + ")
 }
 
