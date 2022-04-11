@@ -373,17 +373,26 @@ pub struct TotalProfit {
     pub away_name: String,
     pub away: f32,
     pub result: f64,
+    pub offset: bool,
     pub negative: bool,
 }
 
 impl TotalProfit {
-    pub fn new(home_name: String, home: f32, away_name: String, away: f32, result: f64) -> Self {
+    pub fn new(
+        home_name: String,
+        home: f32,
+        away_name: String,
+        away: f32,
+        result: f64,
+        offset: bool,
+    ) -> Self {
         Self {
             home_name,
             away_name,
             home,
             away,
             result,
+            offset,
             negative: result < 0.0,
         }
     }

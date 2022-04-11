@@ -71,6 +71,30 @@ pub fn prepare_trade(
                     trade.action_time(),
                     state.clone(),
                 );
+
+                // for debug only
+                if true {
+                    let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
+                    let rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
+                    let (_, estimated_min_balance) = validate_total_profit(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        &trade,
+                        &rival_trade,
+                        estimated_volume,
+                    );
+
+                    info!(
+                    "prepare order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                        &order.symbol,
+                        format!("{:?}", &order.audit),
+                        order.created_price,
+                        order.created_rival_price,
+                        order.created_volume,
+                        estimated_min_balance
+                    );
+                }
+
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
 
@@ -116,12 +140,12 @@ pub fn prepare_trade(
                 let time = trade.time;
 
                 // replace with rival latest trade
-                let mut trade = asset.get_latest_trade(&rival_symbol).unwrap();
-                trade.time = time + 1;
+                let mut rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
+                rival_trade.time = time + 1;
 
                 // calculate volume
                 let estimated_volume =
-                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
+                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &rival_trade);
 
                 if estimated_volume == 0 {
                     warn!("suspected order volume is zero, ignore order");
@@ -130,19 +154,41 @@ pub fn prepare_trade(
 
                 // get rival price
                 let mut rival_price = f32::NAN;
-                if let Some(rival_ticker) = asset.get_latest_rival_ticker(&trade.id) {
+                if let Some(rival_ticker) = asset.get_latest_rival_ticker(&rival_trade.id) {
                     rival_price = rival_ticker.price;
                 }
 
                 // create order
                 let order = Order::new(
-                    &trade.id,
-                    trade.price,
+                    &rival_trade.id,
+                    rival_trade.price,
                     rival_price,
                     estimated_volume,
-                    trade.action_time(),
+                    rival_trade.action_time(),
                     state.clone(),
                 );
+
+                // for debug only
+                if true {
+                    let (_, estimated_min_balance) = validate_total_profit(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        &rival_trade,
+                        &trade,
+                        estimated_volume,
+                    );
+
+                    info!(
+                    "prepare order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                        &order.symbol,
+                        format!("{:?}", &order.audit),
+                        order.created_price,
+                        order.created_rival_price,
+                        order.created_volume,
+                        estimated_min_balance
+                    );
+                }
+
                 if asset.add_order(order.clone()) {
                     let order_id = order.id.clone();
 
@@ -151,18 +197,18 @@ pub fn prepare_trade(
                             Arc::clone(&asset),
                             Arc::clone(&config),
                             Some(order.clone()),
-                            &trade,
+                            &rival_trade,
                         )
                         .unwrap_or_default();
                     }
 
-                    let symbol = trade.id.clone();
-                    let time = Utc.timestamp_millis(trade.action_time());
+                    let symbol = rival_trade.id.clone();
+                    let time = Utc.timestamp_millis(rival_trade.action_time());
                     let tags = vec![
-                        trade.id.clone(),
+                        rival_trade.id.clone(),
                         order_id,
                         format!("{:?}", &state),
-                        format!("MSG-{}", &trade.message_id),
+                        format!("MSG-{}", &rival_trade.message_id),
                         format!("${}", &order.created_price),
                         format!("v{}", &order.created_volume),
                     ];
@@ -349,34 +395,8 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
                 + (current_price - last_price) * expected_volume.ceil()
         {
             expected_volume.floor() as u32
-            // let mut final_volume = expected_volume.floor() as u32;
-            // let restriction = final_volume / 2;
-            // // adjust volume to make profit positive
-            // while (rival_current_price - rival_last_price) * (rival_volume as f32)
-            //     + (current_price - last_price) * (final_volume as f32)
-            //     < 0.0
-            // {
-            //     final_volume -= 1;
-            //     if final_volume < restriction {
-            //         break;
-            //     }
-            // }
-            // final_volume
         } else {
             expected_volume.ceil() as u32
-            // let mut final_volume = expected_volume.ceil() as u32;
-            // let restriction = final_volume * 3;
-            // // adjust volume to make profit positive
-            // while (rival_current_price - rival_last_price) * (rival_volume as f32)
-            //     + (current_price - last_price) * (final_volume as f32)
-            //     < 0.0
-            // {
-            //     final_volume += 1;
-            //     if final_volume > restriction {
-            //         break;
-            //     }
-            // }
-            // final_volume
         }
     } else {
         let suspect_volumn = (max_amount as f32) / trade.price;
@@ -448,7 +468,7 @@ pub fn audit_trade(
                     calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
                 let estimated_profit = price_change * estimated_volume as f32;
 
-                let positive_total_profit = validate_total_profit(
+                let (positive_total_profit, _) = validate_total_profit(
                     Arc::clone(&asset),
                     Arc::clone(&config),
                     trade,
@@ -566,7 +586,7 @@ fn validate_total_profit(
     trade: &TradeInfo,
     rival_trade: &TradeInfo,
     estimated_volume: u32,
-) -> bool {
+) -> (bool, f64) {
     // pair orders
     let symbol = &trade.id;
     let rival_symbol = &rival_trade.id;
@@ -574,31 +594,28 @@ fn validate_total_profit(
     let orders = asset.find_orders_by_symbol(&vec![symbol.to_owned(), rival_symbol.to_owned()]);
 
     if orders.is_empty() {
-        return true;
+        return (true, -1.0);
     }
 
     // group orders
     let pairs = pair_orders(&orders);
-    let pair_len = pairs.len();
     let formula = generate_formula(&pairs, symbol, trade.price, estimated_volume);
 
     if formula.is_empty() {
         info!(
             "formula is empty, pairs = {}, order size = {}",
-            pair_len,
-            orders.len()
+            &pairs.len(),
+            &orders.len()
         );
-        return true;
+        return (true, -1.0);
     }
 
     let results = spread_results(trade, rival_trade, symbol, rival_symbol, &formula);
 
-    log::info!(
-        "min bound value = {}",
-        results.iter().map(|v| v.result).reduce(f64::min).unwrap()
-    );
+    let valid = !results.iter().any(|v| v.result < 0.0);
+    let estimated_min_balance = results.iter().map(|v| v.result).reduce(f64::min).unwrap();
 
-    !results.iter().any(|v| v.result < 0.0)
+    (valid, estimated_min_balance)
 }
 
 fn pair_orders(orders: &Vec<Order>) -> BTreeMap<String, Vec<Order>> {
@@ -651,6 +668,7 @@ fn generate_formula(
                     "({} - {}) * {}",
                     one.symbol, one.created_price, one.created_volume
                 ));
+                // coming order
                 formula.push(format!("({} - {}) * {}", symbol, price, volume));
             }
             _ => {
@@ -674,10 +692,34 @@ fn spread_results(
     let mut computer = Computer::<f64>::default();
 
     let mut price_pairs: Vec<PricePair> = Vec::new();
+    let mut results: Vec<TotalProfit> = Vec::new();
+
+    // calculate current first, mark offset flag
+    ast.replace(
+        &Expr::Identifier(symbol.to_owned()),
+        &Expr::Constant(trade.price as f64),
+        false,
+    );
+    ast.replace(
+        &Expr::Identifier(rival_symbol.to_owned()),
+        &Expr::Constant(rival_trade.price as f64),
+        false,
+    );
+
+    let value = computer.compute(&ast).unwrap();
+
+    results.push(TotalProfit::new(
+        symbol.to_owned(),
+        trade.price,
+        rival_symbol.to_owned(),
+        rival_trade.price,
+        value,
+        false,
+    ));
 
     let mut price = trade.price;
     let mut rival_price = rival_trade.price;
-    for _ in 0..=100 {
+    for _ in 1..=100 {
         price = price + price * 0.003;
         rival_price = rival_price - rival_price * 0.003;
         price_pairs.push(PricePair {
@@ -696,8 +738,6 @@ fn spread_results(
             rival: rival_price,
         })
     }
-
-    let mut results: Vec<TotalProfit> = Vec::new();
 
     for price_pair in price_pairs {
         ast.replace(
@@ -719,6 +759,7 @@ fn spread_results(
             rival_symbol.to_owned(),
             price_pair.rival,
             value,
+            true,
         ));
     }
 
