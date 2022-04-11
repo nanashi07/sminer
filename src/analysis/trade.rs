@@ -72,30 +72,30 @@ pub fn prepare_trade(
                     state.clone(),
                 );
 
-                // for debug only
-                if true {
-                    let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
-                    let rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
-                    let (_, estimated_min_balance) = validate_total_profit(
-                        Arc::clone(&asset),
-                        Arc::clone(&config),
-                        &trade,
-                        &rival_trade,
-                        estimated_volume,
-                    );
-
-                    info!(
-                    "prepare order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
-                        &order.symbol,
-                        format!("{:?}", &order.audit),
-                        order.created_price,
-                        order.created_rival_price,
-                        order.created_volume,
-                        estimated_min_balance
-                    );
-                }
-
                 if asset.add_order(order.clone()) {
+                    // for debug only
+                    if true {
+                        let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
+                        let rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
+                        let (_, estimated_min_balance) = validate_total_profit(
+                            Arc::clone(&asset),
+                            Arc::clone(&config),
+                            &trade,
+                            &rival_trade,
+                            estimated_volume,
+                        );
+
+                        info!(
+                            "after order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                            &order.symbol,
+                            format!("{:?}", &order.audit),
+                            order.created_price,
+                            order.created_rival_price,
+                            order.created_volume,
+                            estimated_min_balance
+                        );
+                    }
+
                     let order_id = order.id.clone();
 
                     if config.replay.export_enabled("order") {
@@ -168,28 +168,28 @@ pub fn prepare_trade(
                     state.clone(),
                 );
 
-                // for debug only
-                if true {
-                    let (_, estimated_min_balance) = validate_total_profit(
-                        Arc::clone(&asset),
-                        Arc::clone(&config),
-                        &rival_trade,
-                        &trade,
-                        estimated_volume,
-                    );
-
-                    info!(
-                    "prepare order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
-                        &order.symbol,
-                        format!("{:?}", &order.audit),
-                        order.created_price,
-                        order.created_rival_price,
-                        order.created_volume,
-                        estimated_min_balance
-                    );
-                }
-
                 if asset.add_order(order.clone()) {
+                    // for debug only
+                    if true {
+                        let (_, estimated_min_balance) = validate_total_profit(
+                            Arc::clone(&asset),
+                            Arc::clone(&config),
+                            &rival_trade,
+                            &trade,
+                            estimated_volume,
+                        );
+
+                        info!(
+                            "after order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                            &order.symbol,
+                            format!("{:?}", &order.audit),
+                            order.created_price,
+                            order.created_rival_price,
+                            order.created_volume,
+                            estimated_min_balance
+                        );
+                    }
+
                     let order_id = order.id.clone();
 
                     if config.replay.export_enabled("order") {
@@ -485,14 +485,42 @@ pub fn audit_trade(
                         result = AuditState::Decline;
                     }
                 } else {
-                    if rival_price_change_rate > 0.0 && positive_total_profit {
+                    if rival_price_change_rate > 0.0015 && positive_total_profit {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
-                        if rival_price_change_rate > 0.005 {
-                            debug!(
-                                "[{}] take profit, price = {}, profit check on",
-                                &trade.id, &trade.price
-                            );
+                        // if rival_price_change_rate > 0.005 {
+                        //     debug!(
+                        //         "[{}] take profit, price = {}, profit check on",
+                        //         &trade.id, &trade.price
+                        //     );
+                        //     trace!(
+                        //         "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
+                        //         rival_price_change_rate = rival_price_change_rate * 100.0,
+                        //         price_change_rate = price_change_rate * 100.0,
+                        //         change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
+                        //         rival_profit = rival_profit,
+                        //         estimated_profit = estimated_profit,
+                        //         estimated_volume = estimated_volume,
+                        //         total_profit = rival_profit + estimated_profit
+                        //     );
+                        //     result = AuditState::ProfitTaking;
+                        // }
+                        // // early sell when the trend is starting to go down
+                        // else
+                        if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
+                            if rival_price_change_rate > 0.005 {
+                                debug!(
+                                    "[{}] take profit, price = {}, profit check on",
+                                    &trade.id, &trade.price
+                                );
+                                result = AuditState::ProfitTaking;
+                            } else {
+                                debug!(
+                                    "[{}] early clear, price = {}, profit check on",
+                                    &trade.id, &trade.price
+                                );
+                                result = AuditState::EarlyClear;
+                            }
                             trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
@@ -503,25 +531,6 @@ pub fn audit_trade(
                                 estimated_volume = estimated_volume,
                                 total_profit = rival_profit + estimated_profit
                             );
-                            result = AuditState::ProfitTaking;
-                        }
-                        // early sell when the trend is starting to go down
-                        else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
-                            debug!(
-                                "[{}] early clear, price = {}, profit check on",
-                                &trade.id, &trade.price
-                            );
-                            trace!(
-                                "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
-                                rival_price_change_rate = rival_price_change_rate * 100.0,
-                                price_change_rate = price_change_rate * 100.0,
-                                change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
-                                rival_profit = rival_profit,
-                                estimated_profit = estimated_profit,
-                                estimated_volume = estimated_volume,
-                                total_profit = rival_profit + estimated_profit
-                            );
-                            result = AuditState::EarlyClear;
                         }
                     }
                 }

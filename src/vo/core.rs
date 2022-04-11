@@ -436,7 +436,7 @@ impl AssetContext {
             debug!("find exists order {:?}", exists_order);
             false
         } else {
-            info!(
+            debug!(
                 "new order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}",
                 &order.symbol,
                 format!("{:?}", &order.audit),
