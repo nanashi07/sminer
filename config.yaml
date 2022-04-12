@@ -57,7 +57,7 @@ trade:
         value: 0.0175
       lowers:
       - to: m0070
-        duration: 3000
+        duration: 10
   slug:
     lossMarginRate: 0.003
     rules:
@@ -95,6 +95,9 @@ trade:
       oscillations:
       - to: m0300
         value: 0.008
+      # lowers:
+      # - to: m1200
+      #   duration: 10
   revert:
     lossMarginRate: 0.0
     rules:

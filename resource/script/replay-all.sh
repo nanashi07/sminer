@@ -8,6 +8,8 @@ export -f get_name
 
 PATTERN=$1
 
+./target/release/sminer annotate
+
 if [[ "$PATTERN" == "" ]];
 then
   find tmp/json -type f | sort | xargs -n1 bash -c 'RUST_BACKTRACE=1 ./target/release/sminer replay $1 | tee replay/replay.`get_name $1`.`date +%s`.log' _

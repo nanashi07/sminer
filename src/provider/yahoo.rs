@@ -122,7 +122,15 @@ async fn handle_message(
             debug!("Receive: {}", text);
             let message = deserialize_yahoo_message(&text)?;
             debug!("Deserialize: {:?}", &message);
+            let time_diff = Utc::now().timestamp_millis() - message.time;
             let value = Ticker::from(message);
+            if time_diff > 1000 && time_diff < 2000 {
+                info!("time diff 1~2s, {:?}", &value);
+            } else if time_diff >= 2000 && time_diff < 5000 {
+                warn!("time diff 2~5s, {:?}", &value);
+            } else if time_diff >= 5000 {
+                error!("time diff > 5s, {:?}", &value);
+            }
             // dispatch ticker
             context.dispatch(&value).await?;
             debug!("Ticker: {}", serde_json::to_string(&value).unwrap());

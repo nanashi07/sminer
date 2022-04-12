@@ -86,12 +86,12 @@ pub fn prepare_trade(
                         );
 
                         info!(
-                            "after order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} estimated min balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
-                            order.created_price,
-                            order.created_rival_price,
-                            order.created_volume,
+                            format!("{},",order.created_price),
+                            format!("{},",order.created_rival_price),
+                            format!("{},",order.created_volume),
                             estimated_min_balance
                         );
                     }
@@ -133,7 +133,7 @@ pub fn prepare_trade(
                     .unwrap();
                 }
             }
-            AuditState::LossClear | AuditState::CloseTrade => {
+            AuditState::LossClear | AuditState::LossBound | AuditState::CloseTrade => {
                 // get latest rival ticker
                 let symbol = &trade.id;
                 let rival_symbol = asset.find_rival_symbol(symbol).unwrap();
@@ -180,12 +180,12 @@ pub fn prepare_trade(
                         );
 
                         info!(
-                            "after order: [{}] {:<12} price: {:<7}, rival price: {:<7}, volume: {}, estimated min balance: {}",
+                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} estimated min balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
-                            order.created_price,
-                            order.created_rival_price,
-                            order.created_volume,
+                            format!("{},",order.created_price),
+                            format!("{},",order.created_rival_price),
+                            format!("{},",order.created_volume),
                             estimated_min_balance
                         );
                     }
@@ -446,6 +446,7 @@ pub fn audit_trade(
     let mut profit_positive: Option<bool> = None;
     let mut estimated_min_profit: Option<f64> = None;
     let estimated_volume = calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
+    let mut profit_increased: Option<bool> = None;
 
     let rival_symbol_option = asset.find_rival_symbol(&trade.id);
     let mut rival_trade_option: Option<TradeInfo> = None;
@@ -473,6 +474,7 @@ pub fn audit_trade(
             last_estimated_min_profit = Some(last_min);
             profit_positive = Some(valid);
             estimated_min_profit = Some(min);
+            profit_increased = Some(min > last_min);
         }
     }
 
@@ -482,6 +484,7 @@ pub fn audit_trade(
             "[{}] slug in, price = {}, profit check off",
             &trade.id, &trade.price
         );
+        // TODO: check when last min > 0
         result = AuditState::Slug;
     }
 
@@ -503,7 +506,7 @@ pub fn audit_trade(
                 let estimated_profit = price_change * estimated_volume as f32;
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
-                    if !profit_positive.unwrap_or(false) {
+                    if !profit_increased.unwrap_or(true) {
                         debug!(
                             "[{}] block write off, price = {}, profit check on",
                             &trade.id, &trade.price
@@ -511,7 +514,7 @@ pub fn audit_trade(
                         result = AuditState::Decline;
                     }
                 } else {
-                    if rival_price_change_rate > 0.0 && profit_positive.unwrap_or(false) {
+                    if rival_price_change_rate > 0.0 && profit_increased.unwrap_or(true) {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
                         if rival_price_change_rate > 0.005 {
@@ -570,6 +573,14 @@ pub fn audit_trade(
     // FIXME: check previous order status
     if let Some(exists_order) = asset.find_running_order(&trade.id) {
         // exists order, check PnL
+        // if trade.price < exists_order.created_price && profit_increased.unwrap_or(false) {
+        //     debug!(
+        //         "[{}] loss bound, price = {}, profit check off",
+        //         &trade.id, &trade.price
+        //     );
+        //     return AuditState::LossBound;
+        // }
+
         if recognize_loss(
             Arc::clone(&asset),
             Arc::clone(&config),
