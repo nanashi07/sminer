@@ -359,7 +359,7 @@ impl AssetContext {
 
     pub fn consumer_closable(&self, time: i64) -> bool {
         // regular market duration: 390 min, 30 min to exit consuming after regular market
-        let duration = Duration::minutes(390 - 30).num_milliseconds();
+        let duration = Duration::minutes(390 + 30).num_milliseconds();
         let start_time = self.get_regular_start_time();
         start_time > 0 && time > start_time + duration
     }
