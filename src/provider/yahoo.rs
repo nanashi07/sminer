@@ -1,7 +1,7 @@
 use crate::{
     provider::decoder::deserialize_yahoo_message,
     vo::{
-        biz::{SubscribeCommand, Ticker},
+        biz::{MarketHoursType, SubscribeCommand, Ticker},
         core::AppContext,
     },
     Result,
@@ -119,21 +119,41 @@ async fn handle_message(
 ) -> Result<HandleResult> {
     match client.recv_message()? {
         OwnedMessage::Text(text) => {
+            let now = Utc::now().timestamp_millis();
             debug!("Receive: {}", text);
+
             let message = deserialize_yahoo_message(&text)?;
             debug!("Deserialize: {:?}", &message);
-            let time_diff = Utc::now().timestamp_millis() - message.time;
-            let value = Ticker::from(message);
-            if time_diff > 1000 && time_diff < 2000 {
-                info!("time diff 1~2s, {:?}", &value);
-            } else if time_diff >= 2000 && time_diff < 5000 {
-                warn!("time diff 2~5s, {:?}", &value);
-            } else if time_diff >= 5000 {
-                error!("time diff > 5s, {:?}", &value);
+
+            let time_diff = now - message.time;
+            let mut value = Ticker::from(message);
+            value.time_diff = time_diff;
+
+            // check time
+            if true || value.market_hours == MarketHoursType::RegularMarket {
+                if time_diff > 1000 && time_diff < 2000 {
+                    info!(
+                        "time diff 1~2s, [{}] {:?} = {}",
+                        &value.id, &value.market_hours, &value.time_diff
+                    );
+                } else if time_diff >= 2000 && time_diff < 5000 {
+                    warn!(
+                        "time diff 2~5s, [{}] {:?} = {}",
+                        &value.id, &value.market_hours, &value.time_diff
+                    );
+                } else if time_diff >= 5000 {
+                    error!(
+                        "time diff > 5s, [{}] {:?} = {}",
+                        &value.id, &value.market_hours, &value.time_diff
+                    );
+                }
             }
+
             // dispatch ticker
             context.dispatch(&value).await?;
-            debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
+            if log::log_enabled!(log::Level::Debug) {
+                debug!("Ticker: {}", serde_json::to_string(&value).unwrap());
+            }
         }
         OwnedMessage::Binary(_) => {
             warn!("Receive binary from Yahoo Finance!");

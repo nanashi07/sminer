@@ -9,7 +9,7 @@ pub struct SubscribeCommand {
     pub subscribe: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum QuoteType {
     None = 0,
     Altsymbol = 5,
@@ -59,7 +59,7 @@ impl TryFrom<i32> for QuoteType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum MarketHoursType {
     PreMarket = 0,
     RegularMarket = 1,
@@ -85,16 +85,24 @@ impl TryFrom<i32> for MarketHoursType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Ticker {
+    // Symbol
     pub id: String,
+    // Stock price
     pub price: f32,
+    // Timesampe
     pub time: i64,
 
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
+    // Cumulative volume of day
     pub day_volume: i64,
+    // Changed volume
     #[serde(skip_serializing)]
     pub volume: Option<i64>,
+    // Changed price
     pub change: f32,
+    // Time diff to receive message
+    pub time_diff: i64,
 }
 
 impl From<YahooTicker> for Ticker {
@@ -108,6 +116,7 @@ impl From<YahooTicker> for Ticker {
             day_volume: value.day_volume,
             volume: None,
             change: value.change,
+            time_diff: 0,
         }
     }
 }
@@ -142,6 +151,7 @@ impl From<TickerEvent> for Ticker {
                 Some(value.volume)
             },
             change: value.change,
+            time_diff: 0,
         }
     }
 }
@@ -215,6 +225,7 @@ pub struct TradeInfo {
 
     pub quote_type: QuoteType,
     pub market_hours: MarketHoursType,
+    pub time_diff: i64,
 
     #[serde(skip_serializing, skip_deserializing)]
     pub replay: bool,
@@ -233,6 +244,7 @@ impl TradeInfo {
             kind: 't',
             quote_type: ticker.quote_type,
             market_hours: ticker.market_hours,
+            time_diff: ticker.time_diff,
             unit_size,
             replay,
             states: BTreeMap::new(),

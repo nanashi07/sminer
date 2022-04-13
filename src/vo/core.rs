@@ -187,11 +187,17 @@ impl AppContext {
 #[derive(Debug, Clone)]
 pub struct AssetContext {
     config: Arc<AppConfig>,
+    // source data
     tickers: Arc<LockListMap<Ticker>>,
-    protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
+    // aggregated trade data
     trades: Arc<LockListMap<LockTradeInfo>>,
+    // computed trend info
+    protfolios: Arc<HashMap<String, LockListMap<Protfolio>>>,
+    // placed orders
     orders: Arc<RwLock<LinkedList<Order>>>,
+    // number of generating ID
     sequence: Arc<Mutex<i64>>,
+    // start time of regular market
     regular_start_time: Arc<Mutex<i64>>,
 }
 
@@ -370,6 +376,7 @@ impl AssetContext {
         if log_enabled!(log::Level::Debug) {
             debug!("add_trade: {} - {:?}", symbol, &trade.clone());
         }
+        // TODO: message might not be sequential, make sure message are in time sort
         trades.push_front(Arc::new(RwLock::new(trade)));
     }
 
