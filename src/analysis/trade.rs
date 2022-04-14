@@ -86,7 +86,7 @@ pub fn prepare_trade(
                         );
 
                         info!(
-                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} estimated min balance: {}",
+                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
                             format!("{},",order.created_price),
@@ -180,7 +180,7 @@ pub fn prepare_trade(
                         );
 
                         info!(
-                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} estimated min balance: {}",
+                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
                             format!("{},",order.created_price),
@@ -442,9 +442,9 @@ pub fn audit_trade(
     }
 
     let mut _last_profit_positive: Option<bool> = None;
-    let mut last_estimated_min_profit: Option<f64> = None;
-    let mut profit_positive: Option<bool> = None;
-    let mut estimated_min_profit: Option<f64> = None;
+    let mut _last_estimated_min_profit: Option<f64> = None;
+    let mut _profit_positive: Option<bool> = None;
+    let mut _estimated_min_profit: Option<f64> = None;
     let estimated_volume = calculate_volum(Arc::clone(&asset), Arc::clone(&config), trade);
     let mut profit_increased: Option<bool> = None;
 
@@ -471,19 +471,16 @@ pub fn audit_trade(
             );
 
             _last_profit_positive = Some(last_valid);
-            last_estimated_min_profit = Some(last_min);
-            profit_positive = Some(valid);
-            estimated_min_profit = Some(min);
+            _last_estimated_min_profit = Some(last_min);
+            _profit_positive = Some(valid);
+            _estimated_min_profit = Some(min);
             profit_increased = Some(min > last_min);
         }
     }
 
     // slug check
     if slug::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
-        debug!(
-            "[{}] slug in, price = {}, profit check off",
-            &trade.id, &trade.price
-        );
+        debug!("[{}] slug in, price = {}", &trade.id, &trade.price);
         // TODO: check when last min > 0
         result = AuditState::Slug;
     }
@@ -494,7 +491,6 @@ pub fn audit_trade(
         if let Some(rival_trade) = &rival_trade_option {
             if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
                 // rival symbol is the one has been placed order
-                // FIXME : use accepted price
                 let rival_price_change = rival_trade.price - rival_order.created_price;
                 let rival_price_change_rate = rival_price_change / rival_order.created_price;
                 let rival_volume = rival_order.created_volume as f32;
@@ -507,21 +503,15 @@ pub fn audit_trade(
 
                 if matches!(result, AuditState::Flash | AuditState::Slug) {
                     if !profit_increased.unwrap_or(true) {
-                        debug!(
-                            "[{}] block write off, price = {}, profit check on",
-                            &trade.id, &trade.price
-                        );
+                        debug!("[{}] block write off, price = {}", &trade.id, &trade.price);
                         result = AuditState::Decline;
                     }
                 } else {
                     if rival_price_change_rate > 0.0 && profit_increased.unwrap_or(true) {
                         // TODO: find the best rate number
                         // early sell even if there is no match rule found
-                        if rival_price_change_rate > 0.005 {
-                            debug!(
-                                "[{}] take profit, price = {}, profit check on",
-                                &trade.id, &trade.price
-                            );
+                        if rival_price_change_rate > 0.005 || price_change_rate < -0.005 {
+                            debug!("[{}] take profit, price = {}", &trade.id, &trade.price);
                             trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
@@ -536,19 +526,10 @@ pub fn audit_trade(
                         }
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
-                            if rival_price_change_rate > 0.005 {
-                                debug!(
-                                    "[{}] take profit, price = {}, profit check on",
-                                    &trade.id, &trade.price
-                                );
-                                result = AuditState::ProfitTaking;
-                            } else {
-                                debug!(
-                                    "[{}] early clear, price = {}, profit check on",
-                                    &trade.id, &trade.price
-                                );
-                                result = AuditState::EarlyClear;
-                            }
+                            info!(
+                                "[{}] early clear, price = {}, change rate = {:.5}/{:.5}",
+                                &trade.id, &trade.price, rival_price_change_rate, price_change_rate,
+                            );
                             trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
@@ -559,6 +540,7 @@ pub fn audit_trade(
                                 estimated_volume = estimated_volume,
                                 total_profit = rival_profit + estimated_profit
                             );
+                            result = AuditState::EarlyClear;
                         }
                     }
                 }

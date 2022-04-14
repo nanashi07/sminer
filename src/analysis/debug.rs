@@ -1,6 +1,6 @@
 use super::trade::{
-    find_max_price, find_min_price, find_min_price_time, flash, rebound, rebound_all, rebound_at,
-    slug, validate_audit_rule,
+    find_max_price, find_min_price, find_min_price_time, flash, rebound, rebound_all, slug,
+    validate_audit_rule,
 };
 use crate::{
     vo::{
@@ -506,6 +506,10 @@ pub fn print_meta(
     order: Option<Order>,
     trade: &TradeInfo,
 ) -> Result<()> {
+    if order.is_none() {
+        return Ok(());
+    }
+
     let mut buffered: Vec<String> = Vec::new();
 
     buffered.push(format!(
