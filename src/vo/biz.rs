@@ -102,7 +102,12 @@ pub struct Ticker {
     // Changed price
     pub change: f32,
     // Time diff to receive message
+    #[serde(default = "default_time_diff")]
     pub time_diff: i64,
+}
+
+fn default_time_diff() -> i64 {
+    0
 }
 
 impl From<YahooTicker> for Ticker {
@@ -375,8 +380,21 @@ pub struct TradeTrend {
     pub unit: String,
     pub trend: Trend,
     pub rebound_at: i32,
-    pub up_count: i32,
-    pub down_count: i32,
+    pub up_count: u32,
+    pub down_count: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TradeTrendInfo {
+    pub unit: String,
+    pub trend: Trend,
+    pub sections: Vec<u32>,
+}
+
+impl TradeTrendInfo {
+    pub fn nnn(&self) -> u32 {
+        0
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

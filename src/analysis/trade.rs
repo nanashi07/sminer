@@ -4,7 +4,7 @@ use crate::{
     vo::{
         biz::{
             AuditState, MarketHoursType, Order, PricePair, Protfolio, TotalProfit, TradeInfo,
-            TradeTrend, Trend,
+            TradeTrend, TradeTrendInfo, Trend,
         },
         core::{
             AppConfig, AssetContext, AuditRule, DeviationCriteria, LowerCriteria,
@@ -853,14 +853,51 @@ pub fn find_max_price(
     }
 }
 
-pub fn rebound_all(trade: &TradeInfo) -> Vec<TradeTrend> {
+// debug only
+pub fn rebound_all(trade: &TradeInfo) -> Vec<TradeTrendInfo> {
     trade
         .states
         .iter()
-        .map(|(key, values)| rebound_at(&key, &values))
-        .collect::<Vec<TradeTrend>>()
+        .map(|(key, values)| rebound(&key, &values))
+        .collect::<Vec<TradeTrendInfo>>()
 }
 
+pub fn rebound(unit: &str, slopes: &Vec<f64>) -> TradeTrendInfo {
+    let mut trend = Trend::Upward;
+    let mut count = 0;
+    let mut last_slope = f64::NAN;
+    let mut sections: Vec<u32> = Vec::new();
+
+    for (index, value) in slopes.iter().enumerate() {
+        let slope = *value;
+
+        if index == 0 && slope < 0.0 {
+            trend = Trend::Downward;
+        }
+
+        // when first value or same side value (both positive or both negative)
+        if last_slope.is_nan() || last_slope * slope > 0.0 {
+            count = count + 1;
+        }
+        // value not in same side
+        else {
+            sections.push(count);
+            count = 1;
+        }
+        last_slope = slope;
+    }
+
+    // push last section
+    sections.push(count);
+
+    TradeTrendInfo {
+        unit: unit.to_string(),
+        trend,
+        sections,
+    }
+}
+
+#[deprecated(note = "Use rebound instead")]
 pub fn rebound_at(unit: &str, slopes: &Vec<f64>) -> TradeTrend {
     let mut trend = Trend::Upward;
     let mut rebound_at = -1;
@@ -966,18 +1003,38 @@ fn validate_trend(
         if let Some(_from) = &trend_rule.from {
             // TODO
         } else {
-            let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
+            let rebound = rebound(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
             let actual_trend = rebound.trend;
             let target_trend = &trend_rule.trend;
 
             if &actual_trend != target_trend {
                 return false;
             }
-            if !trend_rule.up_compare(rebound.up_count) {
-                return false;
-            }
-            if !trend_rule.down_compare(rebound.down_count) {
-                return false;
+
+            let first_section = rebound.sections[0];
+            let second_section = if rebound.sections.len() > 1 {
+                rebound.sections[1]
+            } else {
+                0
+            };
+
+            match actual_trend {
+                Trend::Upward => {
+                    if !trend_rule.up_compare(first_section) {
+                        return false;
+                    }
+                    if !trend_rule.down_compare(second_section) {
+                        return false;
+                    }
+                }
+                Trend::Downward => {
+                    if !trend_rule.down_compare(first_section) {
+                        return false;
+                    }
+                    if !trend_rule.up_compare(second_section) {
+                        return false;
+                    }
+                }
             }
         }
     }

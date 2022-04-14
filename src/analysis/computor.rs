@@ -306,7 +306,7 @@ pub fn draw_slop_lines(protfolios: &Vec<Protfolio>) -> Vec<SlopeLine> {
 }
 
 fn get_y(slope: Option<f64>, b_num: Option<f64>, time: i64) -> f64 {
-    if slope == None || b_num == None {
+    if slope.is_none() || b_num.is_none() {
         0.0
     } else {
         let a = slope.unwrap();

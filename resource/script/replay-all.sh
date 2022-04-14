@@ -12,9 +12,9 @@ PATTERN=$1
 
 if [[ "$PATTERN" == "" ]];
 then
-  find tmp/json -type f | sort | xargs -n1 bash -c 'RUST_BACKTRACE=1 ./target/release/sminer replay $1 | tee replay/replay.`get_name $1`.`date +%s`.log' _
+  find tmp/json -type f | grep ticker | sort | xargs -n1 bash -c 'RUST_BACKTRACE=1 ./target/release/sminer replay $1 | tee replay/replay.`get_name $1`.`date +%s`.log' _
 else
-  find tmp/json -type f | grep $PATTERN | sort | xargs -n1 bash -c 'RUST_BACKTRACE=1 ./target/release/sminer replay $1 | tee replay/replay.`get_name $1`.`date +%s`.log' _
+  find tmp/json -type f | grep ticker | grep $PATTERN | sort | xargs -n1 bash -c 'RUST_BACKTRACE=1 ./target/release/sminer replay $1 | tee replay/replay.`get_name $1`.`date +%s`.log' _
 fi
 
 

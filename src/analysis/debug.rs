@@ -1,10 +1,10 @@
 use super::trade::{
-    find_max_price, find_min_price, find_min_price_time, flash, rebound_all, rebound_at, slug,
-    validate_audit_rule,
+    find_max_price, find_min_price, find_min_price_time, flash, rebound, rebound_all, rebound_at,
+    slug, validate_audit_rule,
 };
 use crate::{
     vo::{
-        biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo},
+        biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo, Trend},
         core::{AppConfig, AssetContext, AuditMode},
     },
     Result,
@@ -142,69 +142,6 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     }
 
     info!("formula = {}", formula.join(" + "));
-
-    // // calculate formula
-    // let tokens = rsc::lexer::tokenize(&formula.join(" + "), true).unwrap();
-    // let ast = rsc::parser::parse(&tokens).unwrap();
-    // let mut computer = rsc::computer::Computer::<f64>::default();
-
-    // {
-    //     let mut tqqq = *close_prices.get("TQQQ").unwrap();
-    //     let mut sqqq = *close_prices.get("SQQQ").unwrap();
-    //     for _ in 0..=50 {
-    //         let mut ast = ast.clone();
-
-    //         tqqq = tqqq + tqqq * 0.003;
-    //         sqqq = sqqq - sqqq * 0.003;
-
-    //         ast.replace(
-    //             &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
-    //             &rsc::parser::Expr::Constant(tqqq as f64),
-    //             false,
-    //         );
-    //         ast.replace(
-    //             &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
-    //             &rsc::parser::Expr::Constant(sqqq as f64),
-    //             false,
-    //         );
-
-    //         // info!(
-    //         //     "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
-    //         //     tqqq,
-    //         //     sqqq,
-    //         //     computer.compute(&ast).unwrap()
-    //         // );
-    //     }
-    // }
-
-    // {
-    //     let mut tqqq = *close_prices.get("TQQQ").unwrap();
-    //     let mut sqqq = *close_prices.get("SQQQ").unwrap();
-    //     for _ in 0..=50 {
-    //         let mut ast = ast.clone();
-
-    //         tqqq = tqqq - tqqq * 0.003;
-    //         sqqq = sqqq + sqqq * 0.003;
-
-    //         ast.replace(
-    //             &rsc::parser::Expr::Identifier("TQQQ".to_owned()),
-    //             &rsc::parser::Expr::Constant(tqqq as f64),
-    //             false,
-    //         );
-    //         ast.replace(
-    //             &rsc::parser::Expr::Identifier("SQQQ".to_owned()),
-    //             &rsc::parser::Expr::Constant(sqqq as f64),
-    //             false,
-    //         );
-
-    //         // info!(
-    //         //     "TQQQ: {:.3}, SQQQ: {:.3}, result = {:.6}",
-    //         //     tqqq,
-    //         //     sqqq,
-    //         //     computer.compute(&ast).unwrap()
-    //         // );
-    //     }
-    // }
 
     let time = Utc.timestamp_millis(readers.front().unwrap().created_time);
 
@@ -351,18 +288,38 @@ fn buffer_matched_rules(
             if let Some(_from) = &trend_rule.from {
                 // TODO
             } else {
-                let rebound = rebound_at(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
+                let rebound = rebound(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
                 let actual_trend = rebound.trend;
                 let target_trend = &trend_rule.trend;
 
                 if &actual_trend != target_trend {
                     result = false;
                 }
-                if !trend_rule.up_compare(rebound.up_count) {
-                    result = false;
-                }
-                if !trend_rule.down_compare(rebound.down_count) {
-                    result = false;
+
+                let first_section = rebound.sections[0];
+                let second_section = if rebound.sections.len() > 1 {
+                    rebound.sections[1]
+                } else {
+                    0
+                };
+
+                match actual_trend {
+                    Trend::Upward => {
+                        if !trend_rule.up_compare(first_section) {
+                            result = false;
+                        }
+                        if !trend_rule.down_compare(second_section) {
+                            result = false;
+                        }
+                    }
+                    Trend::Downward => {
+                        if !trend_rule.up_compare(second_section) {
+                            result = false;
+                        }
+                        if !trend_rule.down_compare(first_section) {
+                            result = false;
+                        }
+                    }
                 }
             }
             buffered.push(format!(

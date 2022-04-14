@@ -864,23 +864,23 @@ pub struct TrendCriteria {
     pub down: Option<String>,
 }
 
-fn value_compare(config: Option<String>, target: i32) -> bool {
+fn value_compare(config: Option<String>, target: u32) -> bool {
     if let Some(value) = config {
         if value.ends_with("-") {
             let len = value.len() - 1;
             // ex: config: 10-, target 9, result true
-            if value[..len].parse::<i32>().unwrap() <= target {
+            if value[..len].parse::<u32>().unwrap() <= target {
                 return false;
             }
         } else if value.ends_with("+") {
             let len = value.len() - 1;
             // ex: config: 10+, target 9, result false
-            if value[..len].parse::<i32>().unwrap() >= target {
+            if value[..len].parse::<u32>().unwrap() >= target {
                 return false;
             }
         } else {
             // ex: config 10, target 9, result false
-            if value.parse::<i32>().unwrap() != target {
+            if value.parse::<u32>().unwrap() != target {
                 return false;
             }
         }
@@ -889,14 +889,14 @@ fn value_compare(config: Option<String>, target: i32) -> bool {
 }
 
 impl TrendCriteria {
-    pub fn up_compare(&self, up: i32) -> bool {
+    pub fn up_compare(&self, up: u32) -> bool {
         if let Some(value) = &self.up {
             value_compare(Some(value.to_string()), up)
         } else {
             true
         }
     }
-    pub fn down_compare(&self, down: i32) -> bool {
+    pub fn down_compare(&self, down: u32) -> bool {
         if let Some(value) = &self.down {
             value_compare(Some(value.to_string()), down)
         } else {
