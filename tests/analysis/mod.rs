@@ -5,7 +5,7 @@ use sminer::{
     persist::es::{take_index_time, ticker_index_name},
     vo::{
         biz::{MarketHoursType, Protfolio, QuoteType, TimeUnit, TradeInfo},
-        core::{AppConfig, AppContext},
+        core::{AppConfig, AppContext, KEY_EXTRA_PRCOESS_IN_ASYNC},
     },
     Result,
 };
@@ -56,20 +56,21 @@ fn test_replay() -> Result<()> {
     Ok(())
 }
 
+// cargo test --package sminer --test tests -- analysis::test_replay_async --exact --nocapture --ignored
 #[test]
 #[ignore = "manually run only, replay from file"]
-fn test_rexxxplay_async() -> Result<()> {
+fn test_replay_async() -> Result<()> {
     let rt = Runtime::new()?;
     let result: Result<()> = rt.block_on(async {
         init_log("INFO").await?;
         let config = AppConfig::load("config.yaml")?;
-        //config.extra_put(KEY_EXTRA_PRCOESS_IN_ASYNC, "async_mode"); // enable for save data
+        config.extra_put(KEY_EXTRA_PRCOESS_IN_ASYNC, "async_mode"); // enable for save data
         let context = AppContext::new(config).init().await?;
         let config = context.config();
         let persistence = context.persistence();
 
         let files = vec![
-            "tickers20220309",
+            "bak/202203/tickers20220309",
             // "tickers20220310",
             // "tickers20220311",
             // "tickers20220314",
@@ -90,12 +91,7 @@ fn test_rexxxplay_async() -> Result<()> {
                 let index_name = ticker_index_name(&index_time);
                 persistence.delete_index(&index_name).await?;
             }
-            replay(
-                &context,
-                &format!("tmp/{}", &file),
-                ReplayMode::Async { delay: 50 },
-            )
-            .await?
+            replay(&context, &file, ReplayMode::Async { delay: 50 }).await?
         }
         Ok(())
     });
