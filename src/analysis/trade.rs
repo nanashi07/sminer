@@ -840,17 +840,17 @@ pub fn rebound_all(trade: &TradeInfo) -> Vec<TradeTrendInfo> {
     trade
         .states
         .iter()
-        .map(|(key, values)| rebound(&key, &values))
+        .map(|(key, values)| rebound(&key, 0, &values))
         .collect::<Vec<TradeTrendInfo>>()
 }
 
-pub fn rebound(unit: &str, slopes: &Vec<f64>) -> TradeTrendInfo {
+pub fn rebound(unit: &str, from: usize, slopes: &Vec<f64>) -> TradeTrendInfo {
     let mut trend = Trend::Upward;
     let mut count = 0;
     let mut last_slope = f64::NAN;
     let mut sections: Vec<u32> = Vec::new();
 
-    for (index, value) in slopes.iter().enumerate() {
+    for (index, value) in slopes.iter().skip(from).enumerate() {
         let slope = *value;
 
         if index == 0 && slope < 0.0 {
@@ -982,46 +982,68 @@ fn validate_trend(
     trend_rules: &Vec<TrendCriteria>,
 ) -> bool {
     for trend_rule in trend_rules {
-        if let Some(_from) = &trend_rule.from {
-            // TODO
+        let mut trend_from = 0;
+        let trend_to = trend_rule.to[1..].parse::<usize>().unwrap();
+        if let Some(from) = &trend_rule.from {
+            trend_from = from[1..].parse::<usize>().unwrap();
+        }
+
+        // calculate min duration
+        let keys: Vec<String> = trade.states.keys().map(|k| k.to_string()).collect();
+        let duration = get_min_duration(trend_to - trend_from, &keys).unwrap();
+
+        let rebound = rebound(&duration, trend_from, trade.states.get(&duration).unwrap());
+        let actual_trend = rebound.trend;
+        let expected_trend = &trend_rule.trend;
+
+        if &actual_trend != expected_trend {
+            return false;
+        }
+
+        let first_section = rebound.sections[0];
+        let second_section = if rebound.sections.len() > 1 {
+            rebound.sections[1]
         } else {
-            let rebound = rebound(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
-            let actual_trend = rebound.trend;
-            let target_trend = &trend_rule.trend;
+            0
+        };
 
-            if &actual_trend != target_trend {
-                return false;
-            }
-
-            let first_section = rebound.sections[0];
-            let second_section = if rebound.sections.len() > 1 {
-                rebound.sections[1]
-            } else {
-                0
-            };
-
-            match actual_trend {
-                Trend::Upward => {
-                    if !trend_rule.up_compare(first_section) {
-                        return false;
-                    }
-                    if !trend_rule.down_compare(second_section) {
-                        return false;
-                    }
+        match actual_trend {
+            Trend::Upward => {
+                if !trend_rule.up_compare(first_section) {
+                    return false;
                 }
-                Trend::Downward => {
-                    if !trend_rule.down_compare(first_section) {
-                        return false;
-                    }
-                    if !trend_rule.up_compare(second_section) {
-                        return false;
-                    }
+                if !trend_rule.down_compare(second_section) {
+                    return false;
+                }
+            }
+            Trend::Downward => {
+                if !trend_rule.down_compare(first_section) {
+                    return false;
+                }
+                if !trend_rule.up_compare(second_section) {
+                    return false;
                 }
             }
         }
     }
 
     true
+}
+
+pub fn get_min_duration(duration: usize, keys: &Vec<String>) -> Result<String> {
+    let mut values: Vec<usize> = keys
+        .iter()
+        .map(|key| key[1..].parse::<usize>().unwrap())
+        .collect();
+
+    values.sort();
+    values.reverse();
+    for value in values {
+        if duration % value == 0 {
+            return Ok(format!("m{:04}", value));
+        }
+    }
+    panic!("No available minimal duration found");
 }
 
 fn validate_deviation(

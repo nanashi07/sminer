@@ -8,6 +8,7 @@ export -f get_name
 
 PATTERN=$1
 
+mkdir -p replay
 ./target/release/sminer annotate
 
 if [[ "$PATTERN" == "" ]];

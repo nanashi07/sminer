@@ -8,7 +8,7 @@ services:
     ports:
       - 27017:27017
     volumes:
-      - ./data/mongo:/data/db
+      - ./data/mongo:/data/db:Z
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -34,7 +34,7 @@ services:
     environment:
       discovery.type: single-node
     volumes:
-      - ./data/es/data:/usr/share/elasticsearch/data
+      - ./data/es/data:/usr/share/elasticsearch/data:Z
       # - ./data/es/config:/usr/share/elasticsearch/config
 
   kibana:
@@ -53,6 +53,6 @@ services:
     ports:
       - 8091:3000
     volumes:
-      - ./data/grafana/lib:/var/lib/grafana
-      # - ./data/grafana/etc:/etc/grafana
+      - ./data/grafana/lib:/var/lib/grafana:Z
+        # - ./data/grafana/etc:/etc/grafana
 

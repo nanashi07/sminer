@@ -1,6 +1,6 @@
 use super::trade::{
-    find_max_price, find_min_price, find_min_price_time, flash, rebound, rebound_all, slug,
-    validate_audit_rule,
+    find_max_price, find_min_price, find_min_price_time, flash, get_min_duration, rebound,
+    rebound_all, slug, validate_audit_rule,
 };
 use crate::{
     vo::{
@@ -285,43 +285,50 @@ fn buffer_matched_rules(
     for (index, rule) in mode.rules.iter().enumerate() {
         for trend_rule in &rule.trends {
             let mut result = true;
-            if let Some(_from) = &trend_rule.from {
-                // TODO
+            let mut trend_from = 0;
+            let trend_to = trend_rule.to[1..].parse::<usize>().unwrap();
+            if let Some(from) = &trend_rule.from {
+                trend_from = from[1..].parse::<usize>().unwrap();
+            }
+
+            // calculate min duration
+            let keys: Vec<String> = trade.states.keys().map(|k| k.to_string()).collect();
+            let duration = get_min_duration(trend_to - trend_from, &keys).unwrap();
+
+            let rebound = rebound(&duration, trend_from, trade.states.get(&duration).unwrap());
+            let actual_trend = rebound.trend;
+            let expected_trend = &trend_rule.trend;
+
+            if &actual_trend != expected_trend {
+                result = false;
+            }
+
+            let first_section = rebound.sections[0];
+            let second_section = if rebound.sections.len() > 1 {
+                rebound.sections[1]
             } else {
-                let rebound = rebound(&trend_rule.to, trade.states.get(&trend_rule.to).unwrap());
-                let actual_trend = rebound.trend;
-                let target_trend = &trend_rule.trend;
+                0
+            };
 
-                if &actual_trend != target_trend {
-                    result = false;
-                }
-
-                let first_section = rebound.sections[0];
-                let second_section = if rebound.sections.len() > 1 {
-                    rebound.sections[1]
-                } else {
-                    0
-                };
-
-                match actual_trend {
-                    Trend::Upward => {
-                        if !trend_rule.up_compare(first_section) {
-                            result = false;
-                        }
-                        if !trend_rule.down_compare(second_section) {
-                            result = false;
-                        }
+            match actual_trend {
+                Trend::Upward => {
+                    if !trend_rule.up_compare(first_section) {
+                        result = false;
                     }
-                    Trend::Downward => {
-                        if !trend_rule.up_compare(second_section) {
-                            result = false;
-                        }
-                        if !trend_rule.down_compare(first_section) {
-                            result = false;
-                        }
+                    if !trend_rule.down_compare(second_section) {
+                        result = false;
+                    }
+                }
+                Trend::Downward => {
+                    if !trend_rule.down_compare(first_section) {
+                        result = false;
+                    }
+                    if !trend_rule.up_compare(second_section) {
+                        result = false;
                     }
                 }
             }
+
             buffered.push(format!(
                 "[{}/{:?}] {} trend, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?} = {}",
                 index,
@@ -506,6 +513,7 @@ pub fn print_meta(
     order: Option<Order>,
     trade: &TradeInfo,
 ) -> Result<()> {
+    // temp
     if order.is_none() {
         return Ok(());
     }
