@@ -56,7 +56,8 @@ trade:
       - to: m0360
         value: 0.0175
       lowers:
-      - to: m0070
+      - to: m0120
+        compareTo: m0070
         duration: 10
   slug:
     lossMarginRate: 0.003
@@ -89,15 +90,23 @@ trade:
         trend: Upward
       - to: m0010
         trend: Upward
+      # - from: m0060
+      #   trend: Downward
+      #   to: m00240
+      #   down: '1+'
       deviations:
       - to: m0120
         value: 0.002
       oscillations:
       - to: m0300
-        value: 0.008
-      # lowers:
-      # - to: m1200
-      #   duration: 10
+        value: 0.007
+      lowers:
+        # search range for lower price
+      - to: m0300
+        # recent min price range
+        compareTo: m0120
+        # based time unit
+        duration: 10
   revert:
     lossMarginRate: 0.0
     rules:

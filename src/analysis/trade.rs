@@ -3,8 +3,8 @@ use crate::{
     persist::grafana::add_order_annotation,
     vo::{
         biz::{
-            AuditState, MarketHoursType, Order, PricePair, Protfolio, TotalProfit, TradeInfo,
-            TradeTrend, TradeTrendInfo, Trend,
+            AuditState, MarketHoursType, Order, PricePair, TotalProfit, TradeInfo, TradeTrend,
+            TradeTrendInfo, Trend,
         },
         core::{
             AppConfig, AssetContext, AuditRule, DeviationCriteria, LowerCriteria,
@@ -758,31 +758,6 @@ fn recognize_loss(
     price < order_price && (order_price - price) / order_price > margin_rate
 }
 
-pub fn find_min_price_time(
-    asset: Arc<AssetContext>,
-    symbol: &str,
-    unit: &str,
-    start: usize,
-    min_price: f32,
-) -> Option<Protfolio> {
-    if let Some(lock) = asset.get_protfolios(symbol, unit) {
-        let reader = lock.read().unwrap();
-        if reader.is_empty() {
-            None
-        } else {
-            if let Some(last_protfolio) =
-                reader.iter().skip(start).find(|p| p.min_price < min_price)
-            {
-                Some(last_protfolio.clone())
-            } else {
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
-
 pub fn find_min_price(
     asset: Arc<AssetContext>,
     symbol: &str,
@@ -1166,7 +1141,7 @@ fn validate_lower(
         // parse period from key (ex: m0070 => 70 / 10 = 7)
         let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / duration;
 
-        // min price
+        // get min price from wider range
         let min_price = find_min_price(
             Arc::clone(&asset),
             &trade.id,
@@ -1177,28 +1152,18 @@ fn validate_lower(
 
         // find price time lower than min_price before
         if min_price.is_normal() {
-            if let Some(last_protfolio) =
-                find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
-            {
-                // there is lower price than catched min price with this duration
-                let last_time = last_protfolio.time;
-                if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
-                    debug!(
-                        "validate lower failed, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
-                        period_from * duration,
-                        period_to * duration,
-                        min_price,
-                        last_protfolio.min_price,
-                        Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
-                        (trade.time - last_time) / 1000
-                    );
-                    return false;
-                }
-            } else {
-                // no trade found, there is no lower price than current min price
+            let recent_period_to = lower_rule.compare_to[1..].parse::<usize>().unwrap() / duration;
+            let recent_min_price = find_min_price(
+                Arc::clone(&asset),
+                &trade.id,
+                &base_unit,
+                0,
+                recent_period_to,
+            );
+
+            if !recent_min_price.is_normal() || recent_min_price > min_price {
+                return false;
             }
-        } else {
-            return false;
         };
     }
 

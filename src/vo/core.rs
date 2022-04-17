@@ -923,6 +923,8 @@ pub struct OscillationCriteria {
 pub struct LowerCriteria {
     pub from: Option<String>,
     pub to: String,
+    #[serde(rename = "compareTo")]
+    pub compare_to: String,
     pub duration: u32,
 }
 

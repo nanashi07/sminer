@@ -1,6 +1,6 @@
 use super::trade::{
-    find_max_price, find_min_price, find_min_price_time, flash, get_min_duration, rebound,
-    rebound_all, slug, validate_audit_rule,
+    find_max_price, find_min_price, flash, get_min_duration, rebound, rebound_all, slug,
+    validate_audit_rule,
 };
 use crate::{
     vo::{
@@ -431,7 +431,7 @@ fn buffer_matched_rules(
             // parse period from key (ex: m0070 => 70 / 10 = 7)
             let period_to = lower_rule.to[1..].parse::<usize>().unwrap() / duration;
 
-            // min price
+            // get min price from wider range
             let min_price = find_min_price(
                 Arc::clone(&asset),
                 &trade.id,
@@ -441,40 +441,43 @@ fn buffer_matched_rules(
             );
 
             // find price time lower than min_price before
+            let mut recent_min_price = f32::NAN;
             if min_price.is_normal() {
-                if let Some(last_protfolio) =
-                    find_min_price_time(Arc::clone(&asset), &trade.id, &base_unit, 0, min_price)
-                {
-                    // there is lower price than catched min price with this duration
-                    let last_time = last_protfolio.time;
-                    if last_time > Utc::now().timestamp_millis() - lower_rule.duration as i64 {
-                        buffered.push(format!(
-                            "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {}, last min price: {} at {} ({}s before)",
-                            index,
-                            rule.mode,
-                            mode_name,
-                            period_from * duration,
-                            period_to * duration,
-                            min_price,
-                            last_protfolio.min_price,
-                            Utc.timestamp_millis(last_time).format("%Y-%m-%d %H:%M:%s"),
-                            (trade.time - last_time) / 1000
-                        ));
-                        continue;
-                    }
+                let recent_period_to =
+                    lower_rule.compare_to[1..].parse::<usize>().unwrap() / duration;
+                recent_min_price = find_min_price(
+                    Arc::clone(&asset),
+                    &trade.id,
+                    &base_unit,
+                    0,
+                    recent_period_to,
+                );
+
+                if !recent_min_price.is_normal() || recent_min_price > min_price {
+                    buffered.push(format!(
+                        "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {}, recent min price: {} in {} = false",
+                        index,
+                        rule.mode,
+                        mode_name,
+                        period_from * duration,
+                        period_to * duration,
+                        min_price,
+                        recent_min_price,
+                        &lower_rule.compare_to[1..]
+                    ));
+                    continue;
                 }
             };
             buffered.push(format!(
-                "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {:?}, last min price: {:?} at {:?} ({:?}s before)",
+                "[{}/{:?}] {} lower, period: {:04} - {:04}, min price: {}, recent min price: {} in {} = true",
                 index,
                 rule.mode,
                 mode_name,
                 period_from * duration,
                 period_to * duration,
                 min_price,
-                "",
-                "",
-                ""
+                recent_min_price,
+                &lower_rule.compare_to[1..]
             ));
         }
 
