@@ -26,6 +26,7 @@ use std::{
     fmt::Debug,
     fs::File,
     io::{BufRead, BufReader},
+    path::Path,
     sync::Arc,
 };
 
@@ -162,6 +163,33 @@ impl ElasticTicker {
         }
         Ok(())
     }
+
+    pub async fn batch_save_to_elasticsearch(
+        datasource: Arc<PersistenceContext>,
+        items: &Vec<ElasticTicker>,
+    ) -> Result<()> {
+        let index_name = ticker_index_name(&items[0].timestamp());
+
+        let mut body: Vec<JsonBody<_>> = Vec::new();
+        for item in items {
+            body.push(json!({"index": {}}).into());
+            body.push(json!(item).into());
+        }
+
+        let client: Elasticsearch = datasource.get_connection()?;
+        let response = client
+            .bulk(BulkParts::Index(&index_name))
+            .body(body)
+            .send()
+            .await?;
+
+        let successful = response.status_code().is_success();
+        datasource.close_connection(client)?;
+        if !successful {
+            warn!("result = {:?}", response);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -195,7 +223,11 @@ impl ElasticTrade {
 }
 
 fn take_digitals(str: &str) -> String {
-    str.chars().filter(|c| c.is_numeric()).collect::<String>()
+    let filename = Path::new(str).file_name().unwrap().to_str().unwrap();
+    filename
+        .chars()
+        .filter(|c| c.is_numeric())
+        .collect::<String>()
 }
 
 pub fn take_index_time(name: &str) -> DateTime<Utc> {

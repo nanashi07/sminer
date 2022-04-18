@@ -25,7 +25,10 @@ use std::{
     fs::{create_dir_all, remove_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread::sleep,
     time::Duration,
 };
@@ -41,11 +44,8 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
         loop {
-            match handle_message_for_persist_mongo(&mut rx, &ctx).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for mongo error: {:?}", err);
-                }
+            if let Err(err) = handle_message_for_persist_mongo(&mut rx, &ctx).await {
+                error!("Handle ticker for mongo error: {:?}", err);
             }
         }
     });
@@ -54,12 +54,13 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let mut rx = post_man.subscribe_store();
     let ctx = Arc::clone(&persistence);
     tokio::spawn(async move {
+        let buffer: Mutex<Vec<ElasticTicker>> = Mutex::new(Vec::new());
+        let mut lock: AtomicBool = AtomicBool::new(false);
         loop {
-            match handle_message_for_persist_elasticsearch(&mut rx, &ctx).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for elasticsearch error: {:?}", err);
-                }
+            if let Err(err) =
+                handle_message_for_persist_elasticsearch(&mut rx, &buffer, &mut lock, &ctx).await
+            {
+                error!("Handle ticker for elasticsearch error: {:?}", err);
             }
         }
     });
@@ -69,11 +70,8 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let root = Arc::clone(&context);
     tokio::spawn(async move {
         loop {
-            match handle_message_for_preparatory(&mut rx, &root).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("Handle ticker for preparatory error: {:?}", err);
-                }
+            if let Err(err) = handle_message_for_preparatory(&mut rx, &root).await {
+                error!("Handle ticker for preparatory error: {:?}", err);
             }
         }
     });
@@ -84,11 +82,8 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         let root = Arc::clone(&context);
         tokio::spawn(async move {
             loop {
-                match handle_message_for_trade(&mut rx, &root).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("Handle ticker for preparatory error: {:?}", err);
-                    }
+                if let Err(err) = handle_message_for_trade(&mut rx, &root).await {
+                    error!("Handle ticker for preparatory error: {:?}", err);
                 }
             }
         });
@@ -107,11 +102,10 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
             let unit = unit.clone();
             tokio::spawn(async move {
                 loop {
-                    match handle_message_for_calculator(&mut rx, &root, &symbol, &unit).await {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("Handle ticker for calculator error: {:?}", err);
-                        }
+                    if let Err(err) =
+                        handle_message_for_calculator(&mut rx, &root, &symbol, &unit).await
+                    {
+                        error!("Handle ticker for calculator error: {:?}", err);
                     }
                 }
             });
@@ -135,12 +129,35 @@ async fn handle_message_for_persist_mongo(
 
 async fn handle_message_for_persist_elasticsearch(
     rx: &mut Receiver<TickerEvent>,
+    buffer: &Mutex<Vec<ElasticTicker>>,
+    lock: &mut AtomicBool,
     context: &Arc<PersistenceContext>,
 ) -> Result<()> {
     let ticker: ElasticTicker = rx.recv().await?.into();
     let config = context.config();
     if config.sync_elasticsearch_enabled() {
-        ticker.save_to_elasticsearch(Arc::clone(&context)).await?;
+        // push into list anyway
+        {
+            let mut guard = buffer.lock().unwrap();
+            guard.push(ticker);
+        }
+
+        // do batch
+        if !lock.load(Ordering::Relaxed) {
+            *lock.get_mut() = true;
+
+            // move all items to tmp
+            let mut tmp: Vec<ElasticTicker> = Vec::new();
+            {
+                let mut guard = buffer.lock().unwrap();
+                while !guard.is_empty() {
+                    tmp.push(guard.pop().unwrap());
+                }
+            }
+
+            ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&context), &tmp).await?;
+            *lock.get_mut() = false;
+        }
     }
     Ok(())
 }
