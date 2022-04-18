@@ -34,7 +34,7 @@ impl DataSource<Client> for PersistenceContext {
         let mut pool = mutex.lock().unwrap();
         if pool.is_empty() {
             // TODO: send command for creating connection
-            for _ in 10..0 {
+            for _ in 0..10 {
                 if pool.is_empty() {
                     info!("sleep for 1s");
                     thread::sleep(std::time::Duration::from_secs(1));
@@ -91,9 +91,12 @@ impl Ticker {
 pub async fn get_start_time(context: Arc<PersistenceContext>, config: Arc<AppConfig>) -> i64 {
     let db_name = config.data_source.mongodb.target.as_ref().unwrap();
     let now = Utc::now().timestamp_millis();
-    get_reglar_market_start_time(&context.get_connection().unwrap(), db_name, now)
+    let client = context.get_connection().unwrap();
+    let start_time = get_reglar_market_start_time(&client, db_name, now)
         .await
-        .unwrap()
+        .unwrap();
+    context.close_connection(client).unwrap();
+    start_time
 }
 
 pub async fn get_reglar_market_start_time(
@@ -186,6 +189,8 @@ pub async fn import(context: &AppContext, path: &str) -> Result<()> {
     typed_collection.insert_many(tickers, None).await?;
     info!("Import {} done", &path);
 
+    persistence.close_connection(client)?;
+
     Ok(())
 }
 
@@ -215,6 +220,7 @@ pub async fn export(context: &AppContext, name: &str) -> Result<()> {
         write!(&mut writer, "{}\n", &json)?;
     }
     info!("File {} exported", &path);
+    persistence.close_connection(client)?;
 
     Ok(())
 }
