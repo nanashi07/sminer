@@ -508,7 +508,6 @@ pub fn audit_trade(
                     }
                 } else {
                     if rival_price_change_rate > 0.0 && profit_increased.unwrap_or(true) {
-                        // TODO: find the best rate number
                         // early sell even if there is no match rule found
                         if rival_price_change_rate > 0.005 || price_change_rate < -0.005 {
                             debug!("[{}] take profit, price = {}", &trade.id, &trade.price);
@@ -526,7 +525,7 @@ pub fn audit_trade(
                         }
                         // early sell when the trend is starting to go down
                         else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
-                            info!(
+                            debug!(
                                 "[{}] early clear, price = {}, change rate = {:.5}/{:.5}",
                                 &trade.id, &trade.price, rival_price_change_rate, price_change_rate,
                             );
