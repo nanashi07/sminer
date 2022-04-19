@@ -2327,7 +2327,7 @@ checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
 
 [[package]]
 name = "sminer"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "base64 0.13.0",
  "bytes 1.1.0",

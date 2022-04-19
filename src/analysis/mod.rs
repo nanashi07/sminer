@@ -69,6 +69,9 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
                     if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
                         error!("Save ticker for mongo error: {:?}", err)
                     }
+                } else {
+                    // avoid busy loop
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
         });
@@ -111,6 +114,9 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
                     {
                         error!("Save ticker for elasticsearch error: {:?}", err);
                     }
+                } else {
+                    // avoid busy loop
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
         });
