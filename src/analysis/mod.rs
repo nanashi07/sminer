@@ -39,31 +39,49 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let post_man = context.post_man();
     let persistence = context.persistence();
 
-    info!("Initialize mongo event persist handler");
-    let mut rx = post_man.subscribe_store();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        loop {
-            if let Err(err) = handle_message_for_persist_mongo(&mut rx, &ctx).await {
-                error!("Handle ticker for mongo error: {:?}", err);
+    if config.sync_mongo_enabled() {
+        info!("Initialize mongo event persist handler");
+        let mut rx = post_man.subscribe_store();
+        let ctx = Arc::clone(&persistence);
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        let ticker: Ticker = event.into();
+                        let ctx = Arc::clone(&ctx);
+                        tokio::spawn(async move {
+                            if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
+                                error!("Save ticker for mongo error: {:?}", err)
+                            }
+                        });
+                    }
+                    Err(err) => error!("Handle ticker for mongo error: {:?}", err),
+                }
             }
-        }
-    });
+        });
+    }
 
-    info!("Initialize elasticsearch event persist handler");
-    let mut rx = post_man.subscribe_store();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        let buffer: Mutex<Vec<ElasticTicker>> = Mutex::new(Vec::new());
-        let mut lock: AtomicBool = AtomicBool::new(false);
-        loop {
-            if let Err(err) =
-                handle_message_for_persist_elasticsearch(&mut rx, &buffer, &mut lock, &ctx).await
-            {
-                error!("Handle ticker for elasticsearch error: {:?}", err);
+    if config.sync_elasticsearch_enabled() {
+        info!("Initialize elasticsearch event persist handler");
+        let mut rx = post_man.subscribe_store();
+        let ctx = Arc::clone(&persistence);
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        let ticker: ElasticTicker = event.into();
+                        let ctx = Arc::clone(&ctx);
+                        tokio::spawn(async move {
+                            if let Err(err) = ticker.save_to_elasticsearch(Arc::clone(&ctx)).await {
+                                error!("Save ticker for elasticsearch error: {:?}", err);
+                            }
+                        });
+                    }
+                    Err(err) => error!("Handle ticker for elasticsearch error: {:?}", err),
+                }
             }
-        }
-    });
+        });
+    }
 
     info!("Initialize event preparatory handler");
     let mut rx = post_man.subscribe_prepare();

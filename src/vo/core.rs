@@ -7,7 +7,7 @@ use crate::{
     proto::biz::TickerEvent,
     Result,
 };
-use chrono::{Duration, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use config::Config;
 use log::*;
 use rayon::prelude::*;
@@ -92,7 +92,7 @@ impl AppContext {
         let volume_diff = max(0, ticker.day_volume - self.last_volume(&ticker.id));
 
         // send to persist
-        if self.config.sync_mongo_enabled() || self.config.sync_elasticsearch_enabled() {
+        if self.config().sync_mongo_enabled() || self.config().sync_elasticsearch_enabled() {
             let mut event: TickerEvent = ticker.into();
             // calculate volume
             event.volume = volume_diff;
@@ -367,6 +367,12 @@ impl AssetContext {
         // regular market duration: 390 min, 30 min to exit consuming after regular market
         let duration = Duration::minutes(390 + 30).num_milliseconds();
         let start_time = self.get_regular_start_time();
+        log::info!(
+            "start time = {}, end time = {}, now = {}",
+            Utc.timestamp_millis(start_time).to_rfc3339(),
+            Utc.timestamp_millis(start_time + duration).to_rfc3339(),
+            Utc.timestamp_millis(time).to_rfc3339()
+        );
         start_time > 0 && time > start_time + duration
     }
 

@@ -74,7 +74,7 @@ pub async fn consume(context: &Arc<AppContext>, addr: &str, symbols: &Vec<String
         if connected {
             match handle_message(&Arc::clone(&context), &mut client).await {
                 Ok(HandleResult::NexMessage) => {
-                    continue;
+                    debug!("handle message success");
                 }
                 Ok(HandleResult::LiveCheck(data)) => {
                     pong(&mut client, data).await?;
