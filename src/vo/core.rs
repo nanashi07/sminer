@@ -92,7 +92,7 @@ impl AppContext {
         let volume_diff = max(0, ticker.day_volume - self.last_volume(&ticker.id));
 
         // send to persist
-        if self.config.sync_mongo_enabled() || self.config.sync_elasticsearch_enabled() {
+        if self.config().sync_mongo_enabled() || self.config().sync_elasticsearch_enabled() {
             let mut event: TickerEvent = ticker.into();
             // calculate volume
             event.volume = volume_diff;
@@ -109,7 +109,7 @@ impl AppContext {
         match ticker.market_hours {
             MarketHoursType::PreMarket => {
                 // update time of pre-market for getting regular market start time
-                asset.update_regular_start_time(ticker.time);
+                asset.set_regular_start_time(ticker.time);
             }
             MarketHoursType::RegularMarket => {
                 // runtime broken and restarted while regular market period
@@ -174,7 +174,7 @@ impl AppContext {
             match ticker.market_hours {
                 MarketHoursType::PreMarket => {
                     // update time of pre-market for getting regular market start time
-                    asset.update_regular_start_time(ticker.time);
+                    asset.set_regular_start_time(ticker.time);
                 }
                 _ => {}
             }
@@ -335,11 +335,6 @@ impl AssetContext {
         *guard += 1;
         let value = *guard;
         value
-    }
-
-    pub fn update_regular_start_time(&self, time: i64) {
-        let mut start_time = self.regular_start_time.lock().unwrap();
-        *start_time = time;
     }
 
     pub fn set_regular_start_time(&self, value: i64) {

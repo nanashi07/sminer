@@ -5,12 +5,9 @@ pub mod trade;
 use self::trade::prepare_trade;
 use crate::{
     analysis::{computor::draw_slop_lines, debug::profit_evaluate},
-    persist::{
-        es::{
-            bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
-            ElasticTicker, ElasticTrade,
-        },
-        PersistenceContext,
+    persist::es::{
+        bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
+        ElasticTicker, ElasticTrade,
     },
     proto::biz::TickerEvent,
     vo::{
@@ -25,45 +22,99 @@ use std::{
     fs::{create_dir_all, remove_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    sync::Arc,
     thread::sleep,
     time::Duration,
 };
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::{broadcast::Receiver, RwLock};
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let config = context.config();
     let post_man = context.post_man();
     let persistence = context.persistence();
 
-    info!("Initialize mongo event persist handler");
-    let mut rx = post_man.subscribe_store();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        loop {
-            if let Err(err) = handle_message_for_persist_mongo(&mut rx, &ctx).await {
-                error!("Handle ticker for mongo error: {:?}", err);
-            }
-        }
-    });
+    if config.sync_mongo_enabled() {
+        info!("Initialize mongo event persist handler");
+        let mut rx = post_man.subscribe_store();
+        let buffer: Arc<RwLock<Vec<Ticker>>> = Arc::new(RwLock::new(Vec::new()));
 
-    info!("Initialize elasticsearch event persist handler");
-    let mut rx = post_man.subscribe_store();
-    let ctx = Arc::clone(&persistence);
-    tokio::spawn(async move {
-        let buffer: Mutex<Vec<ElasticTicker>> = Mutex::new(Vec::new());
-        let mut lock: AtomicBool = AtomicBool::new(false);
-        loop {
-            if let Err(err) =
-                handle_message_for_persist_elasticsearch(&mut rx, &buffer, &mut lock, &ctx).await
-            {
-                error!("Handle ticker for elasticsearch error: {:?}", err);
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        let ticker: Ticker = event.into();
+                        let mut guard = temp.write().await;
+                        guard.push(ticker);
+                    }
+                    Err(err) => error!("Handle ticker for mongo error: {:?}", err),
+                }
             }
-        }
-    });
+        });
+
+        let ctx = Arc::clone(&persistence);
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                let mut guard = temp.write().await;
+                if let Some(event) = guard.pop() {
+                    let ticker: Ticker = event.into();
+                    let ctx = Arc::clone(&ctx);
+                    if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
+                        error!("Save ticker for mongo error: {:?}", err)
+                    }
+                } else {
+                    // avoid busy wait
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+            }
+        });
+    }
+
+    if config.sync_elasticsearch_enabled() {
+        info!("Initialize elasticsearch event persist handler");
+        let mut rx = post_man.subscribe_store();
+        let buffer: Arc<RwLock<Vec<ElasticTicker>>> = Arc::new(RwLock::new(Vec::new()));
+
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        let ticker: ElasticTicker = event.into();
+                        let mut guard = temp.write().await;
+                        guard.push(ticker);
+                    }
+                    Err(err) => error!("Handle ticker for elasticsearch error: {:?}", err),
+                }
+            }
+        });
+
+        let ctx = Arc::clone(&persistence);
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                let mut guard = temp.write().await;
+                let mut items: Vec<ElasticTicker> = Vec::new();
+                while let Some(item) = guard.pop() {
+                    items.push(item);
+                }
+                std::mem::drop(guard);
+
+                if !items.is_empty() {
+                    let ctx = Arc::clone(&ctx);
+                    if let Err(err) =
+                        ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&ctx), &items).await
+                    {
+                        error!("Save ticker for elasticsearch error: {:?}", err);
+                    }
+                } else {
+                    // avoid busy wait
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+            }
+        });
+    }
 
     info!("Initialize event preparatory handler");
     let mut rx = post_man.subscribe_prepare();
@@ -112,53 +163,6 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-async fn handle_message_for_persist_mongo(
-    rx: &mut Receiver<TickerEvent>,
-    context: &Arc<PersistenceContext>,
-) -> Result<()> {
-    let ticker: Ticker = rx.recv().await?.into();
-    let config = context.config();
-    if config.sync_mongo_enabled() {
-        ticker.save_to_mongo(Arc::clone(context)).await?;
-    }
-    Ok(())
-}
-
-async fn handle_message_for_persist_elasticsearch(
-    rx: &mut Receiver<TickerEvent>,
-    buffer: &Mutex<Vec<ElasticTicker>>,
-    lock: &mut AtomicBool,
-    context: &Arc<PersistenceContext>,
-) -> Result<()> {
-    let ticker: ElasticTicker = rx.recv().await?.into();
-    let config = context.config();
-    if config.sync_elasticsearch_enabled() {
-        // push into list anyway
-        {
-            let mut guard = buffer.lock().unwrap();
-            guard.push(ticker);
-        }
-
-        // do batch
-        if !lock.load(Ordering::Relaxed) {
-            *lock.get_mut() = true;
-
-            // move all items to tmp
-            let mut tmp: Vec<ElasticTicker> = Vec::new();
-            {
-                let mut guard = buffer.lock().unwrap();
-                while !guard.is_empty() {
-                    tmp.push(guard.pop().unwrap());
-                }
-            }
-
-            ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&context), &tmp).await?;
-            *lock.get_mut() = false;
-        }
-    }
     Ok(())
 }
 

@@ -104,7 +104,7 @@ pub async fn get_reglar_market_start_time(
     db_name: &str,
     time: i64,
 ) -> Result<i64> {
-    let start_time = time % Duration::days(1).num_milliseconds();
+    let start_time = time - time % Duration::days(1).num_milliseconds();
     let end_time = start_time + Duration::days(1).num_milliseconds();
     let collection_name = format!("tickers{}", Utc.timestamp_millis(time).format("%Y%m%d"));
     let db = client.database(db_name);
