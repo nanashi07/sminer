@@ -362,12 +362,6 @@ impl AssetContext {
         // regular market duration: 390 min, 30 min to exit consuming after regular market
         let duration = Duration::minutes(390 + 30).num_milliseconds();
         let start_time = self.get_regular_start_time();
-        log::info!(
-            "start time = {}, end time = {}, now = {}",
-            Utc.timestamp_millis(start_time).to_rfc3339(),
-            Utc.timestamp_millis(start_time + duration).to_rfc3339(),
-            Utc.timestamp_millis(time).to_rfc3339()
-        );
         start_time > 0 && time > start_time + duration
     }
 

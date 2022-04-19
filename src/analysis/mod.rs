@@ -32,7 +32,7 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::{broadcast::Receiver, RwLock};
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let config = context.config();
@@ -42,20 +42,33 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     if config.sync_mongo_enabled() {
         info!("Initialize mongo event persist handler");
         let mut rx = post_man.subscribe_store();
-        let ctx = Arc::clone(&persistence);
+        let buffer: Arc<RwLock<Vec<Ticker>>> = Arc::new(RwLock::new(Vec::new()));
+
+        let temp = Arc::clone(&buffer);
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(event) => {
                         let ticker: Ticker = event.into();
-                        let ctx = Arc::clone(&ctx);
-                        tokio::spawn(async move {
-                            if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
-                                error!("Save ticker for mongo error: {:?}", err)
-                            }
-                        });
+                        let mut guard = temp.write().await;
+                        guard.push(ticker);
                     }
                     Err(err) => error!("Handle ticker for mongo error: {:?}", err),
+                }
+            }
+        });
+
+        let ctx = Arc::clone(&persistence);
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                let mut guard = temp.write().await;
+                if let Some(event) = guard.pop() {
+                    let ticker: Ticker = event.into();
+                    let ctx = Arc::clone(&ctx);
+                    if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
+                        error!("Save ticker for mongo error: {:?}", err)
+                    }
                 }
             }
         });
@@ -64,20 +77,40 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     if config.sync_elasticsearch_enabled() {
         info!("Initialize elasticsearch event persist handler");
         let mut rx = post_man.subscribe_store();
-        let ctx = Arc::clone(&persistence);
+        let buffer: Arc<RwLock<Vec<ElasticTicker>>> = Arc::new(RwLock::new(Vec::new()));
+
+        let temp = Arc::clone(&buffer);
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(event) => {
                         let ticker: ElasticTicker = event.into();
-                        let ctx = Arc::clone(&ctx);
-                        tokio::spawn(async move {
-                            if let Err(err) = ticker.save_to_elasticsearch(Arc::clone(&ctx)).await {
-                                error!("Save ticker for elasticsearch error: {:?}", err);
-                            }
-                        });
+                        let mut guard = temp.write().await;
+                        guard.push(ticker);
                     }
                     Err(err) => error!("Handle ticker for elasticsearch error: {:?}", err),
+                }
+            }
+        });
+
+        let ctx = Arc::clone(&persistence);
+        let temp = Arc::clone(&buffer);
+        tokio::spawn(async move {
+            loop {
+                let mut guard = temp.write().await;
+                let mut items: Vec<ElasticTicker> = Vec::new();
+                while let Some(item) = guard.pop() {
+                    items.push(item);
+                }
+                std::mem::drop(guard);
+
+                if !items.is_empty() {
+                    let ctx = Arc::clone(&ctx);
+                    if let Err(err) =
+                        ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&ctx), &items).await
+                    {
+                        error!("Save ticker for elasticsearch error: {:?}", err);
+                    }
                 }
             }
         });
@@ -130,53 +163,6 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-async fn handle_message_for_persist_mongo(
-    rx: &mut Receiver<TickerEvent>,
-    context: &Arc<PersistenceContext>,
-) -> Result<()> {
-    let ticker: Ticker = rx.recv().await?.into();
-    let config = context.config();
-    if config.sync_mongo_enabled() {
-        ticker.save_to_mongo(Arc::clone(context)).await?;
-    }
-    Ok(())
-}
-
-async fn handle_message_for_persist_elasticsearch(
-    rx: &mut Receiver<TickerEvent>,
-    buffer: &Mutex<Vec<ElasticTicker>>,
-    lock: &mut AtomicBool,
-    context: &Arc<PersistenceContext>,
-) -> Result<()> {
-    let ticker: ElasticTicker = rx.recv().await?.into();
-    let config = context.config();
-    if config.sync_elasticsearch_enabled() {
-        // push into list anyway
-        {
-            let mut guard = buffer.lock().unwrap();
-            guard.push(ticker);
-        }
-
-        // do batch
-        if !lock.load(Ordering::Relaxed) {
-            *lock.get_mut() = true;
-
-            // move all items to tmp
-            let mut tmp: Vec<ElasticTicker> = Vec::new();
-            {
-                let mut guard = buffer.lock().unwrap();
-                while !guard.is_empty() {
-                    tmp.push(guard.pop().unwrap());
-                }
-            }
-
-            ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&context), &tmp).await?;
-            *lock.get_mut() = false;
-        }
-    }
     Ok(())
 }
 

@@ -1,7 +1,7 @@
 use crate::{
     provider::decoder::deserialize_yahoo_message,
     vo::{
-        biz::{MarketHoursType, SubscribeCommand, Ticker},
+        biz::{SubscribeCommand, Ticker},
         core::AppContext,
     },
     Result,
@@ -128,26 +128,6 @@ async fn handle_message(
             let time_diff = now - message.time;
             let mut value = Ticker::from(message);
             value.time_diff = time_diff;
-
-            // check time
-            if true || value.market_hours == MarketHoursType::RegularMarket {
-                if time_diff > 1000 && time_diff < 2000 {
-                    info!(
-                        "time diff 1~2s, [{}] {:?} = {}",
-                        &value.id, &value.market_hours, &value.time_diff
-                    );
-                } else if time_diff >= 2000 && time_diff < 5000 {
-                    warn!(
-                        "time diff 2~5s, [{}] {:?} = {}",
-                        &value.id, &value.market_hours, &value.time_diff
-                    );
-                } else if time_diff >= 5000 {
-                    error!(
-                        "time diff > 5s, [{}] {:?} = {}",
-                        &value.id, &value.market_hours, &value.time_diff
-                    );
-                }
-            }
 
             // dispatch ticker
             context.dispatch(&value).await?;
