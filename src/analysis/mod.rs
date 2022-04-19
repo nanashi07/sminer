@@ -64,7 +64,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
                         error!("Save ticker for mongo error: {:?}", err)
                     }
                 } else {
-                    // avoid busy loop
+                    // avoid busy wait
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
@@ -109,7 +109,7 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
                         error!("Save ticker for elasticsearch error: {:?}", err);
                     }
                 } else {
-                    // avoid busy loop
+                    // avoid busy wait
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
