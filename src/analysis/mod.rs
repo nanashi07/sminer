@@ -5,12 +5,9 @@ pub mod trade;
 use self::trade::prepare_trade;
 use crate::{
     analysis::{computor::draw_slop_lines, debug::profit_evaluate},
-    persist::{
-        es::{
-            bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
-            ElasticTicker, ElasticTrade,
-        },
-        PersistenceContext,
+    persist::es::{
+        bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
+        ElasticTicker, ElasticTrade,
     },
     proto::biz::TickerEvent,
     vo::{
@@ -25,10 +22,7 @@ use std::{
     fs::{create_dir_all, remove_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    sync::Arc,
     thread::sleep,
     time::Duration,
 };

@@ -7,7 +7,7 @@ use crate::{
     proto::biz::TickerEvent,
     Result,
 };
-use chrono::{Duration, TimeZone, Utc};
+use chrono::{Duration, Utc};
 use config::Config;
 use log::*;
 use rayon::prelude::*;
