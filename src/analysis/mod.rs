@@ -9,7 +9,6 @@ use crate::{
         bulk_index, protfolio_index_name, slope_index_name, take_index_time, trade_index_name,
         ElasticTicker, ElasticTrade,
     },
-    proto::biz::TickerEvent,
     vo::{
         biz::{MarketHoursType, Protfolio, Ticker, TimeUnit, TradeInfo},
         core::AppContext,
@@ -26,137 +25,249 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use tokio::sync::{broadcast::Receiver, RwLock};
+use tokio::sync::RwLock;
 
 pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     let config = context.config();
-    let post_man = context.post_man();
-    let persistence = context.persistence();
 
     if config.sync_mongo_enabled() {
-        info!("Initialize mongo event persist handler");
-        let mut rx = post_man.subscribe_store();
-        let buffer: Arc<RwLock<Vec<Ticker>>> = Arc::new(RwLock::new(Vec::new()));
-
-        let temp = Arc::clone(&buffer);
-        tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let ticker: Ticker = event.into();
-                        let mut guard = temp.write().await;
-                        guard.push(ticker);
-                    }
-                    Err(err) => error!("Handle ticker for mongo error: {:?}", err),
-                }
-            }
-        });
-
-        let ctx = Arc::clone(&persistence);
-        let temp = Arc::clone(&buffer);
-        tokio::spawn(async move {
-            loop {
-                let mut guard = temp.write().await;
-                if let Some(event) = guard.pop() {
-                    let ticker: Ticker = event.into();
-                    let ctx = Arc::clone(&ctx);
-                    if let Err(err) = ticker.save_to_mongo(Arc::clone(&ctx)).await {
-                        error!("Save ticker for mongo error: {:?}", err)
-                    }
-                } else {
-                    // avoid busy wait
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-            }
-        });
+        handle_message_for_mongo(Arc::clone(&context)).await?;
     }
 
     if config.sync_elasticsearch_enabled() {
-        info!("Initialize elasticsearch event persist handler");
-        let mut rx = post_man.subscribe_store();
-        let buffer: Arc<RwLock<Vec<ElasticTicker>>> = Arc::new(RwLock::new(Vec::new()));
-
-        let temp = Arc::clone(&buffer);
-        tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let ticker: ElasticTicker = event.into();
-                        let mut guard = temp.write().await;
-                        guard.push(ticker);
-                    }
-                    Err(err) => error!("Handle ticker for elasticsearch error: {:?}", err),
-                }
-            }
-        });
-
-        let ctx = Arc::clone(&persistence);
-        let temp = Arc::clone(&buffer);
-        tokio::spawn(async move {
-            loop {
-                let mut guard = temp.write().await;
-                let mut items: Vec<ElasticTicker> = Vec::new();
-                while let Some(item) = guard.pop() {
-                    items.push(item);
-                }
-                std::mem::drop(guard);
-
-                if !items.is_empty() {
-                    let ctx = Arc::clone(&ctx);
-                    if let Err(err) =
-                        ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&ctx), &items).await
-                    {
-                        error!("Save ticker for elasticsearch error: {:?}", err);
-                    }
-                } else {
-                    // avoid busy wait
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-            }
-        });
+        handle_message_for_elasticsearch(Arc::clone(&context)).await?;
     }
 
-    info!("Initialize event preparatory handler");
-    let mut rx = post_man.subscribe_prepare();
-    let root = Arc::clone(&context);
+    if config.trade.enabled {
+        handle_message_for_preparatory(Arc::clone(&context)).await?;
+
+        handle_message_for_calculator(Arc::clone(&context)).await?;
+
+        handle_message_for_trade(Arc::clone(&context)).await?;
+    }
+
+    Ok(())
+}
+
+async fn handle_message_for_mongo(context: Arc<AppContext>) -> Result<()> {
+    info!("Initialize mongo event persist handler");
+    let post_man = context.post_man();
+    let mut rx = post_man.subscribe_store();
+
+    let buffer: Arc<RwLock<Vec<Ticker>>> = Arc::new(RwLock::new(Vec::new()));
+    let temp = Arc::clone(&buffer);
+
     tokio::spawn(async move {
         loop {
-            if let Err(err) = handle_message_for_preparatory(&mut rx, &root).await {
-                error!("Handle ticker for preparatory error: {:?}", err);
+            match rx.recv().await {
+                Ok(event) => {
+                    let ticker: Ticker = event.into();
+                    let mut guard = temp.write().await;
+                    guard.push(ticker);
+                }
+                Err(err) => error!("Handle ticker for mongo error: {:?}", err),
             }
         }
     });
 
-    if config.trade.enabled {
-        info!("Initialize event trade handler");
-        let mut rx = post_man.subscribe_trade();
-        let root = Arc::clone(&context);
-        tokio::spawn(async move {
-            loop {
-                if let Err(err) = handle_message_for_trade(&mut rx, &root).await {
+    let persist = context.persistence();
+    let temp = Arc::clone(&buffer);
+
+    tokio::spawn(async move {
+        loop {
+            let mut guard = temp.write().await;
+            if let Some(event) = guard.pop() {
+                let ticker: Ticker = event.into();
+                if let Err(err) = ticker.save_to_mongo(Arc::clone(&persist)).await {
+                    error!("Save ticker for mongo error: {:?}", err)
+                }
+            } else {
+                // avoid busy wait
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+    });
+
+    Ok(())
+}
+
+async fn handle_message_for_elasticsearch(context: Arc<AppContext>) -> Result<()> {
+    info!("Initialize elasticsearch event persist handler");
+    let post_man = context.post_man();
+    let mut rx = post_man.subscribe_store();
+
+    let buffer: Arc<RwLock<Vec<ElasticTicker>>> = Arc::new(RwLock::new(Vec::new()));
+    let temp = Arc::clone(&buffer);
+
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let ticker: ElasticTicker = event.into();
+                    let mut guard = temp.write().await;
+                    guard.push(ticker);
+                }
+                Err(err) => error!("Handle ticker for elasticsearch error: {:?}", err),
+            }
+        }
+    });
+
+    let persist = context.persistence();
+    let temp = Arc::clone(&buffer);
+
+    tokio::spawn(async move {
+        loop {
+            let mut guard = temp.write().await;
+            let mut items: Vec<ElasticTicker> = Vec::new();
+            while let Some(item) = guard.pop() {
+                items.push(item);
+            }
+            std::mem::drop(guard);
+
+            if !items.is_empty() {
+                if let Err(err) =
+                    ElasticTicker::batch_save_to_elasticsearch(Arc::clone(&persist), &items).await
+                {
+                    error!("Save ticker for elasticsearch error: {:?}", err);
+                }
+            } else {
+                // avoid busy wait
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+    });
+
+    Ok(())
+}
+
+async fn handle_message_for_preparatory(ctx: Arc<AppContext>) -> Result<()> {
+    info!("Initialize event preparatory handler");
+    let post_man = ctx.post_man();
+    let mut rx = post_man.subscribe_prepare();
+
+    let buffer: Arc<RwLock<Vec<Ticker>>> = Arc::new(RwLock::new(Vec::new()));
+    let temp = Arc::clone(&buffer);
+
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let ticker: Ticker = event.into();
+                    let mut guard = temp.write().await;
+                    guard.push(ticker);
+                }
+                Err(err) => {
                     error!("Handle ticker for preparatory error: {:?}", err);
                 }
             }
-        });
-    }
+        }
+    });
 
+    let context = Arc::clone(&ctx);
+    let temp = Arc::clone(&buffer);
+
+    tokio::spawn(async move {
+        loop {
+            let mut guard = temp.write().await;
+            if let Some(event) = guard.pop() {
+                let ticker: Ticker = event.into();
+                // Add into source list
+                if let Some(lock) = context.asset().symbol_tickers(&ticker.id) {
+                    if let Ok(mut guard) = lock.write() {
+                        guard.push_front(ticker.clone());
+                    } else {
+                        error!("get mutable tickers error: {}", &ticker.id);
+                        continue;
+                    }
+                } else {
+                    error!("No tickers container {} initialized", &ticker.id);
+                    continue;
+                }
+
+                // Add ticker decision data first (id/time... with empty analysis data)
+                let asset = context.asset();
+                let config = context.config();
+                let units = config.time_units();
+                let message_id = asset.next_message_id();
+                // only take moving data
+                let unit_size = units.iter().filter(|u| u.period > 0).count();
+
+                let trade = TradeInfo::from(&ticker, message_id, unit_size, false);
+                asset.add_trade(&ticker.id, trade);
+
+                // Send signal for symbol analysis
+                if let Err(err) = context.post_man().calculate(&ticker.id, message_id) {
+                    error!("send to calculate error: {}", err);
+                }
+            } else {
+                // avoid busy wait
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+    });
+
+    Ok(())
+}
+
+async fn handle_message_for_calculator(ctx: Arc<AppContext>) -> Result<()> {
     info!("Initialize event calculator handler");
-    let root = Arc::clone(&context);
+    let config = ctx.config();
+    let post_man = ctx.post_man();
+
     for unit in config.time_units() {
-        for symbol in root.config().symbols() {
+        for symbol in config.symbols() {
             debug!(
                 "Initialize event calculate {} for {:?} handler",
                 &symbol, unit
             );
             let mut rx = post_man.subscribe_calculate(&symbol);
-            let root = Arc::clone(&context);
             let unit = unit.clone();
+
+            let buffer: Arc<RwLock<Vec<i64>>> = Arc::new(RwLock::new(Vec::new()));
+            let temp = Arc::clone(&buffer);
+
             tokio::spawn(async move {
                 loop {
-                    if let Err(err) =
-                        handle_message_for_calculator(&mut rx, &root, &symbol, &unit).await
-                    {
-                        error!("Handle ticker for calculator error: {:?}", err);
+                    // Receive message ID only
+                    match rx.recv().await {
+                        Ok(message_id) => {
+                            let mut guard = temp.write().await;
+                            guard.push(message_id);
+                        }
+                        Err(err) => error!("Handle ticker for calculator error: {:?}", err),
+                    }
+                }
+            });
+
+            let context = Arc::clone(&ctx);
+            let temp = Arc::clone(&buffer);
+
+            tokio::spawn(async move {
+                loop {
+                    let mut guard = temp.write().await;
+                    if let Some(message_id) = guard.pop() {
+                        trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
+                        // route to calculation
+                        if let Err(err) = context.route(message_id, &symbol, &unit) {
+                            error!("route calculation error: {:?}", err);
+                            continue;
+                        }
+
+                        // check all values finalized then push to prepare trade
+                        if context.config().trade.enabled
+                            && context.asset().is_trade_finalized(&symbol, message_id)
+                        {
+                            debug!(
+                                "Prepare to handle finalized trade info, symbol: {}, message_id: {}",
+                                symbol, &message_id
+                            );
+                            if let Err(err) = context.post_man().watch_trade(message_id).await {
+                                error!("send calculate resoult for trade error: {:?}", err);
+                            }
+                        }
+                    } else {
+                        // avoid busy wait
+                        std::thread::sleep(std::time::Duration::from_millis(100));
                     }
                 }
             });
@@ -166,62 +277,24 @@ pub async fn init_dispatcher(context: &Arc<AppContext>) -> Result<()> {
     Ok(())
 }
 
-async fn handle_message_for_preparatory(
-    rx: &mut Receiver<TickerEvent>,
-    context: &Arc<AppContext>,
-) -> Result<()> {
-    let ticker: Ticker = rx.recv().await?.into();
+async fn handle_message_for_trade(context: Arc<AppContext>) -> Result<()> {
+    info!("Initialize event trade handler");
+    let post_man = context.post_man();
+    let mut rx = post_man.subscribe_trade();
 
-    // Add into source list
-    if let Some(lock) = context.asset().symbol_tickers(&ticker.id) {
-        let mut list = lock.write().unwrap();
-        list.push_front(ticker.clone());
-    } else {
-        error!("No tickers container {} initialized", &ticker.id);
-    }
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(message_id) => {
+                    if let Err(err) = prepare_trade(context.asset(), context.config(), message_id) {
+                        error!("Prepare trade error: {:?}", err);
+                    }
+                }
+                Err(err) => error!("Handle message for prepare trade error: {:?}", err),
+            }
+        }
+    });
 
-    // Add ticker decision data first (id/time... with empty analysis data)
-    let asset = context.asset();
-    let config = context.config();
-    let units = config.time_units();
-    let message_id = asset.next_message_id();
-    // only take moving data
-    let unit_size = units.iter().filter(|u| u.period > 0).count();
-
-    let trade = TradeInfo::from(&ticker, message_id, unit_size, false);
-    asset.add_trade(&ticker.id, trade);
-
-    // Send signal for symbol analysis
-    context.post_man().calculate(&ticker.id, message_id)?;
-
-    Ok(())
-}
-
-async fn handle_message_for_calculator(
-    rx: &mut Receiver<i64>,
-    context: &Arc<AppContext>,
-    symbol: &str,
-    unit: &TimeUnit,
-) -> Result<()> {
-    // Receive message ID only
-    let message_id: i64 = rx.recv().await?.into();
-    trace!("handle_message_for_calculator: {:?} of {}", unit, symbol);
-    context.route(message_id, symbol, unit)?;
-
-    // check all values finalized then push to prepare trade
-    if context.config().trade.enabled && context.asset().is_trade_finalized(symbol, message_id) {
-        debug!(
-            "Prepare handle finalized trade info, symbol: {}, message_id: {}",
-            symbol, &message_id
-        );
-        context.post_man().watch_trade(message_id).await?;
-    }
-    Ok(())
-}
-
-async fn handle_message_for_trade(rx: &mut Receiver<i64>, context: &Arc<AppContext>) -> Result<()> {
-    let message_id: i64 = rx.recv().await?.into();
-    prepare_trade(context.asset(), context.config(), message_id)?;
     Ok(())
 }
 
