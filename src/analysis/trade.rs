@@ -104,7 +104,6 @@ pub fn prepare_trade(
                     .unwrap_or_default();
                 }
 
-                let symbol = trade.id.clone();
                 let time = Utc.timestamp_millis(trade.action_time());
                 let tags = vec![
                     trade.id.clone(),
@@ -119,14 +118,8 @@ pub fn prepare_trade(
                 asset.write_off(&order);
 
                 // add grafana annotation
-                add_order_annotation(
-                    Arc::clone(&config),
-                    symbol,
-                    time,
-                    "Place order".to_owned(),
-                    tags,
-                )
-                .unwrap();
+                add_order_annotation(Arc::clone(&config), time, "Place order".to_owned(), tags)
+                    .unwrap();
             }
         }
         AuditState::LossClear | AuditState::LossBound | AuditState::CloseTrade => {
@@ -198,7 +191,6 @@ pub fn prepare_trade(
                     .unwrap_or_default();
                 }
 
-                let symbol = rival_trade.id.clone();
                 let time = Utc.timestamp_millis(rival_trade.action_time());
                 let tags = vec![
                     rival_trade.id.clone(),
@@ -213,14 +205,8 @@ pub fn prepare_trade(
                 asset.realized_loss(&order);
 
                 // add grafana annotation
-                add_order_annotation(
-                    Arc::clone(&config),
-                    symbol,
-                    time,
-                    "Place order".to_owned(),
-                    tags,
-                )
-                .unwrap();
+                add_order_annotation(Arc::clone(&config), time, "Place order".to_owned(), tags)
+                    .unwrap();
             }
         }
         AuditState::Decline => {}

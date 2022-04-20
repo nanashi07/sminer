@@ -162,7 +162,6 @@ pub async fn remove_annotation(config: Arc<AppConfig>, id: i32) -> Result<()> {
 
 pub fn add_order_annotation(
     config: Arc<AppConfig>,
-    symbol: String,
     time: DateTime<Utc>,
     text: String,
     tags: Vec<String>,
