@@ -58,6 +58,7 @@ async fn handle_message_for_mongo(context: Arc<AppContext>) -> Result<()> {
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize mongo event persist handler - receiver");
         loop {
             match rx.recv().await {
                 Ok(event) => {
@@ -74,6 +75,7 @@ async fn handle_message_for_mongo(context: Arc<AppContext>) -> Result<()> {
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize mongo event persist handler - processor");
         loop {
             let mut guard = temp.write().await;
             if let Some(event) = guard.pop() {
@@ -100,6 +102,7 @@ async fn handle_message_for_elasticsearch(context: Arc<AppContext>) -> Result<()
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize elasticsearch event persist handler - receiver");
         loop {
             match rx.recv().await {
                 Ok(event) => {
@@ -116,6 +119,7 @@ async fn handle_message_for_elasticsearch(context: Arc<AppContext>) -> Result<()
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize elasticsearch event persist handler - processor");
         loop {
             let mut guard = temp.write().await;
             let mut items: Vec<ElasticTicker> = Vec::new();
@@ -149,6 +153,7 @@ async fn handle_message_for_preparatory(ctx: Arc<AppContext>) -> Result<()> {
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize event preparatory handler - receiver");
         loop {
             match rx.recv().await {
                 Ok(event) => {
@@ -167,6 +172,7 @@ async fn handle_message_for_preparatory(ctx: Arc<AppContext>) -> Result<()> {
     let temp = Arc::clone(&buffer);
 
     tokio::spawn(async move {
+        debug!("Initialize event preparatory handler - processor");
         loop {
             let mut guard = temp.write().await;
             if let Some(event) = guard.pop() {
@@ -226,7 +232,14 @@ async fn handle_message_for_calculator(ctx: Arc<AppContext>) -> Result<()> {
             let buffer: Arc<RwLock<Vec<i64>>> = Arc::new(RwLock::new(Vec::new()));
             let temp = Arc::clone(&buffer);
 
+            let symbol_name = symbol.to_string();
+            let unit_name = unit.name.to_string();
+
             tokio::spawn(async move {
+                debug!(
+                    "Initialize event calculator handler - receiver : {}/{}",
+                    &symbol_name, &unit_name
+                );
                 loop {
                     // Receive message ID only
                     match rx.recv().await {
@@ -241,8 +254,14 @@ async fn handle_message_for_calculator(ctx: Arc<AppContext>) -> Result<()> {
 
             let context = Arc::clone(&ctx);
             let temp = Arc::clone(&buffer);
+            let symbol_name = symbol.to_string();
+            let unit_name = unit.name.to_string();
 
             tokio::spawn(async move {
+                debug!(
+                    "Initialize event calculator handler - processor: {}/{}",
+                    &symbol_name, &unit_name
+                );
                 loop {
                     let mut guard = temp.write().await;
                     if let Some(message_id) = guard.pop() {
@@ -283,6 +302,7 @@ async fn handle_message_for_trade(context: Arc<AppContext>) -> Result<()> {
     let mut rx = post_man.subscribe_trade();
 
     tokio::spawn(async move {
+        debug!("Initialize event trade handler - processor");
         loop {
             match rx.recv().await {
                 Ok(message_id) => {

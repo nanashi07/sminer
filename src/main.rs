@@ -20,7 +20,7 @@ use sminer::{
 };
 use std::{collections::HashSet, sync::Arc};
 
-#[tokio::main]
+#[tokio::main(worker_threads = 500)]
 async fn main() -> Result<()> {
     let cmd = command_args();
     let matches = cmd.get_matches();

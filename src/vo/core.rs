@@ -88,11 +88,12 @@ impl AppContext {
     }
 
     pub async fn dispatch(&self, ticker: &Ticker) -> Result<()> {
+        let config = self.config();
         // calculate volume diff
         let volume_diff = max(0, ticker.day_volume - self.last_volume(&ticker.id));
 
         // send to persist
-        if self.config().sync_mongo_enabled() || self.config().sync_elasticsearch_enabled() {
+        if config.sync_mongo_enabled() || config.sync_elasticsearch_enabled() {
             let mut event: TickerEvent = ticker.into();
             // calculate volume
             event.volume = volume_diff;
@@ -100,9 +101,9 @@ impl AppContext {
         }
 
         // send to analysis
-        let mut event: TickerEvent = ticker.into();
-        event.volume = volume_diff;
-        if self.config().trade.enabled {
+        if config.trade.enabled && ticker.market_hours == MarketHoursType::RegularMarket {
+            let mut event: TickerEvent = ticker.into();
+            event.volume = volume_diff;
             self.post_man().prepare(event)?;
         }
 
