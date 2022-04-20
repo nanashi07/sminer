@@ -102,7 +102,9 @@ impl AppContext {
         // send to analysis
         let mut event: TickerEvent = ticker.into();
         event.volume = volume_diff;
-        self.post_man().prepare(event)?;
+        if self.config().trade.enabled {
+            self.post_man().prepare(event)?;
+        }
 
         let asset = self.asset();
 
