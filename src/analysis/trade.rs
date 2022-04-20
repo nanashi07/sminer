@@ -26,66 +26,62 @@ use std::{f64::NAN, sync::Arc};
 pub fn prepare_trade(
     asset: Arc<AssetContext>,
     config: Arc<AppConfig>,
-    message_id: i64,
+    trade: &TradeInfo,
 ) -> Result<()> {
-    if let Some(lock) = asset.search_trade(message_id) {
-        let trade = lock.read().unwrap();
+    // only accept regular market
+    if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
+        return Ok(());
+    }
 
-        // only accept regular market
-        if !matches!(trade.market_hours, MarketHoursType::RegularMarket) {
-            return Ok(());
-        }
+    // TODO: ticker time check, drop if time difference too long
 
-        // TODO: ticker time check, drop if time difference too long
+    debug!("Trade info: {:?}", &trade);
 
-        debug!("Trade info: {:?}", &trade);
+    // audit trade
+    let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
+    match state {
+        AuditState::Flash
+        | AuditState::Slug
+        | AuditState::ProfitTaking
+        | AuditState::EarlyClear => {
+            // calculate volume
+            let estimated_volume = calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
-        // audit trade
-        let state = audit_trade(Arc::clone(&asset), Arc::clone(&config), &trade);
-        match state {
-            AuditState::Flash
-            | AuditState::Slug
-            | AuditState::ProfitTaking
-            | AuditState::EarlyClear => {
-                // calculate volume
-                let estimated_volume =
-                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
+            if estimated_volume == 0 {
+                warn!("suspected order volume is zero, ignore order");
+                return Ok(());
+            }
 
-                if estimated_volume == 0 {
-                    warn!("suspected order volume is zero, ignore order");
-                    return Ok(());
-                }
+            // get rival price
+            let mut rival_price = f32::NAN;
+            if let Some(rival_ticker) = asset.get_latest_rival_ticker(&trade.id) {
+                rival_price = rival_ticker.price;
+            }
 
-                // get rival price
-                let mut rival_price = f32::NAN;
-                if let Some(rival_ticker) = asset.get_latest_rival_ticker(&trade.id) {
-                    rival_price = rival_ticker.price;
-                }
+            // create order
+            let order = Order::new(
+                &trade.id,
+                trade.price,
+                rival_price,
+                estimated_volume,
+                trade.action_time(),
+                state.clone(),
+            );
 
-                // create order
-                let order = Order::new(
-                    &trade.id,
-                    trade.price,
-                    rival_price,
-                    estimated_volume,
-                    trade.action_time(),
-                    state.clone(),
-                );
+            if asset.add_order(order.clone()) {
+                // for debug only
+                if true {
+                    let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
+                    let rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
+                    let (_, estimated_min_balance) = validate_total_profit(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        &trade,
+                        &rival_trade,
+                        estimated_volume,
+                    );
 
-                if asset.add_order(order.clone()) {
-                    // for debug only
-                    if true {
-                        let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
-                        let rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
-                        let (_, estimated_min_balance) = validate_total_profit(
-                            Arc::clone(&asset),
-                            Arc::clone(&config),
-                            &trade,
-                            &rival_trade,
-                            estimated_volume,
-                        );
-
-                        info!(
+                    info!(
                             "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
@@ -94,92 +90,92 @@ pub fn prepare_trade(
                             format!("{},",order.created_volume),
                             estimated_min_balance
                         );
-                    }
+                }
 
-                    let order_id = order.id.clone();
+                let order_id = order.id.clone();
 
-                    if config.replay.export_enabled("order") {
-                        print_meta(
-                            Arc::clone(&asset),
-                            Arc::clone(&config),
-                            Some(order.clone()),
-                            &trade,
-                        )
-                        .unwrap_or_default();
-                    }
-
-                    let symbol = trade.id.clone();
-                    let time = Utc.timestamp_millis(trade.action_time());
-                    let tags = vec![
-                        trade.id.clone(),
-                        order_id,
-                        format!("{:?}", &state),
-                        format!("MSG-{}", &trade.message_id),
-                        format!("${}", &order.created_price),
-                        format!("v{}", &order.created_volume),
-                    ];
-
-                    // write off previouse order
-                    asset.write_off(&order);
-
-                    // add grafana annotation
-                    add_order_annotation(
+                if config.replay.export_enabled("order") {
+                    print_meta(
+                        Arc::clone(&asset),
                         Arc::clone(&config),
-                        symbol,
-                        time,
-                        "Place order".to_owned(),
-                        tags,
+                        Some(order.clone()),
+                        &trade,
                     )
-                    .unwrap();
+                    .unwrap_or_default();
                 }
+
+                let symbol = trade.id.clone();
+                let time = Utc.timestamp_millis(trade.action_time());
+                let tags = vec![
+                    trade.id.clone(),
+                    order_id,
+                    format!("{:?}", &state),
+                    format!("MSG-{}", &trade.message_id),
+                    format!("${}", &order.created_price),
+                    format!("v{}", &order.created_volume),
+                ];
+
+                // write off previouse order
+                asset.write_off(&order);
+
+                // add grafana annotation
+                add_order_annotation(
+                    Arc::clone(&config),
+                    symbol,
+                    time,
+                    "Place order".to_owned(),
+                    tags,
+                )
+                .unwrap();
             }
-            AuditState::LossClear | AuditState::LossBound | AuditState::CloseTrade => {
-                // get latest rival ticker
-                let symbol = &trade.id;
-                let rival_symbol = asset.find_rival_symbol(symbol).unwrap();
-                let time = trade.time;
+        }
+        AuditState::LossClear | AuditState::LossBound | AuditState::CloseTrade => {
+            // get latest rival ticker
+            let symbol = &trade.id;
+            let rival_symbol = asset.find_rival_symbol(symbol).unwrap();
+            let time = trade.time;
 
-                // replace with rival latest trade
-                let mut rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
-                rival_trade.time = time + 1;
+            // replace with rival latest trade
+            let mut rival_trade = asset.get_latest_trade(&rival_symbol).unwrap();
+            rival_trade.time = time + 1;
 
-                // calculate volume
-                let estimated_volume =
-                    calculate_volum(Arc::clone(&asset), Arc::clone(&config), &rival_trade);
+            // calculate volume
+            let estimated_volume =
+                calculate_volum(Arc::clone(&asset), Arc::clone(&config), &rival_trade);
 
-                if estimated_volume == 0 {
-                    warn!("suspected order volume is zero, ignore order");
-                    return Ok(());
-                }
+            if estimated_volume == 0 {
+                warn!("suspected order volume is zero, ignore order");
+                return Ok(());
+            }
 
-                // get rival price
-                let mut rival_price = f32::NAN;
-                if let Some(rival_ticker) = asset.get_latest_rival_ticker(&rival_trade.id) {
-                    rival_price = rival_ticker.price;
-                }
+            // get rival price
+            let mut rival_price = f32::NAN;
+            if let Some(rival_ticker) = asset.get_latest_rival_ticker(&rival_trade.id) {
+                rival_price = rival_ticker.price;
+            }
 
-                // create order
-                let order = Order::new(
-                    &rival_trade.id,
-                    rival_trade.price,
-                    rival_price,
-                    estimated_volume,
-                    rival_trade.action_time(),
-                    state.clone(),
-                );
+            // create order
+            let order = Order::new(
+                &rival_trade.id,
+                rival_trade.price,
+                rival_price,
+                estimated_volume,
+                rival_trade.action_time(),
+                state.clone(),
+            );
 
-                if asset.add_order(order.clone()) {
-                    // for debug only
-                    if true {
-                        let (_, estimated_min_balance) = validate_total_profit(
-                            Arc::clone(&asset),
-                            Arc::clone(&config),
-                            &rival_trade,
-                            &trade,
-                            estimated_volume,
-                        );
+            if asset.add_order(order.clone()) {
+                // for debug only
+                if true {
+                    let (_, estimated_min_balance) = validate_total_profit(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        &rival_trade,
+                        &trade,
+                        estimated_volume,
+                    );
 
-                        info!(
+                    info!(
                             "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
@@ -188,49 +184,46 @@ pub fn prepare_trade(
                             format!("{},",order.created_volume),
                             estimated_min_balance
                         );
-                    }
-
-                    let order_id = order.id.clone();
-
-                    if config.replay.export_enabled("order") {
-                        print_meta(
-                            Arc::clone(&asset),
-                            Arc::clone(&config),
-                            Some(order.clone()),
-                            &rival_trade,
-                        )
-                        .unwrap_or_default();
-                    }
-
-                    let symbol = rival_trade.id.clone();
-                    let time = Utc.timestamp_millis(rival_trade.action_time());
-                    let tags = vec![
-                        rival_trade.id.clone(),
-                        order_id,
-                        format!("{:?}", &state),
-                        format!("MSG-{}", &rival_trade.message_id),
-                        format!("${}", &order.created_price),
-                        format!("v{}", &order.created_volume),
-                    ];
-
-                    // take loss previouse order
-                    asset.realized_loss(&order);
-
-                    // add grafana annotation
-                    add_order_annotation(
-                        Arc::clone(&config),
-                        symbol,
-                        time,
-                        "Place order".to_owned(),
-                        tags,
-                    )
-                    .unwrap();
                 }
+
+                let order_id = order.id.clone();
+
+                if config.replay.export_enabled("order") {
+                    print_meta(
+                        Arc::clone(&asset),
+                        Arc::clone(&config),
+                        Some(order.clone()),
+                        &rival_trade,
+                    )
+                    .unwrap_or_default();
+                }
+
+                let symbol = rival_trade.id.clone();
+                let time = Utc.timestamp_millis(rival_trade.action_time());
+                let tags = vec![
+                    rival_trade.id.clone(),
+                    order_id,
+                    format!("{:?}", &state),
+                    format!("MSG-{}", &rival_trade.message_id),
+                    format!("${}", &order.created_price),
+                    format!("v{}", &order.created_volume),
+                ];
+
+                // take loss previouse order
+                asset.realized_loss(&order);
+
+                // add grafana annotation
+                add_order_annotation(
+                    Arc::clone(&config),
+                    symbol,
+                    time,
+                    "Place order".to_owned(),
+                    tags,
+                )
+                .unwrap();
             }
-            AuditState::Decline => {}
         }
-    } else {
-        warn!("No trade info for message ID: {} found!", &message_id);
+        AuditState::Decline => {}
     }
 
     Ok(())

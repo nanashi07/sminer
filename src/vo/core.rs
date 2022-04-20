@@ -171,7 +171,12 @@ impl AppContext {
 
             // check all values finalized and push
             if asset.is_trade_finalized(&ticker.id, message_id) {
-                prepare_trade(self.asset(), self.config(), message_id).unwrap();
+                if let Some(lock) = asset.search_trade(message_id) {
+                    let trade = lock.read().unwrap();
+                    prepare_trade(self.asset(), self.config(), &trade).unwrap();
+                } else {
+                    warn!("No trade info for message ID: {} found!", &message_id);
+                }
             }
 
             match ticker.market_hours {
@@ -388,7 +393,6 @@ impl AssetContext {
             let reader = lock.read().unwrap();
             let result = reader
                 .iter()
-                .take(5) // only take 5 to check, expect to be the first one
                 .find(|s| s.read().unwrap().message_id == message_id);
 
             if let Some(value) = result {

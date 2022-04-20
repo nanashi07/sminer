@@ -16,8 +16,9 @@ use crate::{
     Result,
 };
 use chrono::{TimeZone, Utc};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use std::{
+    collections::HashMap,
     fs::{create_dir_all, remove_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Write},
     path::Path,
@@ -296,24 +297,69 @@ async fn handle_message_for_calculator(ctx: Arc<AppContext>) -> Result<()> {
     Ok(())
 }
 
-async fn handle_message_for_trade(context: Arc<AppContext>) -> Result<()> {
+async fn handle_message_for_trade(ctx: Arc<AppContext>) -> Result<()> {
     info!("Initialize event trade handler");
-    let post_man = context.post_man();
+    let post_man = ctx.post_man();
     let mut rx = post_man.subscribe_trade();
+
+    let mut map: HashMap<String, RwLock<Vec<TradeInfo>>> = HashMap::new();
+
+    for symbol in ctx.config().symbols() {
+        map.insert(symbol, RwLock::new(Vec::new()));
+    }
+
+    let buffer: Arc<HashMap<String, RwLock<Vec<TradeInfo>>>> = Arc::new(map);
+    let temp = Arc::clone(&buffer);
+    let asset = ctx.asset();
 
     tokio::spawn(async move {
         debug!("Initialize event trade handler - processor");
         loop {
             match rx.recv().await {
                 Ok(message_id) => {
-                    if let Err(err) = prepare_trade(context.asset(), context.config(), message_id) {
-                        error!("Prepare trade error: {:?}", err);
+                    let mut result: Option<TradeInfo> = None;
+                    if let Some(lock) = asset.search_trade(message_id) {
+                        if let Ok(trade) = lock.read() {
+                            result = Some(trade.to_owned());
+                        }
+                    }
+
+                    if let Some(trade) = result {
+                        if let Some(lock) = temp.get(&trade.id) {
+                            let mut guard = lock.write().await;
+                            guard.push(trade);
+                        }
+                    } else {
+                        warn!("No trade info for message ID: {} found!", &message_id);
                     }
                 }
                 Err(err) => error!("Handle message for prepare trade error: {:?}", err),
             }
         }
     });
+
+    for symbol in ctx.config().symbols() {
+        let temp = Arc::clone(&buffer);
+
+        let context = Arc::clone(&ctx);
+
+        tokio::spawn(async move {
+            debug!("Initialize event trade handler - processor");
+            loop {
+                if let Some(lock) = temp.get(&symbol) {
+                    let mut guard = lock.write().await;
+                    if let Some(value) = guard.pop() {
+                        if let Err(err) = prepare_trade(context.asset(), context.config(), &value) {
+                            error!("Prepare trade error: {:?}", err);
+                        }
+                    } else {
+                        // avoid busy wait
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                }
+            }
+        });
+    }
 
     Ok(())
 }

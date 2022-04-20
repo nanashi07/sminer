@@ -5,7 +5,7 @@ use hyper_tls::HttpsConnector;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::HashMap, sync::Arc, thread};
+use std::{sync::Arc, thread};
 
 // https://grafana.com/docs/grafana/latest/http_api/annotations/
 
@@ -167,41 +167,11 @@ pub fn add_order_annotation(
     text: String,
     tags: Vec<String>,
 ) -> Result<()> {
-    let panel_map: HashMap<&str, i64> = [
-        // ("TQQQ", 2),
-        // ("SQQQ", 5),
-        // ("SOXL", 3),
-        // ("SOXS", 4),
-        // ("SPXL", 6),
-        // ("SPXS", 7),
-        // ("LABU", 9),
-        // ("LABD", 8),
-        // ("TNA", 10),
-        // ("TZA", 11),
-        // ("YINN", 14),
-        // ("YANG", 15),
-        // ("UDOW", 12),
-        // ("SDOW", 13),
-        ("TQQQ", 1),
-        ("SQQQ", 2),
-        ("SOXL", 1),
-        ("SOXS", 2),
-        ("SPXL", 1),
-        ("SPXS", 2),
-        ("LABU", 1),
-        ("LABD", 2),
-        ("TNA", 1),
-        ("TZA", 2),
-        ("YINN", 1),
-        ("YANG", 2),
-        ("UDOW", 1),
-        ("SDOW", 2),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    if !config.data_source.grafana.enabled {
+        return Ok(());
+    }
 
-    let panel_id = *panel_map.get(symbol.as_str()).unwrap();
+    let panel_id = 1;
 
     // async to sync, need a new thread
     let handler = thread::spawn(move || {
