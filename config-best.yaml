@@ -87,66 +87,23 @@ replay:
     elasticsearch:
       enabled: false
 units:
-  - name: m0010
-    duration: 10
-    period: 360
-  - name: m0030
-    duration: 30
-    period: 120
-  - name: m0060
-    duration: 60
-    period: 60
-  - name: m0120
-    duration: 120
-    period: 30
-  - name: m0180
-    duration: 180
-    period: 15
-  - name: m0240
-    duration: 240
-    period: 15
-  - name: m0300
-    duration: 300
-    period: 12
-  - name: m0600
-    duration: 600
-    period: 9
-  - name: m1200
-    duration: 1200
-    period: 6
-  - name: m1800
-    duration: 1800
-    period: 4
-  - name: m3600
-    duration: 3600
-    period: 3
+  - { name: m0010, duration: 10,   period: 360 }
+  - { name: m0030, duration: 30,   period: 120 }
+  - { name: m0060, duration: 60,   period: 60  }
+  - { name: m0120, duration: 120,  period: 30  }
+  - { name: m0180, duration: 180,  period: 15  }
+  - { name: m0240, duration: 240,  period: 15  }
+  - { name: m0300, duration: 300,  period: 12  }
+  - { name: m0600, duration: 600,  period: 9   }
+  - { name: m1200, duration: 1200, period: 6   }
+  - { name: m1800, duration: 1800, period: 4   }
+  - { name: m3600, duration: 3600, period: 3   }
 tickers:
   symbols:
-    - bull:
-        id: TQQQ
-      bear:
-        id: SQQQ
-    - bull:
-        id: SOXL
-      bear:
-        id: SOXS
-    - bull:
-        id: SPXL
-      bear:
-        id: SPXS
-    - bull:
-        id: LABU
-      bear:
-        id: LABD
-    - bull:
-        id: TNA
-      bear:
-        id: TZA
-    - bull:
-        id: YINN
-      bear:
-        id: YANG
-    - bull:
-        id: UDOW
-      bear:
-        id: SDOW
+    - { bull: { id: TQQQ }, bear: { id: SQQQ } }
+    - { bull: { id: SOXL }, bear: { id: SOXS } }
+    - { bull: { id: SPXL }, bear: { id: SPXS } }
+    - { bull: { id: LABU }, bear: { id: LABD } }
+    - { bull: { id: TNA  }, bear: { id: TZA  } }
+    - { bull: { id: YINN }, bear: { id: YANG } }
+    - { bull: { id: UDOW }, bear: { id: SDOW } }
