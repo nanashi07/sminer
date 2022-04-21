@@ -222,8 +222,8 @@ fn print_config(name: &str, mode: &AuditMode) {
         }
         for lower in &rule.lowers {
             info!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
+                "[rule {}] LOWER, from: {:?}, to: {}, compareTo: {}, duration: {}",
+                index, lower.from, lower.to, lower.compare_to, lower.duration
             );
         }
     }
@@ -266,8 +266,8 @@ fn buffer_config(buffered: &mut Vec<String>, name: &str, mode: &AuditMode) {
         }
         for lower in &rule.lowers {
             buffered.push(format!(
-                "[rule {}] LOWER, from: {:?}, to: {}, duration: {}",
-                index, lower.from, lower.to, lower.duration
+                "[rule {}] LOWER, from: {:?}, to: {}, compareTo: {}, duration: {}",
+                index, lower.from, lower.to, lower.compare_to, lower.duration
             ));
         }
     }

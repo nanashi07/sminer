@@ -832,6 +832,8 @@ pub struct AuditRule {
     #[serde(default = "default_evaluation")]
     pub evaluation: bool,
     pub mode: AuditRuleType,
+    #[serde(default = "default_symbols")]
+    pub symbols: Vec<String>,
 }
 
 fn default_trends() -> Vec<TrendCriteria> {
@@ -846,9 +848,11 @@ fn default_oscillations() -> Vec<OscillationCriteria> {
 fn default_lowers() -> Vec<LowerCriteria> {
     Vec::new()
 }
-
 fn default_evaluation() -> bool {
     false
+}
+fn default_symbols() -> Vec<String> {
+    Vec::new()
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]

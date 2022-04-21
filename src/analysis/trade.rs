@@ -1164,8 +1164,23 @@ pub mod flash {
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
 
+        let use_symbol_rule = config
+            .trade
+            .flash
+            .rules
+            .iter()
+            .filter(|r| r.symbols.contains(&trade.id))
+            .filter(|r| !r.evaluation)
+            .any(|_| true);
+
         // general validation from config rules, at least one success and no blocked rule
         for rule in config.trade.flash.rules.iter().filter(|r| !r.evaluation) {
+            if (use_symbol_rule && !rule.symbols.contains(&trade.id))
+                || (!use_symbol_rule && !rule.symbols.is_empty())
+            {
+                continue;
+            }
+
             if validate_audit_rule(
                 Arc::clone(&asset),
                 Arc::clone(&config),
@@ -1217,8 +1232,23 @@ pub mod slug {
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
 
+        let use_symbol_rule = config
+            .trade
+            .slug
+            .rules
+            .iter()
+            .filter(|r| r.symbols.contains(&trade.id))
+            .filter(|r| !r.evaluation)
+            .any(|_| true);
+
         // general validation from config rules, at least one success and no blocked rule
         for rule in config.trade.slug.rules.iter().filter(|r| !r.evaluation) {
+            if (use_symbol_rule && !rule.symbols.contains(&trade.id))
+                || (!use_symbol_rule && !rule.symbols.is_empty())
+            {
+                continue;
+            }
+
             if validate_audit_rule(
                 Arc::clone(&asset),
                 Arc::clone(&config),

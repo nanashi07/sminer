@@ -42,6 +42,24 @@ trade:
     lossMarginRate: 0.003
     rules:
     - mode: Permit
+      symbols: [ LABU, LABD ]
+      # evaluation: true
+      trends:
+      - to: m0060
+        trend: Upward
+        up: '1'
+        down: 1+
+      - to: m0030
+        trend: Upward
+      - to: m0010
+        trend: Upward
+      deviations:
+      - to: m0120
+        value: 0.002
+      oscillations:
+      - to: m0300
+        value: 0.008
+    - mode: Permit
       evaluation: false
       trends:
       - to: m0060
