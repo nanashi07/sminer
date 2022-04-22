@@ -24,71 +24,46 @@ trade:
     - mode: Permit
       evaluation: false # default false, true to evaluate in log only
       trends:
-      - to: m0010
-        trend: Upward
-        up: '1'
-        down: '1+'
-      - to: m0030
-        trend: Downward
-      - to: m0060
-        trend: Downward
+      - { to: m0010, trend: Upward, up: '1', down: '1+' }
+      - { to: m0030, trend: Downward }
+      - { to: m0060, trend: Downward }
       deviations:
-      - to: m0070
-        value: 0.003
+      - { to: m0070, value: 0.003 }
       oscillations:
-      - to: m0070
-        value: 0.013
+      - { to: m0070, value: 0.013 }
   slug:
     lossMarginRate: 0.003
     rules:
     - mode: Permit
       symbols: [ LABU, LABD ]
-      # evaluation: true
       trends:
-      - to: m0060
-        trend: Upward
-        up: '1'
-        down: 1+
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
+      - { to: m0060, trend: Upward, up: '1', down: 1+ }
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.002 }
       oscillations:
-      - to: m0300
-        value: 0.008
+      - { to: m0300, value: 0.008 }
     - mode: Permit
       evaluation: false
       trends:
-      - to: m0060
-        trend: Upward
-        up: '1'
-        down: 1+
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
+      - { to: m0060, trend: Upward, up: '1', down: 1+ }
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.002 }
       oscillations:
-      - to: m0300
-        value: 0.008
+      - { to: m0300, value: 0.008 }
   revert:
     lossMarginRate: 0.0
     rules:
     - mode: Permit
       evaluation: false
       trends:
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.002 }
 replay:
   exports:
     - name: protfolio
