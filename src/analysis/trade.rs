@@ -217,7 +217,7 @@ pub fn prepare_trade(
 
 pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> u32 {
     // restricted amount
-    let max_amount = config.trade.max_order_amount;
+    let max_amount = config.trade.get_option(&trade.id).max_order_amount;
     // get opposite
     let rival_symbol = asset.find_rival_symbol(&trade.id).unwrap();
     if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
@@ -410,6 +410,7 @@ pub fn audit_trade(
     }
 
     let mut result = AuditState::Decline;
+    let option = config.trade.get_option(&trade.id);
 
     // flash check
     if flash::audit(Arc::clone(&asset), Arc::clone(&config), trade) {
@@ -465,50 +466,38 @@ pub fn audit_trade(
     }
 
     // check last pair order if exists, make sure make off gain profit
-    if let Some(rival_symbol) = &rival_symbol_option {
-        // get latest trade of rival ticker
-        if let Some(rival_trade) = &rival_trade_option {
-            if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
-                // rival symbol is the one has been placed order
-                let rival_price_change = rival_trade.price - rival_order.created_price;
-                let rival_price_change_rate = rival_price_change / rival_order.created_price;
-                let rival_volume = rival_order.created_volume as f32;
-                let rival_profit = rival_price_change * rival_volume;
+    if option.validate_increased_profit || option.enable_profit_take || option.enable_early_clear {
+        if let Some(rival_symbol) = &rival_symbol_option {
+            // get latest trade of rival ticker
+            if let Some(rival_trade) = &rival_trade_option {
+                if let Some(rival_order) = asset.find_running_order(&rival_symbol) {
+                    // rival symbol is the one has been placed order
+                    let rival_price_change = rival_trade.price - rival_order.created_price;
+                    let rival_price_change_rate = rival_price_change / rival_order.created_price;
+                    let rival_volume = rival_order.created_volume as f32;
+                    let rival_profit = rival_price_change * rival_volume;
 
-                let price_change = trade.price - rival_order.created_rival_price;
-                let price_change_rate = price_change / rival_order.created_rival_price;
+                    let price_change = trade.price - rival_order.created_rival_price;
+                    let price_change_rate = price_change / rival_order.created_rival_price;
 
-                let estimated_profit = price_change * estimated_volume as f32;
+                    let estimated_profit = price_change * estimated_volume as f32;
 
-                if matches!(result, AuditState::Flash | AuditState::Slug) {
-                    if !profit_increased.unwrap_or(true) {
-                        debug!("[{}] block write off, price = {}", &trade.id, &trade.price);
-                        result = AuditState::Decline;
-                    }
-                } else {
-                    if rival_price_change_rate > 0.0 && profit_increased.unwrap_or(true) {
-                        // early sell even if there is no match rule found
-                        if rival_price_change_rate > 0.005 || price_change_rate < -0.005 {
-                            debug!("[{}] take profit, price = {}", &trade.id, &trade.price);
-                            trace!(
-                                "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
-                                rival_price_change_rate = rival_price_change_rate * 100.0,
-                                price_change_rate = price_change_rate * 100.0,
-                                change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
-                                rival_profit = rival_profit,
-                                estimated_profit = estimated_profit,
-                                estimated_volume = estimated_volume,
-                                total_profit = rival_profit + estimated_profit
-                            );
-                            result = AuditState::ProfitTaking;
+                    if matches!(result, AuditState::Flash | AuditState::Slug) {
+                        if option.validate_increased_profit && !profit_increased.unwrap_or(true) {
+                            debug!("[{}] block write off, price = {}", &trade.id, &trade.price);
+                            result = AuditState::Decline;
                         }
-                        // early sell when the trend is starting to go down
-                        else if revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade) {
-                            debug!(
-                                "[{}] early clear, price = {}, change rate = {:.5}/{:.5}",
-                                &trade.id, &trade.price, rival_price_change_rate, price_change_rate,
-                            );
-                            trace!(
+                    } else {
+                        if rival_price_change_rate > option.early_clear_rate.abs()
+                            && profit_increased.unwrap_or(true)
+                        {
+                            // early sell even if there is no match rule found
+                            if option.enable_profit_take
+                                && (rival_price_change_rate > option.profit_take_rate.abs()
+                                    || price_change_rate < -1.0 * option.profit_take_rate.abs())
+                            {
+                                debug!("[{}] take profit, price = {}", &trade.id, &trade.price);
+                                trace!(
                                 "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
                                 rival_price_change_rate = rival_price_change_rate * 100.0,
                                 price_change_rate = price_change_rate * 100.0,
@@ -518,63 +507,81 @@ pub fn audit_trade(
                                 estimated_volume = estimated_volume,
                                 total_profit = rival_profit + estimated_profit
                             );
-                            result = AuditState::EarlyClear;
+                                result = AuditState::ProfitTaking;
+                            }
+                            // early sell when the trend is starting to go down
+                            else if option.enable_early_clear
+                                && revert::audit(Arc::clone(&asset), Arc::clone(&config), &trade)
+                            {
+                                debug!(
+                                    "[{}] early clear, price = {}, change rate = {:.5}/{:.5}",
+                                    &trade.id,
+                                    &trade.price,
+                                    rival_price_change_rate,
+                                    price_change_rate,
+                                );
+                                trace!(
+                                "rival change rate: {rival_price_change_rate:.5}%, change rate: {price_change_rate:.5}%, change deviation: {change_deviation}%, rival profit: {rival_profit}, estimated profit: {estimated_profit} estimated volume: {estimated_volume}, total profit: {total_profit}",
+                                rival_price_change_rate = rival_price_change_rate * 100.0,
+                                price_change_rate = price_change_rate * 100.0,
+                                change_deviation = (rival_price_change_rate.abs() - price_change_rate.abs()) / rival_price_change_rate.abs(),
+                                rival_profit = rival_profit,
+                                estimated_profit = estimated_profit,
+                                estimated_volume = estimated_volume,
+                                total_profit = rival_profit + estimated_profit
+                            );
+                                result = AuditState::EarlyClear;
+                            }
                         }
                     }
                 }
             }
         }
     }
-
     // TODO: consider calculate diff between bear change rate / bulk change rate
 
     // TODO: reutrn if decline, unnecessary to check following
 
     // FIXME: check previous order status
-    if let Some(exists_order) = asset.find_running_order(&trade.id) {
-        // exists order, check PnL
-        // if trade.price < exists_order.created_price && profit_increased.unwrap_or(false) {
-        //     debug!(
-        //         "[{}] loss bound, price = {}, profit check off",
-        //         &trade.id, &trade.price
-        //     );
-        //     return AuditState::LossBound;
-        // }
-
-        if recognize_loss(
-            Arc::clone(&asset),
-            Arc::clone(&config),
-            trade,
-            &exists_order,
-        ) {
-            // TODO: do more trend check here
-            debug!(
-                "[{}] loss clear, price = {}, profit check off",
-                &trade.id, &trade.price
-            );
-            return AuditState::LossClear;
+    if option.enable_loss_clear {
+        if let Some(exists_order) = asset.find_running_order(&trade.id) {
+            if recognize_loss(
+                Arc::clone(&asset),
+                Arc::clone(&config),
+                trade,
+                &exists_order,
+            ) {
+                // TODO: do more trend check here
+                debug!(
+                    "[{}] loss clear, price = {}, profit check off",
+                    &trade.id, &trade.price
+                );
+                return AuditState::LossClear;
+            }
+            result = AuditState::Decline;
         }
-        result = AuditState::Decline;
     }
 
     // check close time and buy last one if unpair order exists
-    if asset.regular_marketing_closing(trade.action_time()) {
-        let symbol = &trade.id;
-        if let Some(rival_symbol) = asset.find_rival_symbol(&symbol) {
-            if let Some(target_symbol) =
-                asset.has_running_orders(&vec![symbol.clone(), rival_symbol.clone()])
-            {
-                // only close same side symbol, rival symbol must wait for their trade
-                if symbol == &target_symbol {
-                    debug!(
+    if option.enable_close_trade {
+        if asset.regular_marketing_closing(trade.action_time()) {
+            let symbol = &trade.id;
+            if let Some(rival_symbol) = asset.find_rival_symbol(&symbol) {
+                if let Some(target_symbol) =
+                    asset.has_running_orders(&vec![symbol.clone(), rival_symbol.clone()])
+                {
+                    // only close same side symbol, rival symbol must wait for their trade
+                    if symbol == &target_symbol {
+                        debug!(
                         "[{}] close clear, price = {}, profit check off, it's time to take rest",
                         &trade.id, &trade.price
                     );
-                    return AuditState::CloseTrade;
+                        return AuditState::CloseTrade;
+                    }
+                } else {
+                    // no running orders, decline all incoming orders when marketing is closing
+                    return AuditState::Decline;
                 }
-            } else {
-                // no running orders, decline all incoming orders when marketing is closing
-                return AuditState::Decline;
             }
         }
     }

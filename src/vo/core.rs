@@ -802,13 +802,45 @@ pub struct YahooFinance {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TradeAudit {
     pub enabled: bool,
-    // max aount to per single order
-    #[serde(rename = "maxOrderAmount")]
-    pub max_order_amount: u32,
+    pub options: Vec<AuditOption>,
     pub flash: AuditMode,
     pub slug: AuditMode,
     // used to prevent loss, check downward trend while profit still positive
     pub revert: AuditMode,
+}
+
+impl TradeAudit {
+    pub fn get_option(&self, symbol: &str) -> AuditOption {
+        let option = self
+            .options
+            .iter()
+            .find(|o| o.symbols.contains(&symbol.to_string()))
+            .unwrap_or_else(|| self.options.iter().find(|o| o.symbols.is_empty()).unwrap());
+
+        option.clone()
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AuditOption {
+    pub symbols: Vec<String>,
+    #[serde(rename = "validateIncreasedProfit")]
+    pub validate_increased_profit: bool,
+    #[serde(rename = "enableProfitTake")]
+    pub enable_profit_take: bool,
+    #[serde(rename = "enableEarlyClear")]
+    pub enable_early_clear: bool,
+    #[serde(rename = "enableLossClear")]
+    pub enable_loss_clear: bool,
+    #[serde(rename = "enableCloseTrade")]
+    pub enable_close_trade: bool,
+    // max aount to per single order
+    #[serde(rename = "maxOrderAmount")]
+    pub max_order_amount: u32,
+    #[serde(rename = "profitTakeRate")]
+    pub profit_take_rate: f32,
+    #[serde(rename = "earlyClearRate")]
+    pub early_clear_rate: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

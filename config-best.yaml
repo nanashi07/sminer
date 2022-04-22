@@ -17,7 +17,17 @@ platform:
 trade:
   # enable trade for consume, always do trade on replay
   enabled: true
-  maxOrderAmount: 500
+  options:
+  - symbols: [] # default
+    validateIncreasedProfit: true
+    enableProfitTake: true
+    enableEarlyClear: true
+    enableLossClear: true
+    enableCloseTrade: true
+    maxOrderAmount: 500
+    profitTakeRate: 0.005
+    earlyClearRate: 0.0
+
   flash:
     lossMarginRate: 0.005
     rules:
@@ -31,9 +41,19 @@ trade:
       - { to: m0070, value: 0.003 }
       oscillations:
       - { to: m0070, value: 0.013 }
+
   slug:
     lossMarginRate: 0.003
     rules:
+    - mode: Permit
+      trends:
+      - { to: m0060, trend: Upward, up: '1', down: 1+ }
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
+      deviations:
+      - { to: m0120, value: 0.002 }
+      oscillations:
+      - { to: m0300, value: 0.008 }
     - mode: Permit
       symbols: [ LABU, LABD ]
       trends:
@@ -44,21 +64,11 @@ trade:
       - { to: m0120, value: 0.002 }
       oscillations:
       - { to: m0300, value: 0.008 }
-    - mode: Permit
-      evaluation: false
-      trends:
-      - { to: m0060, trend: Upward, up: '1', down: 1+ }
-      - { to: m0030, trend: Upward }
-      - { to: m0010, trend: Upward }
-      deviations:
-      - { to: m0120, value: 0.002 }
-      oscillations:
-      - { to: m0300, value: 0.008 }
+
   revert:
     lossMarginRate: 0.0
     rules:
     - mode: Permit
-      evaluation: false
       trends:
       - { to: m0030, trend: Upward }
       - { to: m0010, trend: Upward }
@@ -66,14 +76,10 @@ trade:
       - { to: m0120, value: 0.002 }
 replay:
   exports:
-    - name: protfolio
-      enabled: false
-    - name: slope
-      enabled: false
-    - name: trade
-      enabled: false
-    - name: order
-      enabled: false
+    - { name: protfolio, enabled: false }
+    - { name: slope,     enabled: false }
+    - { name: trade,     enabled: false }
+    - { name: order,     enabled: false }
   outputs:
     file:
       enabled: false
