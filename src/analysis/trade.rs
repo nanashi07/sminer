@@ -48,7 +48,7 @@ pub fn prepare_trade(
             let estimated_volume = calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
             if estimated_volume == 0 {
-                warn!("suspected order volume is zero, ignore order");
+                warn!("estimated order volume is zero, ignore order");
                 return Ok(());
             }
 
@@ -137,7 +137,7 @@ pub fn prepare_trade(
                 calculate_volum(Arc::clone(&asset), Arc::clone(&config), &rival_trade);
 
             if estimated_volume == 0 {
-                warn!("suspected order volume is zero, ignore order");
+                warn!("estimated order volume is zero, ignore order");
                 return Ok(());
             }
 
@@ -378,8 +378,8 @@ pub fn calculate_volum(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: 
             expected_volume.ceil() as u32
         }
     } else {
-        let suspect_volumn = (max_amount as f32) / trade.price;
-        suspect_volumn.round() as u32
+        let estimated_volumn = (max_amount as f32) / trade.price;
+        estimated_volumn.round() as u32
     }
 }
 
