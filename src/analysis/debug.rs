@@ -4,7 +4,7 @@ use super::trade::{
 use crate::{
     vo::{
         biz::{AuditState, MarketHoursType, Order, OrderStatus, TradeInfo, Trend},
-        core::{AppConfig, AssetContext, AuditMode},
+        core::{AppConfig, AssetContext, AuditMode, KEY_EXTRA_CONFIG_FILE_PATH},
     },
     Result,
 };
@@ -156,25 +156,29 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         calculate_total_profit(&formula.join(" + "), &close_prices)
     );
     info!(
-        "PR| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10} |",
+        "| {symbol:<10} | {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10} | {sha:<40} |",
+        symbol = "Symbols",
         date = "Date",
         order_count = "Order count",
         loss_order_count = "Loss orders",
         loss_order_rate = "Loss orders (%s)",
         total_amount = "Total amount",
         total_profit = "PnL",
-        profit_rate = "PnL (%s)"
+        profit_rate = "PnL (%s)",
+        sha = "Config SHA"
     );
-    info!("PR|------------|-------------|-------------|------------------|--------------|--------------|------------|");
+    info!("|------------|------------|-------------|-------------|------------------|--------------|--------------|------------|------------------------------------------|");
     info!(
-        "PR| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16.5} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10.5} |",
+        "| {pair:<10} | {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16.5} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10.5} | {sha} |",
+        pair = close_prices.keys().map(|k|k.to_string()).collect::<Vec<_>>().join("-"),
         date = time.format("%Y-%m-%d"),
         order_count = readers.len(),
         loss_order_count = loss_order,
         loss_order_rate = 100.0 * loss_order as f64 / readers.len() as f64,
         total_profit = total_profit,
         total_amount = total_amount,
-        profit_rate = total_profit / total_amount * 100.0
+        profit_rate = total_profit / total_amount * 100.0,
+        sha = get_config_sha(Arc::clone(&config))
     );
     info!("####################################################################################################");
 
@@ -208,6 +212,13 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("####################################################################################################");
 
     Ok(true) //FIXME:
+}
+
+fn get_config_sha(config: Arc<AppConfig>) -> String {
+    let config_file = config.extra_get(KEY_EXTRA_CONFIG_FILE_PATH).unwrap();
+    let base = Path::new(&config_file).parent().unwrap();
+    let sha = Path::file_name(base).unwrap().to_str().unwrap();
+    sha.to_owned()
 }
 
 fn calculate_total_profit(formula: &str, closed_price: &HashMap<String, f32>) -> f64 {
@@ -715,9 +726,12 @@ pub fn print_meta(
     }
 
     if output_message {
+        let config_file = config.extra_get(KEY_EXTRA_CONFIG_FILE_PATH).unwrap();
+        let base = Path::new(&config_file).parent().unwrap();
+
         let path = format!(
-            "{base}/msgs/{symbol}/{day}/MSG-{time}-{id}.txt",
-            base = &config.replay.outputs.base_folder,
+            "{base}/replay/msgs/{symbol}/{day}/MSG-{time}-{id}.txt",
+            base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
             time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
@@ -727,14 +741,18 @@ pub fn print_meta(
     }
 
     if output_order && !&order.is_none() {
+        let config_file = config.extra_get(KEY_EXTRA_CONFIG_FILE_PATH).unwrap();
+        let base = Path::new(&config_file).parent().unwrap();
+
         let path = format!(
-            "{base}/orders/{symbol}/{day}/ORD-{time}-{id}.txt",
-            base = &config.replay.outputs.base_folder,
+            "{base}/replay/orders/{symbol}/{day}/ORD-{time}-{id}.txt",
+            base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
             time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
             id = &trade.message_id
         );
+
         write_file(&path, &buffered)?;
     }
 

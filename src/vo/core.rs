@@ -19,6 +19,7 @@ use std::{
 };
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
+pub const KEY_EXTRA_CONFIG_FILE_PATH: &str = "config_file_path";
 pub const KEY_EXTRA_PRCOESS_IN_ASYNC: &str = "process_in_async";
 pub const KEY_EXTRA_ENABLE_DATA_TRUNCAT: &str = "enable_clean_data_before_operation";
 pub const KEY_EXTRA_PRINT_TRADE_META_START_TIME: &str = "print_trade_meta_start_time";

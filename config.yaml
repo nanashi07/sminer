@@ -17,120 +17,110 @@ platform:
 trade:
   # enable trade for consume, always do trade on replay
   enabled: true
-  maxOrderAmount: 500
+  options:
+  - symbols: [] # default
+    validateIncreasedProfit: false
+    enableProfitTake: false
+    enableEarlyClear: false
+    enableLossClear: false
+    enableCloseTrade: false
+    maxOrderAmount: 500
+    profitTakeRate: 0.005
+    earlyClearRate: 0.0
+  # - symbols: [ TQQQ, SQQQ ]
+  #   validateIncreasedProfit: true
+  #   enableProfitTake: true
+  #   enableEarlyClear: true
+  #   enableLossClear: true
+  #   enableCloseTrade: true
+  #   maxOrderAmount: 500
+  #   profitTakeRate: 0.015
+  #   earlyClearRate: 0.001
+    
   flash:
     lossMarginRate: 0.005
     rules:
     - mode: Permit
-      evaluation: false # default false, true to evaluate in log only
+      evaluation: true # default false, true to evaluate in log only
       trends:
-      - to: m0010
-        trend: Upward
-        up: '1'
-        down: '1+'
-      - to: m0030
-        trend: Downward
-      - to: m0060
-        trend: Downward
+      - { to: m0010, trend: Upward, up: '1', down: '1+' }
+      - { to: m0030, trend: Downward }
+      - { to: m0060, trend: Downward }
       deviations:
-      - to: m0070
-        value: 0.003
+      - { to: m0070, value: 0.003 }
       oscillations:
-      - to: m0070
-        value: 0.013
+      - { to: m0070, value: 0.013 }
     - mode: Permit
       evaluation: true
       trends:
-      - to: m0010
-        trend: Upward
-        up: '1'
-        down: '3+'
-      - to: m0030
-        trend: Downward
-      - to: m0060
-        trend: Downward
+      - { to: m0010, trend: Upward, up: '1', down: '3+' }
+      - { to: m0030, trend: Downward }
+      - { to: m0060, trend: Downward }
       deviations:
-      - to: m0070
-        value: 0.003
+      - { to: m0070, value: 0.003 }
       oscillations:
-      - to: m0360
-        value: 0.0175
+      - { to: m0360, value: 0.0175 }
       lowers:
-      - to: m0120
-        compareTo: m0070
-        duration: 10
+      - { to: m0120, compareTo: m0070, duration: 10 }
   slug:
     lossMarginRate: 0.003
     rules:
     - mode: Permit
+      # evaluation: true
+      trends:
+      - { to: m0060, trend: Upward, up: '1', down: 1+ }
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
+      - { to: m0120, trend: Downward }
+      - { to: m0180, trend: Downward }
+      - { to: m0240, trend: Downward }
+      # - { to: m0300, trend: Downward }
+      
+      deviations:
+      - { to: m0120, value: 0.002 }
+      # oscillations:
+      # - { to: m0300, value: 0.005 }
+      lowers:
+      - { to: m0360, compareTo: m0090, duration: 10 }
+    - mode: Permit
       evaluation: true
       trends:
-      - to: m0060
-        trend: Upward
-        up: '1'
-        down: 1+
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
+      - { to: m0060, trend: Upward, up: '1', down: 1+ }
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.002 }
       oscillations:
-      - to: m0300
-        value: 0.005
+      - { to: m0300, value: 0.008 }
     - mode: Permit
-      evaluation: false
+      evaluation: true
       trends:
-      - to: m0060
-        trend: Upward
-        up: '1'
-        down: 1+
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
-      # - from: m0060
-      #   trend: Downward
-      #   to: m00240
-      #   down: '1+'
+      - { to: m0060, trend: Upward, up: '2', down: 2+ }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.003 }
       oscillations:
-      - to: m0300
-        value: 0.007
+      - { to: m0300, value: 0.007 }
       lowers:
-        # search range for lower price
-      - to: m0300
-        # recent min price range
-        compareTo: m0120
-        # based time unit
-        duration: 10
+        # to: search range for lower price
+        # compareTo: recent min price range
+        # duration: based time unit
+      - { to: m0900, compareTo: m0180, duration: 10 }
   revert:
-    lossMarginRate: 0.0
     rules:
     - mode: Permit
       evaluation: false
       trends:
-      - to: m0030
-        trend: Upward
-      - to: m0010
-        trend: Upward
-        # up: '1+'
+      - { to: m0030, trend: Upward }
+      - { to: m0010, trend: Upward }
       deviations:
-      - to: m0120
-        value: 0.002
+      - { to: m0120, value: 0.002 }
 replay:
   exports:
-    - name: protfolio
-      enabled: false
-    - name: slope
-      enabled: false
-    - name: trade
-      enabled: false
-    - name: order
-      enabled: false
+    - { name: protfolio, enabled: false }
+    - { name: slope,     enabled: false }
+    - { name: trade,     enabled: false }
+    - { name: message,   enabled: false }
+    - { name: order,     enabled: true }
   outputs:
     # baseFolder: tmp02
     file:
@@ -138,99 +128,34 @@ replay:
     elasticsearch:
       enabled: false
 units:
-  # - name: f0010
-  #   duration: 10
-  #   period: 0
-  # - name: f0030
-  #   duration: 30
-  #   period: 0
-  # - name: f0060
-  #   duration: 60
-  #   period: 0
-  # - name: f0120
-  #   duration: 120
-  #   period: 0
-  # - name: f0180
-  #   duration: 180
-  #   period: 0
-  # - name: f0240
-  #   duration: 240
-  #   period: 0
-  # - name: f0300
-  #   duration: 300
-  #   period: 0
-  # - name: f0600
-  #   duration: 600
-  #   period: 0
-  # - name: f1200
-  #   duration: 1200
-  #   period: 0
-  # - name: f1800
-  #   duration: 1800
-  #   period: 0
-  # - name: f3600
-  #   duration: 3600
-  #   period: 0
-  - name: m0010
-    duration: 10
-    period: 360
-  - name: m0030
-    duration: 30
-    period: 120
-  - name: m0060
-    duration: 60
-    period: 60
-  - name: m0120
-    duration: 120
-    period: 30
-  - name: m0180
-    duration: 180
-    period: 15
-  - name: m0240
-    duration: 240
-    period: 15
-  - name: m0300
-    duration: 300
-    period: 12
-  - name: m0600
-    duration: 600
-    period: 9
-  - name: m1200
-    duration: 1200
-    period: 6
-  - name: m1800
-    duration: 1800
-    period: 4
-  - name: m3600
-    duration: 3600
-    period: 3
+  # - { name: f0010, duration: 10,   period: 0 }
+  # - { name: f0030, duration: 30,   period: 0 }
+  # - { name: f0060, duration: 60,   period: 0 }
+  # - { name: f0120, duration: 120,  period: 0 }
+  # - { name: f0180, duration: 180,  period: 0 }
+  # - { name: f0240, duration: 240,  period: 0 }
+  # - { name: f0300, duration: 300,  period: 0 }
+  # - { name: f0600, duration: 600,  period: 0 }
+  # - { name: f1200, duration: 1200, period: 0 }
+  # - { name: f1800, duration: 1800, period: 0 }
+  # - { name: f3600, duration: 3600, period: 0 }
+  - { name: m0010, duration: 10,   period: 360 }
+  - { name: m0030, duration: 30,   period: 120 }
+  - { name: m0060, duration: 60,   period: 60  }
+  - { name: m0120, duration: 120,  period: 30  }
+  - { name: m0180, duration: 180,  period: 15  }
+  - { name: m0240, duration: 240,  period: 15  }
+  - { name: m0300, duration: 300,  period: 12  }
+  - { name: m0600, duration: 600,  period: 9   }
+  - { name: m1200, duration: 1200, period: 6   }
+  - { name: m1800, duration: 1800, period: 4   }
+  - { name: m3600, duration: 3600, period: 3   }
 tickers:
   symbols:
-    - bull:
-        id: TQQQ
-      bear:
-        id: SQQQ
-    - bull:
-        id: SOXL
-      bear:
-        id: SOXS
-    - bull:
-        id: SPXL
-      bear:
-        id: SPXS
-    - bull:
-        id: LABU
-      bear:
-        id: LABD
-    - bull:
-        id: TNA
-      bear:
-        id: TZA
-    - bull:
-        id: YINN
-      bear:
-        id: YANG
-    - bull:
-        id: UDOW
-      bear:
-        id: SDOW
+    - { bull: { id: TQQQ }, bear: { id: SQQQ } }
+    - { bull: { id: SOXL }, bear: { id: SOXS } }
+    - { bull: { id: SPXL }, bear: { id: SPXS } }
+    - { bull: { id: LABU }, bear: { id: LABD } }
+    - { bull: { id: TNA  }, bear: { id: TZA  } }
+    - { bull: { id: YINN }, bear: { id: YANG } }
+    - { bull: { id: UDOW }, bear: { id: SDOW } }

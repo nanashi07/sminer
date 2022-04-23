@@ -13,8 +13,9 @@ use sminer::{
     },
     provider::yahoo::consume,
     vo::core::{
-        AppConfig, AppContext, KEY_EXTRA_ENABLE_DATA_TRUNCAT, KEY_EXTRA_PRCOESS_IN_ASYNC,
-        KEY_EXTRA_PRINT_TRADE_META_END_TIME, KEY_EXTRA_PRINT_TRADE_META_START_TIME,
+        AppConfig, AppContext, KEY_EXTRA_CONFIG_FILE_PATH, KEY_EXTRA_ENABLE_DATA_TRUNCAT,
+        KEY_EXTRA_PRCOESS_IN_ASYNC, KEY_EXTRA_PRINT_TRADE_META_END_TIME,
+        KEY_EXTRA_PRINT_TRADE_META_START_TIME,
     },
     Result,
 };
@@ -35,6 +36,7 @@ async fn main() -> Result<()> {
 
             // init
             let mut config = AppConfig::load(config_file)?;
+            config.extra_put(KEY_EXTRA_CONFIG_FILE_PATH, config_file);
 
             match name {
                 "consume" => {
