@@ -147,3 +147,38 @@ fn test_runtime_performance() -> Result<()> {
 
     Ok(())
 }
+
+fn type_of<T>(_: T) -> &'static str {
+    std::any::type_name::<T>()
+}
+
+macro_rules! append_text {
+    (buffer: $buf:expr, $($arg:tt)+) => {
+        let option: Option<&mut Vec<String>> = $buf;
+        if let Some(buffer) = option {
+            buffer.push(format!($($arg)+));
+        } else {
+            log::info!($($arg)+);
+        }
+    };
+    ($($arg:tt)+) => {
+        log::info!($($arg)+);
+    };
+}
+
+#[test]
+fn test_append_text() {
+    let a = 1;
+    let b = "2";
+    let mut c: Vec<String> = Vec::new();
+
+    println!("a: {}", type_of(a));
+    println!("b: {}", type_of(b));
+    println!("c: {}", type_of(&c));
+
+    append_text!(buffer: Some(&mut c), "bb {} {}", "cc", "dd");
+    append_text!(buffer: Some(&mut c), "ee {} {}", "cc", "dd");
+    append_text!(buffer: None, "bb {} {}", "cc", "dd");
+
+    println!("{:?}", &c);
+}

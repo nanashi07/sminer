@@ -100,6 +100,8 @@ pub fn prepare_trade(
                         Arc::clone(&config),
                         Some(order.clone()),
                         &trade,
+                        config.replay.export_enabled("message"),
+                        config.replay.export_enabled("order"),
                     )
                     .unwrap_or_default();
                 }
@@ -187,6 +189,8 @@ pub fn prepare_trade(
                         Arc::clone(&config),
                         Some(order.clone()),
                         &rival_trade,
+                        config.replay.export_enabled("message"),
+                        config.replay.export_enabled("order"),
                     )
                     .unwrap_or_default();
                 }
@@ -405,7 +409,15 @@ pub fn audit_trade(
 
         if trade.time > start_at && trade.time < end_at {
             // not affected by config.replay.exports.order
-            print_meta(Arc::clone(&asset), Arc::clone(&config), None, trade).unwrap_or_default();
+            print_meta(
+                Arc::clone(&asset),
+                Arc::clone(&config),
+                None,
+                trade,
+                true,
+                true,
+            )
+            .unwrap_or_default();
         }
     }
 
@@ -730,17 +742,20 @@ fn recognize_loss(
     trade: &TradeInfo,
     order: &Order,
 ) -> bool {
-    let margin_rate = match order.audit {
+    if let Some(margin_rate) = match order.audit {
         AuditState::Flash => config.trade.flash.loss_margin_rate,
         AuditState::Slug => config.trade.slug.loss_margin_rate,
-        _ => 0.006, // not affected
-    };
-    let price = trade.price;
-    // FIXME : use accepted price
-    let order_price = order.created_price;
+        _ => Some(0.006), // not affected
+    } {
+        let price = trade.price;
+        // FIXME : use accepted price
+        let order_price = order.created_price;
 
-    // check if loss over than configured margin value
-    price < order_price && (order_price - price) / order_price > margin_rate
+        // check if loss over than configured margin value
+        price < order_price && (order_price - price) / order_price > margin_rate
+    } else {
+        false
+    }
 }
 
 pub fn find_min_price(
@@ -893,8 +908,9 @@ pub fn validate_audit_rule(
     config: Arc<AppConfig>,
     trade: &TradeInfo,
     rule: &AuditRule,
-    duration: usize,
 ) -> bool {
+    let duration: usize = 10;
+
     // analysis trade trend and match config
     if !validate_trend(Arc::clone(&asset), Arc::clone(&config), trade, &rule.trends) {
         return false;
@@ -1166,8 +1182,6 @@ pub mod flash {
     use log::*;
     use std::sync::Arc;
 
-    pub const BASE_DURATION: usize = 10;
-
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
 
@@ -1188,13 +1202,7 @@ pub mod flash {
                 continue;
             }
 
-            if validate_audit_rule(
-                Arc::clone(&asset),
-                Arc::clone(&config),
-                trade,
-                rule,
-                BASE_DURATION,
-            ) {
+            if validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule) {
                 match rule.mode {
                     AuditRuleType::Permit => {
                         results.push(true);
@@ -1234,8 +1242,6 @@ pub mod slug {
     };
     use std::sync::Arc;
 
-    pub const BASE_DURATION: usize = 30;
-
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
 
@@ -1256,13 +1262,7 @@ pub mod slug {
                 continue;
             }
 
-            if validate_audit_rule(
-                Arc::clone(&asset),
-                Arc::clone(&config),
-                trade,
-                rule,
-                BASE_DURATION,
-            ) {
+            if validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule) {
                 match rule.mode {
                     AuditRuleType::Permit => {
                         results.push(true);
@@ -1294,20 +1294,12 @@ pub mod revert {
     };
     use std::sync::Arc;
 
-    pub const BASE_DURATION: usize = 10;
-
     pub fn audit(asset: Arc<AssetContext>, config: Arc<AppConfig>, trade: &TradeInfo) -> bool {
         let mut results: Vec<bool> = Vec::new();
 
         // general validation from config rules, at least one success and no blocked rule
         for rule in config.trade.revert.rules.iter().filter(|r| !r.evaluation) {
-            if validate_audit_rule(
-                Arc::clone(&asset),
-                Arc::clone(&config),
-                trade,
-                rule,
-                BASE_DURATION,
-            ) {
+            if validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule) {
                 match rule.mode {
                     AuditRuleType::Permit => {
                         results.push(true);

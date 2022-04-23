@@ -847,7 +847,7 @@ pub struct AuditOption {
 pub struct AuditMode {
     // loss margin on trend downward
     #[serde(rename = "lossMarginRate")]
-    pub loss_margin_rate: f32,
+    pub loss_margin_rate: Option<f32>,
     pub rules: Vec<AuditRule>,
 }
 

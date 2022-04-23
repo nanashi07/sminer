@@ -1,6 +1,5 @@
 use super::trade::{
-    find_max_price, find_min_price, flash, get_min_duration, rebound, rebound_all, slug,
-    validate_audit_rule,
+    find_max_price, find_min_price, get_min_duration, rebound, rebound_all, validate_audit_rule,
 };
 use crate::{
     vo::{
@@ -11,6 +10,11 @@ use crate::{
 };
 use chrono::{TimeZone, Utc};
 use log::*;
+use rsc::{
+    computer::Computer,
+    lexer,
+    parser::{self, Expr},
+};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs::OpenOptions,
@@ -49,6 +53,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     let mut total_profit = 0.0;
     let mut loss_order = 0;
     let mut pairs: BTreeMap<String, Vec<Order>> = BTreeMap::new();
+    let mut formula: Vec<String> = Vec::new();
 
     let lock = asset.orders();
     let readers = lock.read().unwrap();
@@ -58,18 +63,27 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         return Ok(true);
     }
 
+    let print_orders = false;
     for order in readers.iter().rev() {
         let post_market_price = *close_prices.get(&order.symbol).unwrap();
         // FIXME: use accepted
         let profit = (post_market_price - order.created_price) * order.created_volume as f32;
 
-        let level = if order.status == OrderStatus::LossPair || profit < 0.0 {
-            log::Level::Warn
-        } else {
-            log::Level::Info
-        };
+        if print_orders {
+            let level = if order.status == OrderStatus::LossPair || profit < 0.0 {
+                log::Level::Warn
+            } else {
+                log::Level::Info
+            };
 
-        log::log!(level, "profit: {} for {:?}", profit, order);
+            log::log!(level, "profit: {} for {:?}", profit, order);
+        }
+
+        formula.push(format!(
+            "({} - {}) * {}",
+            order.symbol, order.created_price, order.created_volume
+        ));
+
         // FIXME: use accepted
         total_amount += order.created_price * order.created_volume as f32;
         total_profit += profit;
@@ -88,57 +102,48 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
         }
     }
 
-    info!("####################################################################################################");
+    let print_pairs = false;
+    if print_pairs {
+        info!("####################################################################################################");
 
-    let mut formula: Vec<String> = Vec::new();
-
-    info!(
-        "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
-        constraint = "Pair",
-        status = "Status",
-        audit = "Audit",
-        profit_a = "Profit",
-        profit_b = "Profit",
-        total_profit = "Total profit"
-    );
-
-    info!("OR|------------|--------------|---------------------------|--------------------------------------------|--------------------------------------------|--------------------|");
-
-    for (constraint, orders) in pairs {
-        let one = orders.first().unwrap();
-        let another = orders.last().unwrap();
-        let one_post_market_price = *close_prices.get(&one.symbol).unwrap();
-        let another_post_market_price = *close_prices.get(&another.symbol).unwrap();
-
-        let level = if one.status == OrderStatus::LossPair {
-            log::Level::Warn
-        } else {
-            log::Level::Info
-        };
-
-        // FIXME: use accepted instead
-        log::log!(
-            level,
+        info!(
             "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
-            constraint = constraint,
-            status = format!("{:?}", one.status),
-            audit = format!("{:?}/{:?}", one.audit, another.audit),
-            profit_a = format!("[{}] ({} - {}) x {}", one.id, one_post_market_price, one.created_price, one.created_volume),
-            profit_b = format!("[{}] ({} - {}) x {}", another.id, another_post_market_price, another.created_price, another.created_volume),
-            total_profit = (one_post_market_price - one.created_price) * one.created_volume as f32
-                + (another_post_market_price - another.created_price)
-                    * another.created_volume as f32
+            constraint = "Pair",
+            status = "Status",
+            audit = "Audit",
+            profit_a = "Profit",
+            profit_b = "Profit",
+            total_profit = "Total profit"
         );
 
-        // formula
-        formula.push(format!(
-            "({} - {}) * {}",
-            one.symbol, one.created_price, one.created_volume
-        ));
-        formula.push(format!(
-            "({} - {}) * {}",
-            another.symbol, another.created_price, another.created_volume
-        ));
+        info!("OR|------------|--------------|---------------------------|--------------------------------------------|--------------------------------------------|--------------------|");
+
+        for (constraint, orders) in pairs {
+            let one = orders.first().unwrap();
+            let another = orders.last().unwrap();
+            let one_post_market_price = *close_prices.get(&one.symbol).unwrap();
+            let another_post_market_price = *close_prices.get(&another.symbol).unwrap();
+
+            let level = if one.status == OrderStatus::LossPair {
+                log::Level::Warn
+            } else {
+                log::Level::Info
+            };
+
+            // FIXME: use accepted instead
+            log::log!(
+                level,
+                "OR| {constraint:<10} | {status:<12} | {audit:<25} | {profit_a:<42} | {profit_b:<42} | {total_profit:<18} |",
+                constraint = constraint,
+                status = format!("{:?}", one.status),
+                audit = format!("{:?}/{:?}", one.audit, another.audit),
+                profit_a = format!("[{}] ({} - {}) x {}", one.id, one_post_market_price, one.created_price, one.created_volume),
+                profit_b = format!("[{}] ({} - {}) x {}", another.id, another_post_market_price, another.created_price, another.created_volume),
+                total_profit = (one_post_market_price - one.created_price) * one.created_volume as f32
+                    + (another_post_market_price - another.created_price)
+                        * another.created_volume as f32
+            );
+        }
     }
 
     info!("formula = {}", formula.join(" + "));
@@ -146,6 +151,10 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     let time = Utc.timestamp_millis(readers.front().unwrap().created_time);
 
     info!("closed prices {:?}", close_prices,);
+    info!(
+        "total profit: {}",
+        calculate_total_profit(&formula.join(" + "), &close_prices)
+    );
     info!(
         "PR| {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10} |",
         date = "Date",
@@ -169,15 +178,31 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     );
     info!("####################################################################################################");
 
-    print_config("flash", &config.trade.flash);
+    // output config
+    for option in &config.trade.options {
+        info!("symbols: {:?}", option.symbols);
+        info!(
+            "validateIncreasedProfit: {}",
+            option.validate_increased_profit
+        );
+        info!("enableProfitTake: {}", option.enable_profit_take);
+        info!("enableEarlyClear: {}", option.enable_early_clear);
+        info!("enableLossClear: {}", option.enable_loss_clear);
+        info!("enableCloseTrade: {}", option.enable_close_trade);
+        info!("maxOrderAmount: {}", option.max_order_amount);
+        info!("profitTakeRate: {}", option.profit_take_rate);
+        info!("earlyClearRate: {}", option.early_clear_rate);
+        info!("------------------------------------------------------------------------");
+    }
+    for (name, mode) in [
+        ("flash", &config.trade.flash),
+        ("slug", &config.trade.slug),
+        ("revert", &config.trade.revert),
+    ] {
+        print_config(name, mode);
 
-    info!("------------------------------------------------------------------------");
-
-    print_config("slug", &config.trade.slug);
-
-    info!("------------------------------------------------------------------------");
-
-    print_config("revert", &config.trade.revert);
+        info!("------------------------------------------------------------------------");
+    }
 
     info!("####################################################################################################");
     info!("####################################################################################################");
@@ -185,17 +210,36 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     Ok(true) //FIXME:
 }
 
+fn calculate_total_profit(formula: &str, closed_price: &HashMap<String, f32>) -> f64 {
+    let tokens = lexer::tokenize(&formula, true).unwrap();
+    let mut ast = parser::parse(&tokens).unwrap();
+    let mut computer = Computer::<f64>::default();
+
+    // calculate current first, mark offset flag
+    for (symbol, price) in closed_price {
+        ast.replace(
+            &Expr::Identifier(symbol.to_owned()),
+            &Expr::Constant(*price as f64),
+            false,
+        );
+    }
+
+    let value = computer.compute(&ast).unwrap();
+    value
+}
+
 fn print_config(name: &str, mode: &AuditMode) {
     info!(
-        "[Config] {}.loss_margin_rate: {:?}%",
-        name,
-        &mode.loss_margin_rate * 100.0
+        "[Config] {}.loss_margin_rate: {:?}",
+        name, &mode.loss_margin_rate
     );
+
     for (index, rule) in mode.rules.iter().filter(|r| !r.evaluation).enumerate() {
         info!(
             "########## [{} rule {} - {:?}] ##########",
             name, index, rule.mode
         );
+        info!("[rule {}] SYMBOLS: {:?}", index, rule.symbols);
         for trend in &rule.trends {
             info!(
                 "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -231,15 +275,15 @@ fn print_config(name: &str, mode: &AuditMode) {
 
 fn buffer_config(buffered: &mut Vec<String>, name: &str, mode: &AuditMode) {
     buffered.push(format!(
-        "[Config] {}.loss_margin_rate: {:?}%",
-        name,
-        &mode.loss_margin_rate * 100.0
+        "[Config] {}.loss_margin_rate: {:?}",
+        name, &mode.loss_margin_rate
     ));
     for (index, rule) in mode.rules.iter().filter(|r| !r.evaluation).enumerate() {
         buffered.push(format!(
             "########## [{} rule {} - {:?}] ##########",
             name, index, rule.mode
         ));
+        buffered.push(format!("[rule {}] SYMBOLS: {:?}", index, rule.symbols));
         for trend in &rule.trends {
             buffered.push(format!(
                 "[rule {}] TREND, from: {:?}, to: {}, trend: {:?}, up: {:?}, down: {:?}",
@@ -280,9 +324,17 @@ fn buffer_matched_rules(
     buffered: &mut Vec<String>,
     mode_name: &str,
     mode: &AuditMode,
-    duration: usize,
 ) {
+    let duration: usize = 10;
+
     for (index, rule) in mode.rules.iter().enumerate() {
+        let result = validate_audit_rule(Arc::clone(&asset), Arc::clone(&config), trade, rule);
+        let matched = result && !rule.evaluation;
+
+        if !matched {
+            continue;
+        }
+
         for trend_rule in &rule.trends {
             let mut result = true;
             let mut trend_from = 0;
@@ -481,30 +533,9 @@ fn buffer_matched_rules(
             ));
         }
 
-        let result = validate_audit_rule(
-            Arc::clone(&asset),
-            Arc::clone(&config),
-            trade,
-            rule,
-            flash::BASE_DURATION,
-        );
         buffered.push(format!(
-            "[{}/{:?}] {}{}, result: {}, evaluate: {}{}",
-            index,
-            rule.mode,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
-            mode_name,
-            result,
-            rule.evaluation,
-            if result && !rule.evaluation {
-                "********"
-            } else {
-                ""
-            },
+            "[{}/{:?}] {}, result: {}, evaluate: {}",
+            index, rule.mode, mode_name, result, rule.evaluation,
         ));
     }
 }
@@ -515,9 +546,10 @@ pub fn print_meta(
     config: Arc<AppConfig>,
     order: Option<Order>,
     trade: &TradeInfo,
+    output_message: bool,
+    output_order: bool,
 ) -> Result<()> {
-    // temp
-    if order.is_none() {
+    if !output_message && !output_order {
         return Ok(());
     }
 
@@ -529,27 +561,39 @@ pub fn print_meta(
         Utc.timestamp_millis(trade.time).format("%Y-%m-%d %H:%M:%S")
     ));
 
-    buffer_config(&mut buffered, "flash", &config.trade.flash);
+    // output config
+    for option in &config.trade.options {
+        buffered.push(format!("symbols: {:?}", option.symbols));
+        buffered.push(format!(
+            "validateIncreasedProfit: {}",
+            option.validate_increased_profit
+        ));
+        buffered.push(format!("enableProfitTake: {}", option.enable_profit_take));
+        buffered.push(format!("enableEarlyClear: {}", option.enable_early_clear));
+        buffered.push(format!("enableLossClear: {}", option.enable_loss_clear));
+        buffered.push(format!("enableCloseTrade: {}", option.enable_close_trade));
+        buffered.push(format!("maxOrderAmount: {}", option.max_order_amount));
+        buffered.push(format!("profitTakeRate: {}", option.profit_take_rate));
+        buffered.push(format!("earlyClearRate: {}", option.early_clear_rate));
+        buffered.push(format!(
+            "------------------------------------------------------------------------"
+        ));
+    }
+    for (name, mode) in [
+        ("flash", &config.trade.flash),
+        ("slug", &config.trade.slug),
+        ("revert", &config.trade.revert),
+    ] {
+        buffer_config(&mut buffered, name, mode);
 
-    buffered.push(format!(
-        "------------------------------------------------------------------------"
-    ));
-
-    buffer_config(&mut buffered, "slug", &config.trade.slug);
-
-    buffered.push(format!(
-        "------------------------------------------------------------------------"
-    ));
-
-    buffer_config(&mut buffered, "revert", &config.trade.revert);
-
-    buffered.push(format!(
-        "------------------------------------------------------------------------"
-    ));
+        buffered.push(format!(
+            "------------------------------------------------------------------------"
+        ));
+    }
 
     buffered.push(format!("{:?}", trade));
 
-    if let Some(value) = order {
+    if let Some(value) = &order {
         buffered.push(format!(
             "----------------------------------- {} / {:?} / {:?} -----------------------------------",
             &value.id, &value.status, &value.audit
@@ -557,47 +601,32 @@ pub fn print_meta(
         buffered.push(format!("{:?}", value));
     }
 
-    buffered.push(format!(
-        "----------------------------------flash--------------------------------------"
-    ));
+    for (name, mode) in [
+        ("flash", &config.trade.flash),
+        ("slug", &config.trade.slug),
+        ("revert", &config.trade.revert),
+    ] {
+        buffered.push(format!(
+            "----------------------------------{}--------------------------------------",
+            name
+        ));
 
-    buffer_matched_rules(
-        Arc::clone(&asset),
-        Arc::clone(&config),
-        &trade,
-        &mut buffered,
-        "flash",
-        &config.trade.flash,
-        flash::BASE_DURATION,
-    );
+        if name == "revert" {
+            let option = config.trade.get_option(&trade.id);
+            if !option.enable_early_clear {
+                continue;
+            }
+        }
 
-    buffered.push(format!(
-        "---------------------------------slug---------------------------------------"
-    ));
-
-    buffer_matched_rules(
-        Arc::clone(&asset),
-        Arc::clone(&config),
-        &trade,
-        &mut buffered,
-        "slug",
-        &config.trade.slug,
-        slug::BASE_DURATION,
-    );
-
-    buffered.push(format!(
-        "---------------------------------revert---------------------------------------"
-    ));
-
-    buffer_matched_rules(
-        Arc::clone(&asset),
-        Arc::clone(&config),
-        &trade,
-        &mut buffered,
-        "revert",
-        &config.trade.revert,
-        flash::BASE_DURATION,
-    );
+        buffer_matched_rules(
+            Arc::clone(&asset),
+            Arc::clone(&config),
+            &trade,
+            &mut buffered,
+            name,
+            mode,
+        );
+    }
 
     buffered.push(format!(
         "------------------------------------------------------------------------"
@@ -685,15 +714,35 @@ pub fn print_meta(
         }
     }
 
-    let path = format!(
-        "{base}/orders/{symbol}/{day}/MSG-{time}-{id}.ord",
-        base = &config.replay.outputs.base_folder,
-        symbol = &trade.id,
-        day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
-        time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
-        id = &trade.message_id
-    );
-    let parent = Path::new(&path).parent().unwrap();
+    if output_message {
+        let path = format!(
+            "{base}/msgs/{symbol}/{day}/MSG-{time}-{id}.txt",
+            base = &config.replay.outputs.base_folder,
+            symbol = &trade.id,
+            day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
+            time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
+            id = &trade.message_id
+        );
+        write_file(&path, &buffered)?;
+    }
+
+    if output_order && !&order.is_none() {
+        let path = format!(
+            "{base}/orders/{symbol}/{day}/ORD-{time}-{id}.txt",
+            base = &config.replay.outputs.base_folder,
+            symbol = &trade.id,
+            day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
+            time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
+            id = &trade.message_id
+        );
+        write_file(&path, &buffered)?;
+    }
+
+    Ok(())
+}
+
+fn write_file(path: &str, buffered: &Vec<String>) -> Result<()> {
+    let parent = Path::new(path).parent().unwrap();
     if !parent.exists() {
         std::fs::create_dir_all(parent.to_str().unwrap())?;
     }
@@ -702,7 +751,7 @@ pub fn print_meta(
         .write(true)
         .create(true)
         .truncate(true)
-        .open(&path)?;
+        .open(path)?;
     let mut writer = BufWriter::new(output);
 
     for line in buffered {

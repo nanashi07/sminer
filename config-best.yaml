@@ -66,7 +66,6 @@ trade:
       - { to: m0300, value: 0.008 }
 
   revert:
-    lossMarginRate: 0.0
     rules:
     - mode: Permit
       trends:
@@ -79,6 +78,7 @@ replay:
     - { name: protfolio, enabled: false }
     - { name: slope,     enabled: false }
     - { name: trade,     enabled: false }
+    - { name: message,   enabled: false }
     - { name: order,     enabled: false }
   outputs:
     file:
