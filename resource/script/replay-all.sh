@@ -24,7 +24,12 @@ mkdir -p $SMINER_BASE_DIR/log
 cp -r $CONFIG_FILE $SMINER_BASE_DIR/config.yaml
 # cat $SMINER_CONFIG_FILE
 
-./target/release/sminer annotate
+if [ "$SMINER_ANNOTATE" == "" ]
+then
+  echo Start to clean up annotations
+  ./target/release/sminer annotate
+fi
+
 echo `date` > $SMINER_BASE_DIR/start-time.txt
 
 if [[ "$PATTERN" == "" ]];
@@ -39,6 +44,8 @@ echo "| Symbols    | Date       | Order count | Loss orders | Loss orders (%s) |
 echo "|------------|------------|-------------|-------------|------------------|--------------|--------------|------------|------------------------------------------|" >> $SMINER_BASE_DIR/report.md
 grep -R -h $CONFIG_SHA $SMINER_BASE_DIR/log/*.log | sort | cut -c 28- >> $SMINER_BASE_DIR/report.md
 
+echo Report exported: $SMINER_BASE_DIR/report.md
+
 # get all symbols
 echo '# Summary' >  $SMINER_BASE_DIR/summary.md
 echo ""          >> $SMINER_BASE_DIR/summary.md
@@ -50,6 +57,8 @@ do
   echo ""          >> $SMINER_BASE_DIR/summary.md
   echo ""          >> $SMINER_BASE_DIR/summary.md
 done
+
+
 
 # optional, get date list
 #grep SPX $SMINER_BASE_DIR/report.md | awk '{print $4}' 

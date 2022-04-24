@@ -33,9 +33,11 @@ impl PersistenceContext {
 
     pub async fn init_mongo(&self) -> Result<()> {
         // TODO: temp sollution
-        for _ in 1..30 {
-            let conn = get_mongo_client(&self.config.data_source.mongodb.uri).await?;
-            self.close_connection(conn)?;
+        if self.config().data_source.mongodb.enabled {
+            for _ in 1..30 {
+                let conn = get_mongo_client(&self.config.data_source.mongodb.uri).await?;
+                self.close_connection(conn)?;
+            }
         }
         Ok(())
     }
