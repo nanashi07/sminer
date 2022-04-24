@@ -827,6 +827,8 @@ pub struct AuditOption {
     pub symbols: Vec<String>,
     #[serde(rename = "validateIncreasedProfit")]
     pub validate_increased_profit: bool,
+    #[serde(rename = "ignoreZeroOrder")]
+    pub ignore_zero_order: bool,
     #[serde(rename = "enableProfitTake")]
     pub enable_profit_take: bool,
     #[serde(rename = "enableEarlyClear")]

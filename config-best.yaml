@@ -20,6 +20,7 @@ trade:
   options:
   - symbols: [] # default
     validateIncreasedProfit: true
+    ignoreZeroOrder: true
     enableProfitTake: true
     enableEarlyClear: true
     enableLossClear: true

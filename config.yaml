@@ -1,13 +1,13 @@
 dataSource:
   mongodb:
-    enabled: true
+    enabled: false
     uri: mongodb://root:password@localhost:27017
     # target: yahoo
   elasticsearch:
-    enabled: true
+    enabled: false
     uri: http://localhost:9200
   grafana:
-    enabled: true
+    enabled: false
     uri: http://localhost:8091
     auth: Basic YWRtaW46cGFzc3dvcmQ=
     target: 77T92WEnz
@@ -20,6 +20,7 @@ trade:
   options:
   - symbols: [] # default
     validateIncreasedProfit: false
+    ignoreZeroOrder: false
     enableProfitTake: false
     enableEarlyClear: false
     enableLossClear: false

@@ -47,7 +47,7 @@ pub fn prepare_trade(
             // calculate volume
             let estimated_volume = calculate_volum(Arc::clone(&asset), Arc::clone(&config), &trade);
 
-            if estimated_volume == 0 {
+            if config.trade.get_option(&trade.id).ignore_zero_order && estimated_volume == 0 {
                 warn!("estimated order volume is zero, ignore order");
                 return Ok(());
             }
