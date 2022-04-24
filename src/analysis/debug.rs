@@ -736,7 +736,7 @@ pub fn print_meta(
         let base = Path::new(&config_file).parent().unwrap();
 
         let path = format!(
-            "{base}/replay/msgs/{symbol}/{day}/MSG-{time}-{id}.txt",
+            "{base}/msgs/{symbol}/{day}/MSG-{time}-{id}.txt",
             base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
@@ -751,7 +751,7 @@ pub fn print_meta(
         let base = Path::new(&config_file).parent().unwrap();
 
         let path = format!(
-            "{base}/replay/orders/{symbol}/{day}/ORD-{time}-{id}.txt",
+            "{base}/orders/{symbol}/{day}/ORD-{time}-{id}.txt",
             base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
