@@ -82,7 +82,7 @@ pub fn prepare_trade(
                     );
 
                     info!(
-                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
+                            "after order: [{}] {:<12} price: {:<10} rival price: {:<10} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
                             format!("{},",order.created_price),
@@ -171,7 +171,7 @@ pub fn prepare_trade(
                     );
 
                     info!(
-                            "after order: [{}] {:<12} price: {:<8} rival price: {:<8} volume: {:<4} balance: {}",
+                            "after order: [{}] {:<12} price: {:<10} rival price: {:<10} volume: {:<4} balance: {}",
                             &order.symbol,
                             format!("{:?}", &order.audit),
                             format!("{},",order.created_price),

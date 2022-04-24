@@ -170,7 +170,7 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("|------------|------------|-------------|-------------|------------------|--------------|--------------|------------|------------------------------------------|");
     info!(
         "| {pair:<10} | {date:<10} | {order_count:>11} | {loss_order_count:>11} | {loss_order_rate:<16.5} | {total_amount:<12} | {total_profit:<12} | {profit_rate:<10.5} | {sha} |",
-        pair = close_prices.keys().map(|k|k.to_string()).collect::<Vec<_>>().join("-"),
+        pair = generate_pair_key(&close_prices),
         date = time.format("%Y-%m-%d"),
         order_count = readers.len(),
         loss_order_count = loss_order,
@@ -212,6 +212,12 @@ pub fn profit_evaluate(asset: Arc<AssetContext>, config: Arc<AppConfig>) -> Resu
     info!("####################################################################################################");
 
     Ok(true) //FIXME:
+}
+
+fn generate_pair_key(close_prices: &HashMap<String, f32>) -> String {
+    let mut symbols: Vec<String> = close_prices.keys().map(|k| k.to_string()).collect();
+    symbols.sort();
+    symbols.join("-")
 }
 
 fn get_config_sha(config: Arc<AppConfig>) -> String {

@@ -33,5 +33,22 @@ else
   find tmp/json -type f | grep ticker | grep $PATTERN | sort | xargs -n1 bash -c '$SMINER_BIN replay -f $SMINER_CONFIG_FILE $1 | tee $SMINER_BASE_DIR/replay.`get_name $1`.`date +%s`.log' _
 fi
 
+# generate report
+echo "| Symbols    | Date       | Order count | Loss orders | Loss orders (%s) | Total amount | PnL          | PnL (%s)   | Config SHA                               |" >  $SMINER_BASE_DIR/report.md
+echo "|------------|------------|-------------|-------------|------------------|--------------|--------------|------------|------------------------------------------|" >> $SMINER_BASE_DIR/report.md
+grep -R -h $CONFIG_SHA tmp/$CONFIG_SHA/*.log | sort | cut -c 28- >> $SMINER_BASE_DIR/report.md
 
+# get all symbols
+echo '# Summary' >  tmp/$CONFIG_SHA/summary.md
+echo ""          >> tmp/$CONFIG_SHA/summary.md
 
+for PAIR in `grep $CONFIG_SHA tmp/$CONFIG_SHA/report.md | awk '{print $2}' | sort | uniq`
+do
+  echo '##' $PAIR >> tmp/$CONFIG_SHA/summary.md
+  grep $CONFIG_SHA tmp/$CONFIG_SHA/report.md | grep $PAIR | sort | awk '{print $6"\t"$12"\t"$14"\t"$16}'  >> tmp/$CONFIG_SHA/summary.md
+  echo ""          >> tmp/$CONFIG_SHA/summary.md
+  echo ""          >> tmp/$CONFIG_SHA/summary.md
+done
+
+# optional, get date list
+#grep SPX tmp/$CONFIG_SHA/report.md | awk '{print $4}' 
