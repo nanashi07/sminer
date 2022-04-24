@@ -740,7 +740,7 @@ pub fn print_meta(
             base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
-            time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
+            time = Utc.timestamp_millis(trade.time).format("%Y%m%d%-H%M%S"),
             id = &trade.message_id
         );
         write_file(&path, &buffered)?;
@@ -755,7 +755,7 @@ pub fn print_meta(
             base = base.to_str().unwrap(),
             symbol = &trade.id,
             day = Utc.timestamp_millis(trade.time).format("%Y-%m-%d"),
-            time = Utc.timestamp_millis(trade.time).format("%Y%m%d%H%M%S"),
+            time = Utc.timestamp_millis(trade.time).format("%Y%m%d-%H%M%S"),
             id = &trade.message_id
         );
 
